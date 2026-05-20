@@ -1,0 +1,68 @@
+{
+  "name": "youdesign",
+  "version": "1.0.0",
+  "description": "YOUDESIGN social cover designer desktop app.",
+  "author": "YOUXIAKE",
+  "main": "desktop/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder --mac --win",
+    "release:mac": "electron-builder --mac --publish always",
+    "release:win": "electron-builder --win --publish always"
+  },
+  "build": {
+    "appId": "com.youxiake.youdesign",
+    "productName": "YOUDESIGN",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "kim-wing",
+        "repo": "social-cover-designer"
+      }
+    ],
+    "files": [
+      "index.html",
+      "build/icon.*",
+      "logo/**/*",
+      "游小侠/**/*",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "icon": "build/icon.icns",
+      "identity": null,
+      "target": [
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3"
+  }
+}

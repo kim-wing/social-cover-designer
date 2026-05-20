@@ -1,0 +1,6 @@
+node_modules/
+release/
+dist/
+.wine-rcedit/
+*.log
+.DS_Store

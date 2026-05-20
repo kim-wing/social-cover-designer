@@ -1,0 +1,3786 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YOUDESIGN</title>
+  <style>
+    :root {
+      --bg: #f7f7f9;
+      --ink: #1d1d1f;
+      --muted: #6e6e73;
+      --muted-2: #9a9aa0;
+      --panel: rgba(255, 255, 255, .86);
+      --panel-solid: #ffffff;
+      --panel-2: #f9f9fb;
+      --line: rgba(29, 29, 31, .09);
+      --line-strong: rgba(29, 29, 31, .15);
+      --accent: #0071e3;
+      --accent-soft: #e8f2ff;
+      --accent-softer: rgba(0, 113, 227, .09);
+      --green: #34c759;
+      --shadow: 0 28px 78px rgba(15, 23, 42, .16);
+      --soft-shadow: 0 10px 34px rgba(15, 23, 42, .09);
+      --inner-shadow: 0 1px 0 rgba(255, 255, 255, .84) inset;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        linear-gradient(180deg, #fbfbfd 0, #f4f4f7 46%, #ededf1 100%);
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button {
+      cursor: pointer;
+      transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+    }
+
+    button:active {
+      transform: scale(.985);
+    }
+
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 56px 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(252, 252, 253, .78);
+      backdrop-filter: blur(28px) saturate(1.35);
+      box-shadow: var(--inner-shadow), 0 10px 28px rgba(15, 23, 42, .04);
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      min-width: 260px;
+    }
+
+    .brand strong {
+      font-size: 17px;
+      font-weight: 850;
+      letter-spacing: -.01em;
+    }
+
+    .brand span, .dim {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .btn, .icon-btn, .field, select, input[type="color"] {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .78);
+      color: var(--ink);
+      min-height: 34px;
+      border-radius: var(--radius);
+      backdrop-filter: blur(18px) saturate(1.2);
+    }
+
+    .btn, .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 650;
+      box-shadow: var(--inner-shadow), 0 2px 8px rgba(15, 23, 42, .04);
+    }
+
+    .btn:hover, .icon-btn:hover, .preset:hover, .layer:hover {
+      background: rgba(255, 255, 255, .96);
+      border-color: rgba(0, 0, 0, .18);
+      box-shadow: var(--inner-shadow), 0 8px 18px rgba(15, 23, 42, .08);
+    }
+
+    .btn:focus-visible,
+    .icon-btn:focus-visible,
+    .preset:focus-visible,
+    .search:focus,
+    .control:focus,
+    select:focus {
+      outline: 3px solid rgba(0, 113, 227, .18);
+      border-color: var(--accent);
+    }
+
+    .btn.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(0, 113, 227, .28);
+    }
+
+    .btn.primary:hover {
+      background: #0077ed;
+      border-color: #0077ed;
+    }
+
+    .icon-btn {
+      width: 36px;
+      padding: 0;
+    }
+
+    .ri {
+      width: 18px;
+      height: 18px;
+      display: block;
+      fill: currentColor;
+      flex: 0 0 auto;
+    }
+
+    .icon-btn .ri {
+      width: 17px;
+      height: 17px;
+    }
+
+    .workspace {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 424px 1fr 320px;
+    }
+
+    aside {
+      min-height: 0;
+      overflow: auto;
+      background: rgba(250, 250, 252, .64);
+      backdrop-filter: blur(24px) saturate(1.24);
+    }
+
+    .left {
+      border-right: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      overflow: hidden;
+    }
+
+    .right {
+      border-left: 1px solid var(--line);
+      background: rgba(255, 255, 255, .92);
+      backdrop-filter: blur(24px) saturate(1.16);
+    }
+
+    .right .section {
+      padding: 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .inspector-header {
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .78);
+      backdrop-filter: blur(24px) saturate(1.18);
+      box-shadow: var(--inner-shadow);
+    }
+
+    .inspector-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .inspector-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .inspector-body {
+      display: grid;
+      gap: 0;
+      padding: 0;
+    }
+
+    .inspector-group {
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, .86);
+    }
+
+    .inspector-group-title {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .inspector-content {
+      display: grid;
+      gap: 9px;
+      padding: 0 12px 12px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .field-grid.four {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .compact-field {
+      min-width: 0;
+    }
+
+    .compact-field label {
+      display: block;
+      margin: 0 0 4px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .compact-field input,
+    .compact-field select,
+    .compact-field textarea {
+      width: 100%;
+      min-height: 30px;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      background: rgba(118, 118, 128, .09);
+      color: var(--ink);
+      padding: 6px 8px;
+      outline: none;
+      font-size: 12px;
+    }
+
+    .compact-field input:hover,
+    .compact-field select:hover,
+    .compact-field textarea:hover {
+      border-color: var(--line-strong);
+      background: rgba(255, 255, 255, .94);
+    }
+
+    .compact-field input:focus,
+    .compact-field select:focus,
+    .compact-field textarea:focus {
+      border-color: var(--accent);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(0, 113, 227, .12);
+    }
+
+    .compact-field textarea {
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    .inline-control {
+      display: grid;
+      grid-template-columns: 56px 1fr 42px;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .inline-control output {
+      text-align: right;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+    }
+
+    .button-row.three {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .mini-btn {
+      min-height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .74);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .mini-btn .ri {
+      width: 14px;
+      height: 14px;
+    }
+
+    .mini-btn:hover {
+      background: #fff;
+      border-color: rgba(0, 0, 0, .24);
+      box-shadow: 0 5px 14px rgba(15, 23, 42, .06);
+    }
+
+    .mini-btn.active {
+      border-color: rgba(0, 113, 227, .42);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .section {
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .quick-tools {
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      align-content: start;
+      gap: 7px;
+      padding: 14px 9px;
+      border-right: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .88), rgba(246, 246, 249, .74));
+      backdrop-filter: blur(26px) saturate(1.25);
+    }
+
+    .tool-chip {
+      min-height: 68px;
+      border: 1px solid transparent;
+      border-radius: 17px;
+      background: transparent;
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      gap: 6px;
+      padding: 8px 4px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .tool-chip:hover,
+    .tool-chip.active {
+      border-color: rgba(0, 113, 227, .24);
+      background: rgba(0, 113, 227, .09);
+      color: var(--accent);
+      box-shadow: var(--inner-shadow);
+    }
+
+    .tool-chip strong {
+      width: 36px;
+      height: 36px;
+      border-radius: 13px;
+      background: rgba(118, 118, 128, .1);
+      color: #4b5563;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .tool-chip.active strong {
+      background: #fff;
+      color: var(--accent);
+      box-shadow: 0 6px 20px rgba(0, 113, 227, .14);
+    }
+
+    .tool-panel {
+      min-height: 0;
+      overflow: auto;
+      background: rgba(250, 250, 252, .58);
+    }
+
+    .section h2 {
+      margin: 0 0 16px;
+      font-size: 25px;
+      text-transform: none;
+      letter-spacing: -.02em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 700;
+    }
+
+    .section h2 small {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: none;
+    }
+
+    .search, .control {
+      width: 100%;
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255, 255, 255, .8);
+      padding: 8px 10px;
+      outline: none;
+      color: var(--ink);
+      box-shadow: var(--inner-shadow);
+    }
+
+    .search::placeholder,
+    .control::placeholder {
+      color: #9a9aa0;
+    }
+
+    .file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .upload-card {
+      width: 100%;
+      min-height: 112px;
+      border: 1px dashed rgba(0, 0, 0, .18);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(247, 247, 250, .86));
+      color: var(--ink);
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      align-items: center;
+      gap: 12px;
+      padding: 15px;
+      text-align: left;
+      box-shadow: var(--inner-shadow);
+    }
+
+    .upload-card:hover {
+      border-color: rgba(0, 113, 227, .42);
+      background: #fff;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .upload-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #eef6ff, #e4f0ff);
+      color: var(--accent);
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .upload-card strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .upload-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .upload-icon .ri,
+    .element-icon .ri,
+    .tool-chip strong .ri {
+      width: 20px;
+      height: 20px;
+    }
+
+    .element-icon .ri {
+      width: 22px;
+      height: 22px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .grid.two {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .element-group {
+      display: grid;
+      gap: 9px;
+      margin-bottom: 14px;
+    }
+
+    .element-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .element-title {
+      color: var(--ink);
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -.02em;
+      margin: 8px 0 4px;
+    }
+
+    .element-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .element-card {
+      min-height: 108px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .92), rgba(246, 246, 249, .76));
+      color: var(--ink);
+      display: grid;
+      grid-template-columns: 1fr;
+      align-items: center;
+      justify-items: center;
+      gap: 10px;
+      padding: 15px 10px;
+      text-align: center;
+      box-shadow: var(--inner-shadow);
+    }
+
+    .element-card:hover {
+      background: #fff;
+      border-color: rgba(0, 113, 227, .32);
+      box-shadow: var(--soft-shadow);
+      transform: translateY(-1px);
+    }
+
+    .element-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 15px;
+      background: linear-gradient(180deg, #eef6ff, #e5f0ff);
+      color: var(--accent);
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .element-card strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 760;
+      margin-bottom: 2px;
+    }
+
+    .element-card span:last-child {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    .font-tools {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .9), rgba(247, 247, 250, .72));
+      box-shadow: var(--inner-shadow);
+    }
+
+    .font-tools-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .font-tools-head strong {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 760;
+    }
+
+    .font-tools-head small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .preset-list {
+      display: grid;
+      gap: 8px;
+      max-height: 315px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .preset {
+      text-align: left;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, .72);
+      border-radius: 14px;
+      padding: 10px 11px;
+      display: grid;
+      gap: 3px;
+    }
+
+    .preset.active {
+      border-color: rgba(0, 113, 227, .36);
+      background: linear-gradient(180deg, #eef6ff, #e7f1ff);
+      box-shadow: 0 0 0 1px rgba(0, 113, 227, .1) inset;
+    }
+
+    .preset strong {
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .preset span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .logo-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      max-height: 260px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .logo-item {
+      min-height: 92px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      background:
+        linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(245, 245, 248, .82));
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 8px;
+      padding: 10px;
+      text-align: left;
+      overflow: hidden;
+      box-shadow: var(--inner-shadow);
+    }
+
+    .logo-item:hover {
+      background: #fff;
+      border-color: rgba(0, 113, 227, .24);
+      box-shadow: var(--soft-shadow);
+      transform: translateY(-1px);
+    }
+
+    .logo-item img {
+      width: 100%;
+      height: 48px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .08));
+    }
+
+    .logo-item span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .stage-wrap {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 42px 1fr;
+    }
+
+    .stage-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(250, 250, 252, .72);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      backdrop-filter: blur(16px);
+    }
+
+    .stage {
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+      overflow: auto;
+      display: grid;
+      place-items: center;
+      padding: 32px;
+      background:
+        radial-gradient(circle at 50% 0, rgba(255, 255, 255, .92), transparent 34%),
+        linear-gradient(135deg, #f1f2f6 0, #e8e9ef 100%);
+    }
+
+    .canvas-shell {
+      position: relative;
+      box-shadow: var(--shadow), 0 0 0 1px rgba(255, 255, 255, .7);
+      background: white;
+      line-height: 0;
+      border-radius: 4px;
+      overflow: visible;
+    }
+
+    .selection-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .selection-box {
+      position: absolute;
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .86);
+      pointer-events: none;
+    }
+
+    .selection-handle {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      margin: -7px 0 0 -7px;
+      border: 2px solid var(--accent);
+      border-radius: 5px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .16);
+      pointer-events: auto;
+    }
+
+    .selection-handle[data-mode="resize"] {
+      cursor: nwse-resize;
+    }
+
+    .selection-handle[data-mode="rotate"] {
+      width: 18px;
+      height: 18px;
+      margin: -9px 0 0 -9px;
+      border-radius: 50%;
+      cursor: grab;
+    }
+
+    .zoom-hud {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      z-index: 5;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: rgba(255, 255, 255, .88);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 750;
+      box-shadow: var(--inner-shadow), 0 8px 24px rgba(0, 0, 0, .1);
+      backdrop-filter: blur(18px) saturate(1.2);
+      pointer-events: none;
+    }
+
+    .zoom-hud span:last-child {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    canvas {
+      display: block;
+      background: white;
+      image-rendering: auto;
+      touch-action: none;
+    }
+
+    .label {
+      display: block;
+      margin: 11px 0 6px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .toggle-row {
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 12px 0 4px;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .66);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .toggle-row input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    input[type="color"] {
+      width: 100%;
+      padding: 2px;
+      background: white;
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .swatch {
+      height: 26px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, .2);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .08);
+    }
+
+    .layers {
+      display: grid;
+      gap: 7px;
+      max-height: 205px;
+      overflow: auto;
+    }
+
+    .layer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border: 1px solid transparent;
+      background: rgba(255, 255, 255, .76);
+      border-radius: 12px;
+      padding: 9px 10px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .layer.active {
+      border-color: rgba(0, 113, 227, .36);
+      background: var(--accent-soft);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .empty {
+      padding: 12px;
+      border: 1px dashed var(--line-strong);
+      color: var(--muted);
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.45;
+      background: rgba(255, 255, 255, .54);
+    }
+
+    .inspector-body > .empty {
+      margin: 12px;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 1100px) {
+      body { overflow: auto; }
+      .app { height: auto; min-height: 100vh; }
+      .workspace { grid-template-columns: 1fr; }
+      .left {
+        display: block;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .quick-tools {
+        grid-template-columns: repeat(4, 1fr);
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .right { border: 0; border-bottom: 1px solid var(--line); }
+      .stage { min-height: 520px; }
+    }
+
+    /* Apple-grade desktop refresh. Kept as a scoped visual layer so existing editor logic stays intact. */
+    :root {
+      --bg: #f5f5f7;
+      --ink: #1d1d1f;
+      --muted: #6e6e73;
+      --muted-2: #a1a1a6;
+      --panel: rgba(255, 255, 255, .72);
+      --panel-solid: #ffffff;
+      --panel-2: rgba(248, 248, 250, .86);
+      --line: rgba(29, 29, 31, .08);
+      --line-strong: rgba(29, 29, 31, .14);
+      --accent: #0a84ff;
+      --accent-soft: rgba(10, 132, 255, .12);
+      --accent-softer: rgba(10, 132, 255, .07);
+      --shadow: 0 44px 120px rgba(15, 23, 42, .16), 0 14px 38px rgba(15, 23, 42, .08);
+      --soft-shadow: 0 18px 44px rgba(15, 23, 42, .08);
+      --inner-shadow: inset 0 1px 0 rgba(255, 255, 255, .78);
+      --radius: 11px;
+      --ease: cubic-bezier(.22, 1, .36, 1);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 18% -8%, rgba(255, 255, 255, .98), transparent 31%),
+        radial-gradient(circle at 72% 0%, rgba(220, 232, 246, .42), transparent 28%),
+        linear-gradient(180deg, #fbfbfd 0%, #f4f4f6 46%, #ebecf0 100%);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(29, 29, 31, .018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(29, 29, 31, .014) 1px, transparent 1px);
+      background-size: 24px 24px;
+      mask-image: linear-gradient(to bottom, transparent, black 18%, black 78%, transparent);
+    }
+
+    .app {
+      height: 100dvh;
+      grid-template-rows: 64px minmax(0, 1fr);
+    }
+
+    .topbar {
+      position: relative;
+      padding: 0 18px;
+      border-bottom-color: rgba(29, 29, 31, .075);
+      background: rgba(246, 246, 248, .74);
+      backdrop-filter: blur(34px) saturate(1.45);
+      -webkit-backdrop-filter: blur(34px) saturate(1.45);
+      box-shadow: var(--inner-shadow), 0 1px 0 rgba(255, 255, 255, .64);
+    }
+
+    .window-lights {
+      display: inline-grid;
+      grid-template-columns: repeat(3, 12px);
+      gap: 8px;
+      margin-right: 10px;
+      align-items: center;
+    }
+
+    .window-lights i {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08);
+    }
+
+    .window-lights i:nth-child(1) { background: #ff5f57; }
+    .window-lights i:nth-child(2) { background: #febc2e; }
+    .window-lights i:nth-child(3) { background: #28c840; }
+
+    .brand {
+      align-items: center;
+      gap: 8px;
+      min-width: 330px;
+    }
+
+    .brand-copy {
+      display: grid;
+      gap: 1px;
+      line-height: 1.05;
+    }
+
+    .brand strong {
+      font-size: 14px;
+      font-weight: 760;
+      letter-spacing: .08em;
+    }
+
+    .brand span,
+    .dim {
+      font-size: 11px;
+      color: rgba(29, 29, 31, .52);
+      font-weight: 620;
+    }
+
+    .toolbar {
+      gap: 7px;
+      padding: 7px;
+      border: 1px solid rgba(255, 255, 255, .66);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .52);
+      box-shadow: var(--inner-shadow), 0 10px 26px rgba(15, 23, 42, .045);
+    }
+
+    .update-pill {
+      min-height: 32px;
+      max-width: 210px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 11px;
+      border: 1px solid rgba(29, 29, 31, .075);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .58);
+      color: rgba(29, 29, 31, .58);
+      font-size: 11px;
+      font-weight: 720;
+      white-space: nowrap;
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .update-pill::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(29, 29, 31, .2);
+    }
+
+    .update-pill.is-checking::before,
+    .update-pill.is-downloading::before {
+      background: var(--accent);
+      animation: breathe 1.4s var(--ease) infinite;
+    }
+
+    .update-pill.is-ready {
+      border-color: var(--accent-border);
+      background: rgba(255, 241, 0, .28);
+      color: rgba(29, 29, 31, .86);
+    }
+
+    .update-pill.is-ready::before {
+      background: var(--accent);
+    }
+
+    .btn,
+    .icon-btn,
+    .field,
+    select,
+    input[type="color"] {
+      min-height: 32px;
+      border-color: rgba(29, 29, 31, .09);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .76);
+      transition: transform .22s var(--ease), background .22s var(--ease), border-color .22s var(--ease), box-shadow .22s var(--ease);
+    }
+
+    .field,
+    select {
+      color: rgba(29, 29, 31, .78);
+      font-size: 12px;
+      font-weight: 650;
+      padding: 0 28px 0 10px;
+    }
+
+    .btn,
+    .icon-btn {
+      font-size: 12px;
+      font-weight: 720;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .btn:hover,
+    .icon-btn:hover,
+    .preset:hover,
+    .layer:hover {
+      border-color: rgba(29, 29, 31, .18);
+      background: rgba(255, 255, 255, .96);
+      box-shadow: var(--inner-shadow), 0 12px 26px rgba(15, 23, 42, .07);
+      transform: translateY(-1px);
+    }
+
+    button:active,
+    .element-card:active,
+    .preset:active,
+    .logo-item:active {
+      transform: scale(.985);
+    }
+
+    .btn.primary {
+      border-color: rgba(10, 132, 255, .58);
+      background: linear-gradient(180deg, #1590ff, #0077ed);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 12px 26px rgba(10, 132, 255, .24);
+    }
+
+    .workspace {
+      grid-template-columns: 392px minmax(540px, 1fr) 336px;
+      background: rgba(246, 246, 248, .28);
+    }
+
+    aside {
+      background: rgba(246, 246, 248, .62);
+      backdrop-filter: blur(28px) saturate(1.32);
+      -webkit-backdrop-filter: blur(28px) saturate(1.32);
+    }
+
+    .left {
+      grid-template-columns: 74px 1fr;
+      border-right-color: rgba(29, 29, 31, .07);
+    }
+
+    .right {
+      border-left-color: rgba(29, 29, 31, .07);
+      background: rgba(250, 250, 252, .78);
+    }
+
+    .quick-tools {
+      gap: 8px;
+      padding: 12px 8px;
+      border-right-color: rgba(29, 29, 31, .065);
+      background: rgba(255, 255, 255, .48);
+    }
+
+    .tool-chip {
+      min-height: 58px;
+      border-radius: 16px;
+      padding: 7px 3px;
+      color: rgba(29, 29, 31, .66);
+      font-size: 11px;
+      font-weight: 720;
+    }
+
+    .tool-chip strong {
+      width: 30px;
+      height: 30px;
+      border-radius: 12px;
+      background: transparent;
+      color: currentColor;
+    }
+
+    .tool-chip:hover,
+    .tool-chip.active {
+      border-color: rgba(10, 132, 255, .18);
+      background: rgba(10, 132, 255, .095);
+      color: var(--accent);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .58);
+    }
+
+    .tool-chip.active strong {
+      background: rgba(255, 255, 255, .9);
+      color: var(--accent);
+      box-shadow: 0 7px 18px rgba(10, 132, 255, .12);
+    }
+
+    .tool-panel {
+      background: rgba(250, 250, 252, .46);
+    }
+
+    .section {
+      padding: 20px 18px 22px;
+      border-bottom-color: rgba(29, 29, 31, .07);
+    }
+
+    .section h2,
+    .element-title {
+      color: rgba(29, 29, 31, .92);
+      font-size: 18px;
+      font-weight: 760;
+      letter-spacing: -.018em;
+    }
+
+    .section h2 small {
+      color: rgba(29, 29, 31, .45);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .search,
+    .control {
+      min-height: 38px;
+      border-color: rgba(29, 29, 31, .075);
+      border-radius: 13px;
+      background: rgba(255, 255, 255, .76);
+      font-size: 13px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .74), 0 8px 22px rgba(15, 23, 42, .035);
+    }
+
+    .preset-list {
+      max-height: 342px;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .preset,
+    .layer {
+      border-color: rgba(29, 29, 31, .055);
+      border-radius: 13px;
+      background: rgba(255, 255, 255, .54);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .58);
+    }
+
+    .preset {
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      padding: 10px 12px;
+    }
+
+    .preset strong,
+    .layer {
+      font-size: 12px;
+      font-weight: 690;
+    }
+
+    .preset span {
+      grid-column: 1 / -1;
+      font-size: 11px;
+      color: rgba(29, 29, 31, .48);
+    }
+
+    .preset.active,
+    .layer.active {
+      border-color: rgba(10, 132, 255, .28);
+      background: rgba(10, 132, 255, .105);
+      color: #075ea8;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .54);
+    }
+
+    .upload-card,
+    .element-card,
+    .font-tools,
+    .logo-item,
+    .toggle-row,
+    .mini-btn {
+      border-color: rgba(29, 29, 31, .075);
+      background: rgba(255, 255, 255, .62);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 10px 28px rgba(15, 23, 42, .04);
+    }
+
+    .upload-card {
+      min-height: 104px;
+      border-style: solid;
+      border-radius: 20px;
+    }
+
+    .upload-icon,
+    .element-icon {
+      background: rgba(10, 132, 255, .105);
+      color: var(--accent);
+    }
+
+    .element-grid {
+      gap: 8px;
+    }
+
+    .element-card {
+      min-height: 98px;
+      border-radius: 19px;
+      padding: 13px 10px;
+    }
+
+    .element-card:hover,
+    .logo-item:hover,
+    .upload-card:hover {
+      border-color: rgba(10, 132, 255, .24);
+      background: rgba(255, 255, 255, .92);
+      box-shadow: var(--inner-shadow), 0 18px 42px rgba(15, 23, 42, .075);
+    }
+
+    .logo-list {
+      gap: 9px;
+    }
+
+    .logo-item {
+      min-height: 90px;
+      border-radius: 17px;
+    }
+
+    .stage-wrap {
+      grid-template-rows: 46px minmax(0, 1fr);
+      background: transparent;
+    }
+
+    .stage-info {
+      padding: 0 18px;
+      border-bottom-color: rgba(29, 29, 31, .06);
+      background: rgba(250, 250, 252, .42);
+      font-size: 11px;
+      letter-spacing: .01em;
+    }
+
+    .stage-info span:first-child {
+      color: rgba(29, 29, 31, .76);
+      font-weight: 720;
+    }
+
+    .stage-info span:first-child::before {
+      content: "";
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 8px;
+      border-radius: 50%;
+      background: #28c840;
+      box-shadow: 0 0 0 5px rgba(40, 200, 64, .12);
+      animation: breathe 2.4s var(--ease) infinite;
+    }
+
+    .stage {
+      padding: 42px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(255, 255, 255, .9), transparent 30%),
+        linear-gradient(135deg, #edeff3 0%, #f7f7f9 48%, #e8ebf0 100%);
+    }
+
+    .canvas-shell {
+      border-radius: 12px;
+      box-shadow: var(--shadow), 0 0 0 1px rgba(255, 255, 255, .92);
+      overflow: hidden;
+    }
+
+    canvas {
+      border-radius: 12px;
+    }
+
+    .selection-box {
+      border-color: var(--accent);
+      border-radius: 8px;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .88), 0 0 0 5px rgba(10, 132, 255, .08);
+    }
+
+    .selection-handle {
+      border-color: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 4px 14px rgba(10, 132, 255, .22), 0 0 0 1px rgba(255, 255, 255, .8);
+    }
+
+    .zoom-hud {
+      right: 18px;
+      bottom: 18px;
+      min-height: 34px;
+      border-color: rgba(255, 255, 255, .7);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .72);
+      box-shadow: var(--inner-shadow), 0 14px 36px rgba(15, 23, 42, .12);
+    }
+
+    .inspector-header {
+      min-height: 54px;
+      border-bottom-color: rgba(29, 29, 31, .07);
+      background: rgba(255, 255, 255, .5);
+    }
+
+    .inspector-title {
+      font-size: 13px;
+      font-weight: 760;
+      letter-spacing: -.01em;
+    }
+
+    .inspector-subtitle {
+      max-width: 180px;
+      color: rgba(29, 29, 31, .45);
+      font-size: 11px;
+    }
+
+    .inspector-group {
+      border-bottom-color: rgba(29, 29, 31, .07);
+      background: rgba(255, 255, 255, .44);
+    }
+
+    .inspector-group-title {
+      min-height: 40px;
+      padding: 0 14px;
+      font-size: 12px;
+      font-weight: 760;
+      color: rgba(29, 29, 31, .78);
+    }
+
+    .inspector-content {
+      gap: 10px;
+      padding: 0 14px 14px;
+    }
+
+    .compact-field label,
+    .label {
+      color: rgba(29, 29, 31, .48);
+      font-size: 10px;
+      font-weight: 760;
+      letter-spacing: .02em;
+    }
+
+    .compact-field input,
+    .compact-field select,
+    .compact-field textarea {
+      min-height: 32px;
+      border-color: rgba(29, 29, 31, .055);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .68);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .66);
+    }
+
+    .compact-field input:focus,
+    .compact-field select:focus,
+    .compact-field textarea:focus,
+    .search:focus,
+    .control:focus,
+    select:focus {
+      border-color: rgba(10, 132, 255, .62);
+      box-shadow: 0 0 0 4px rgba(10, 132, 255, .12);
+    }
+
+    .mini-btn {
+      min-height: 32px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 720;
+    }
+
+    .inline-control {
+      grid-template-columns: 52px minmax(0, 1fr) 42px;
+      color: rgba(29, 29, 31, .54);
+      font-size: 11px;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    .swatch {
+      height: 24px;
+      border-radius: 999px;
+      border-color: rgba(29, 29, 31, .16);
+    }
+
+    .empty {
+      border-color: rgba(29, 29, 31, .12);
+      border-radius: 15px;
+      background: rgba(255, 255, 255, .46);
+      color: rgba(29, 29, 31, .52);
+    }
+
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); opacity: .82; }
+      50% { transform: scale(.72); opacity: 1; }
+    }
+
+    @media (max-width: 1100px) {
+      .app { min-height: 100dvh; }
+      .workspace { grid-template-columns: 1fr; }
+      .brand { min-width: 0; }
+      .window-lights { display: none; }
+      .toolbar { justify-content: flex-start; }
+      .quick-tools { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .stage { padding: 26px; }
+    }
+
+    /* YOUXIAKE yellow theme */
+    :root {
+      --accent: #fff100;
+      --accent-ink: #1d1d1f;
+      --accent-soft: rgba(255, 241, 0, .24);
+      --accent-softer: rgba(255, 241, 0, .12);
+      --accent-border: rgba(188, 176, 0, .42);
+      --accent-shadow: rgba(188, 176, 0, .18);
+    }
+
+    .topbar {
+      background:
+        linear-gradient(90deg, rgba(255, 241, 0, .13), transparent 34%),
+        rgba(246, 246, 248, .78);
+    }
+
+    .brand strong {
+      color: rgba(29, 29, 31, .86);
+    }
+
+    .brand-copy::before {
+      content: "";
+      width: 32px;
+      height: 3px;
+      margin-bottom: 4px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 6px 16px var(--accent-shadow);
+    }
+
+    .btn:focus-visible,
+    .icon-btn:focus-visible,
+    .preset:focus-visible,
+    .search:focus,
+    .control:focus,
+    select:focus,
+    .compact-field input:focus,
+    .compact-field select:focus,
+    .compact-field textarea:focus {
+      outline-color: rgba(255, 241, 0, .32);
+      border-color: var(--accent-border);
+      box-shadow: 0 0 0 4px rgba(255, 241, 0, .18);
+    }
+
+    .btn.primary {
+      border-color: rgba(188, 176, 0, .54);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .36), rgba(255, 255, 255, 0)),
+        var(--accent);
+      color: var(--accent-ink);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .76), 0 14px 28px var(--accent-shadow);
+    }
+
+    .btn.primary:hover {
+      border-color: rgba(152, 142, 0, .56);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .48), rgba(255, 255, 255, 0)),
+        #fff100;
+      color: var(--accent-ink);
+    }
+
+    .tool-chip:hover,
+    .tool-chip.active {
+      border-color: var(--accent-border);
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+    }
+
+    .tool-chip.active strong {
+      background: var(--accent);
+      color: var(--accent-ink);
+      box-shadow: 0 8px 20px var(--accent-shadow), inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .preset.active,
+    .layer.active {
+      position: relative;
+      border-color: var(--accent-border);
+      background:
+        linear-gradient(90deg, rgba(255, 241, 0, .38), rgba(255, 255, 255, .7));
+      color: var(--accent-ink);
+    }
+
+    .preset.active::after,
+    .layer.active::after {
+      content: "";
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(255, 241, 0, .2);
+    }
+
+    .upload-icon,
+    .element-icon {
+      background: var(--accent-soft);
+      color: var(--accent-ink);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .64);
+    }
+
+    .element-card:hover,
+    .logo-item:hover,
+    .upload-card:hover {
+      border-color: var(--accent-border);
+      box-shadow: var(--inner-shadow), 0 18px 42px rgba(15, 23, 42, .075), 0 0 0 4px rgba(255, 241, 0, .08);
+    }
+
+    .stage-info span:first-child::before {
+      background: var(--accent);
+      box-shadow: 0 0 0 5px rgba(255, 241, 0, .22);
+    }
+
+    .canvas-shell {
+      box-shadow:
+        0 48px 120px rgba(15, 23, 42, .18),
+        0 14px 38px rgba(15, 23, 42, .08),
+        0 0 0 1px rgba(255, 255, 255, .96),
+        0 0 0 7px rgba(255, 241, 0, .08);
+    }
+
+    .selection-box {
+      border-color: #d6ca00;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .9), 0 0 0 5px rgba(255, 241, 0, .18);
+    }
+
+    .selection-handle {
+      border-color: #d6ca00;
+      background: var(--accent);
+      box-shadow: 0 4px 14px var(--accent-shadow), 0 0 0 1px rgba(255, 255, 255, .8);
+    }
+
+    input[type="range"],
+    .toggle-row input {
+      accent-color: #d6ca00;
+    }
+
+    /* Inspector 2.0 */
+    .right {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .72), rgba(246, 246, 248, .64)),
+        rgba(250, 250, 252, .78);
+    }
+
+    .inspector-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      min-height: 66px;
+      padding: 11px 16px;
+      align-items: flex-start;
+      border-bottom-color: rgba(29, 29, 31, .06);
+      background:
+        linear-gradient(90deg, rgba(255, 241, 0, .18), transparent 44%),
+        rgba(255, 255, 255, .68);
+      backdrop-filter: blur(30px) saturate(1.35);
+      -webkit-backdrop-filter: blur(30px) saturate(1.35);
+    }
+
+    .inspector-header::after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 0;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(255, 241, 0, .8), rgba(29, 29, 31, .06), transparent);
+    }
+
+    .inspector-title {
+      display: grid;
+      gap: 5px;
+      margin: 0;
+      color: rgba(29, 29, 31, .92);
+      font-size: 16px;
+      line-height: 1;
+      letter-spacing: -.018em;
+    }
+
+    .inspector-title::after {
+      content: "Properties";
+      width: fit-content;
+      padding: 4px 8px;
+      border: 1px solid rgba(29, 29, 31, .08);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .58);
+      color: rgba(29, 29, 31, .46);
+      font-size: 10px;
+      font-weight: 720;
+      letter-spacing: .02em;
+    }
+
+    .inspector-subtitle {
+      max-width: 150px;
+      min-height: 24px;
+      margin-top: 1px;
+      padding: 6px 9px;
+      border: 1px solid rgba(29, 29, 31, .075);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .58);
+      color: rgba(29, 29, 31, .56);
+      text-align: right;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .right.has-selection .inspector-subtitle {
+      border-color: var(--accent-border);
+      background: rgba(255, 241, 0, .28);
+      color: rgba(29, 29, 31, .82);
+    }
+
+    .inspector-body {
+      display: block;
+      min-height: 0;
+      overflow: auto;
+      padding: 12px;
+      scrollbar-width: thin;
+    }
+
+    .inspector-body > .empty {
+      margin: 0;
+      min-height: 92px;
+      display: grid;
+      align-content: center;
+      border-style: solid;
+      border-color: rgba(29, 29, 31, .07);
+      background:
+        linear-gradient(135deg, rgba(255, 241, 0, .12), transparent 42%),
+        rgba(255, 255, 255, .58);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .68), 0 18px 36px rgba(15, 23, 42, .045);
+    }
+
+    #propsPanel {
+      display: grid;
+      gap: 10px;
+    }
+
+    .inspector-group {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(29, 29, 31, .065);
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .82), rgba(255, 255, 255, .58));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .76), 0 14px 30px rgba(15, 23, 42, .045);
+    }
+
+    .inspector-group::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: transparent;
+      transition: background .2s var(--ease);
+    }
+
+    .right.has-selection #propsPanel .inspector-group:first-child::before,
+    .inspector-group:hover::before {
+      background: var(--accent);
+    }
+
+    .inspector-group-title {
+      min-height: 46px;
+      padding: 0 12px 0 14px;
+      cursor: pointer;
+      user-select: none;
+      color: rgba(29, 29, 31, .82);
+      font-size: 12px;
+      letter-spacing: .01em;
+    }
+
+    .inspector-group-title span:first-child {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .inspector-group-title span:first-child::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(29, 29, 31, .16);
+      box-shadow: inset 0 0 0 1px rgba(29, 29, 31, .05);
+    }
+
+    .inspector-group:nth-child(1) .inspector-group-title span:first-child::before,
+    #propsPanel + .inspector-group .inspector-group-title span:first-child::before {
+      background: var(--accent);
+    }
+
+    .inspector-toggle {
+      width: 24px;
+      height: 24px;
+      border: 1px solid rgba(29, 29, 31, .07);
+      border-radius: 9px;
+      display: grid;
+      place-items: center;
+      color: rgba(29, 29, 31, .52);
+      background: rgba(255, 255, 255, .56);
+      transition: transform .2s var(--ease), background .2s var(--ease);
+    }
+
+    .inspector-toggle svg {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
+      transform: rotate(90deg);
+      transition: transform .2s var(--ease);
+    }
+
+    .inspector-group.collapsed .inspector-toggle svg {
+      transform: rotate(0deg);
+    }
+
+    .inspector-group.collapsed .inspector-content {
+      display: none;
+    }
+
+    .inspector-content {
+      gap: 12px;
+      padding: 0 12px 14px 14px;
+    }
+
+    .field-grid {
+      gap: 9px;
+    }
+
+    .field-grid.four {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .compact-field {
+      position: relative;
+    }
+
+    .compact-field label {
+      margin-bottom: 6px;
+      color: rgba(29, 29, 31, .5);
+      font-size: 10px;
+      letter-spacing: .04em;
+    }
+
+    .compact-field input,
+    .compact-field select,
+    .compact-field textarea {
+      min-height: 36px;
+      border-color: rgba(29, 29, 31, .075);
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .9), rgba(255, 255, 255, .62));
+      color: rgba(29, 29, 31, .9);
+      font-size: 12px;
+      font-weight: 650;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .compact-field input[type="color"] {
+      height: 38px;
+      padding: 3px;
+      border-radius: 13px;
+    }
+
+    .compact-field textarea {
+      min-height: 86px;
+      line-height: 1.45;
+    }
+
+    .toggle-row {
+      min-height: 58px;
+      margin: 0;
+      border-radius: 14px;
+      background:
+        linear-gradient(135deg, rgba(255, 241, 0, .14), rgba(255, 255, 255, .66));
+      font-size: 12px;
+    }
+
+    .toggle-row input {
+      width: 28px;
+      height: 18px;
+      appearance: none;
+      border-radius: 999px;
+      background: rgba(29, 29, 31, .18);
+      position: relative;
+      transition: background .18s var(--ease);
+    }
+
+    .toggle-row input::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, .18);
+      transition: transform .18s var(--ease);
+    }
+
+    .toggle-row input:checked {
+      background: #d6ca00;
+    }
+
+    .toggle-row input:checked::after {
+      transform: translateX(10px);
+    }
+
+    .button-row {
+      gap: 7px;
+    }
+
+    .mini-btn {
+      min-height: 36px;
+      border-color: rgba(29, 29, 31, .075);
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .86), rgba(255, 255, 255, .6));
+      color: rgba(29, 29, 31, .74);
+    }
+
+    .mini-btn:hover {
+      border-color: var(--accent-border);
+      background: rgba(255, 255, 255, .94);
+      color: rgba(29, 29, 31, .9);
+    }
+
+    .mini-btn.active {
+      border-color: var(--accent-border);
+      background: var(--accent);
+      color: rgba(29, 29, 31, .92);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 10px 20px var(--accent-shadow);
+    }
+
+    .inline-control {
+      grid-template-columns: 58px minmax(0, 1fr) 44px;
+      min-height: 38px;
+      padding: 9px 10px;
+      border: 1px solid rgba(29, 29, 31, .06);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .5);
+    }
+
+    .inline-control output {
+      padding: 3px 6px;
+      border-radius: 999px;
+      background: rgba(29, 29, 31, .055);
+      color: rgba(29, 29, 31, .74);
+      font-size: 10px;
+      font-weight: 760;
+    }
+
+    input[type="range"] {
+      height: 4px;
+    }
+
+    .swatches {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .swatch {
+      height: 28px;
+      border: 2px solid rgba(255, 255, 255, .9);
+      box-shadow: 0 0 0 1px rgba(29, 29, 31, .12), 0 5px 12px rgba(15, 23, 42, .06);
+    }
+
+    .layers {
+      max-height: 255px;
+      gap: 8px;
+    }
+
+    .layer {
+      min-height: 40px;
+      border-radius: 13px;
+      padding: 8px 9px 8px 11px;
+    }
+
+    .layer span:last-child {
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: rgba(29, 29, 31, .055);
+      color: rgba(29, 29, 31, .48);
+      font-size: 10px;
+      text-transform: capitalize;
+    }
+
+    .layer.active span:last-child {
+      background: rgba(255, 255, 255, .66);
+      color: rgba(29, 29, 31, .72);
+    }
+
+    .right:not(.has-selection) #propsPanel {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="window-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-copy">
+          <strong>YOUDESIGN</strong>
+          <span id="currentSizeLabel">1080 × 1440</span>
+        </span>
+      </div>
+      <div class="toolbar">
+        <button class="icon-btn" id="undoBtn" title="撤销">↶</button>
+        <button class="icon-btn" id="redoBtn" title="重做">↷</button>
+        <button class="icon-btn" id="duplicateBtn" title="复制">⧉</button>
+        <button class="icon-btn" id="deleteBtn" title="删除">⌫</button>
+        <select id="zoomSelect" class="field" title="缩放">
+          <option value="fit">适配</option>
+          <option value="custom" hidden>100%</option>
+          <option value="0.25">25%</option>
+          <option value="0.5">50%</option>
+          <option value="0.75">75%</option>
+          <option value="1">100%</option>
+        </select>
+        <select id="exportScale" class="field" title="导出倍率">
+          <option value="1">1x</option>
+          <option value="2" selected>2x</option>
+        </select>
+        <select id="exportType" class="field" title="导出格式">
+          <option value="image/png">PNG</option>
+          <option value="image/jpeg">JPG</option>
+        </select>
+        <button class="btn" id="checkUpdateBtn" type="button">检查更新</button>
+        <button class="btn primary hidden" id="installUpdateBtn" type="button">重启安装</button>
+        <span class="update-pill hidden" id="updateStatus">已是最新</span>
+        <button class="btn primary" id="exportBtn">导出图片</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="left">
+        <nav class="quick-tools" id="quickTools" aria-label="编辑工具栏">
+          <button class="tool-chip active" type="button" data-scroll="sizeSection"><strong>▣</strong><span>尺寸</span></button>
+          <button class="tool-chip" type="button" data-scroll="addSection"><strong>＋</strong><span>添加</span></button>
+          <button class="tool-chip" type="button" data-action="upload"><strong>▧</strong><span>图片</span></button>
+          <button class="tool-chip" type="button" data-scroll="textTools"><strong>T</strong><span>文字</span></button>
+          <button class="tool-chip" type="button" data-scroll="mascotPanel"><strong>侠</strong><span>素材</span></button>
+          <button class="tool-chip" type="button" data-scroll="shapeTools"><strong>△</strong><span>绘制</span></button>
+          <button class="tool-chip" type="button" data-scroll="logoSection"><strong>◆</strong><span>Logo</span></button>
+        </nav>
+
+        <div class="tool-panel">
+        <section class="section" id="sizeSection">
+          <h2>尺寸 <small>平台预设</small></h2>
+          <input class="search" id="presetSearch" placeholder="搜索平台或尺寸，例如 朋友圈 / 1080">
+          <div class="preset-list" id="presetList"></div>
+          <button class="btn" id="newBlankBtn" type="button" style="width: 100%; margin-top: 12px;">新建空白画布</button>
+        </section>
+
+        <section class="section" id="addSection">
+          <h2>添加元素 <small>常用组件</small></h2>
+          <label class="label" for="imageInput">上传图片</label>
+          <button class="upload-card" id="imageUploadBtn" type="button">
+            <span class="upload-icon">+</span>
+            <span>
+              <strong id="imageUploadTitle">上传图片</strong>
+              <span id="imageUploadMeta">支持 JPG、PNG、WebP，上传后自动放入画布</span>
+            </span>
+          </button>
+          <input class="file-input" id="imageInput" type="file" accept="image/*">
+          <div class="element-group" id="textTools">
+            <p class="element-title">文字</p>
+            <div class="element-grid">
+              <button class="element-card" id="addTextBtn" type="button"><span class="element-icon">T</span><span><strong>文字</strong><span>普通说明文字</span></span></button>
+              <button class="element-card" id="addTitleBtn" type="button"><span class="element-icon">H</span><span><strong>标题</strong><span>封面主视觉</span></span></button>
+              <button class="element-card" id="addSubtitleBtn" type="button"><span class="element-icon">S</span><span><strong>副标题</strong><span>补充说明</span></span></button>
+              <button class="element-card" id="addBigNumberBtn" type="button"><span class="element-icon">7</span><span><strong>大数字</strong><span>清单/步骤</span></span></button>
+              <button class="element-card" id="addVerticalTextBtn" type="button"><span class="element-icon">竖</span><span><strong>竖排字</strong><span>边栏标题</span></span></button>
+            </div>
+            <div class="font-tools" id="fontSection">
+              <div class="font-tools-head">
+                <strong>字体</strong>
+                <small id="fontStatus">内置字体</small>
+              </div>
+              <div class="grid">
+                <button class="btn" id="localFontsBtn">读取本地字体</button>
+              </div>
+              <p class="hint">读取本机已安装字体需要桌面浏览器授权。</p>
+            </div>
+          </div>
+          <div class="element-group">
+            <p class="element-title">标签</p>
+            <div class="element-grid">
+              <button class="element-card" id="showMascotsBtn" type="button"><span class="element-icon">侠</span><span><strong>游小侠贴纸</strong><span>选择吉祥物</span></span></button>
+              <button class="element-card" id="addPillTagBtn" type="button"><span class="element-icon">●</span><span><strong>胶囊标签</strong><span>收藏/攻略</span></span></button>
+              <button class="element-card" id="addCornerBadgeBtn" type="button"><span class="element-icon">⌜</span><span><strong>角标</strong><span>右上强调</span></span></button>
+              <button class="element-card" id="addTopBadgeBtn" type="button"><span class="element-icon">TOP</span><span><strong>数字标签</strong><span>TOP / 必看</span></span></button>
+            </div>
+          </div>
+          <div class="element-group" id="mascotPanel">
+            <p class="element-title">游小侠贴纸</p>
+            <div class="logo-list" id="mascotList">
+              <div class="empty">正在读取游小侠素材...</div>
+            </div>
+          </div>
+          <div class="element-group" id="shapeTools">
+            <p class="element-title">图形</p>
+            <div class="element-grid">
+              <button class="element-card" id="addRectBtn" type="button"><span class="element-icon">▭</span><span><strong>矩形</strong><span>色块/底板</span></span></button>
+              <button class="element-card" id="addCircleBtn" type="button"><span class="element-icon">○</span><span><strong>圆形</strong><span>装饰重点</span></span></button>
+              <button class="element-card" id="addDividerBtn" type="button"><span class="element-icon">—</span><span><strong>分割线</strong><span>标题下划线</span></span></button>
+              <button class="element-card" id="addOverlayBtn" type="button"><span class="element-icon">▣</span><span><strong>遮罩</strong><span>压暗背景</span></span></button>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="logoSection">
+          <h2>Logo <small>点击加入画布</small></h2>
+          <div class="logo-list" id="logoList">
+            <div class="empty">正在读取 logo 素材...</div>
+          </div>
+        </section>
+
+        </div>
+      </aside>
+
+      <section class="stage-wrap">
+        <div class="stage-info">
+          <span id="docInfo">小红书 · 图文竖版封面 · 1080 × 1440</span>
+          <span>拖拽移动，右下角缩放，Shift 临时切换等比例</span>
+        </div>
+        <div class="stage" id="stage">
+          <div class="canvas-shell">
+            <canvas id="canvas"></canvas>
+            <div class="selection-overlay" id="selectionOverlay"></div>
+          </div>
+          <div class="zoom-hud" title="按住 Alt 并滚动鼠标滚轮缩放画布">
+            <strong id="zoomPercent">100%</strong>
+            <span>Alt + 滚轮</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="right">
+        <div class="inspector-header">
+          <h2 class="inspector-title">设计</h2>
+          <span class="inspector-subtitle" id="selectionLabel">未选中</span>
+        </div>
+        <div class="inspector-body">
+          <div id="emptyPanel" class="empty">选择画布上的文字、图片或图形后，在这里调整样式。</div>
+          <div id="propsPanel" class="hidden">
+            <div class="inspector-group">
+              <div class="inspector-group-title"><span>位置</span></div>
+              <div class="inspector-content">
+                <div class="field-grid four">
+                  <div class="compact-field"><label for="posX">X</label><input id="posX" type="number" step="1"></div>
+                  <div class="compact-field"><label for="posY">Y</label><input id="posY" type="number" step="1"></div>
+                  <div class="compact-field"><label for="objWidth">W</label><input id="objWidth" type="number" min="1" step="1"></div>
+                  <div class="compact-field"><label for="objHeight">H</label><input id="objHeight" type="number" min="1" step="1"></div>
+                </div>
+                <div class="field-grid">
+                  <div class="compact-field"><label for="rotation">旋转</label><input id="rotation" type="number" step="1"></div>
+                  <label class="toggle-row" for="lockAspect"><span>等比例缩放</span><input id="lockAspect" type="checkbox"></label>
+                </div>
+                <div class="button-row three">
+                  <button class="mini-btn" id="alignLeftBtn" type="button">左对齐</button>
+                  <button class="mini-btn" id="alignCenterBtn" type="button">居中</button>
+                  <button class="mini-btn" id="alignRightBtn" type="button">右对齐</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="inspector-group" id="textGroup">
+              <div class="inspector-group-title"><span>文字</span></div>
+              <div class="inspector-content">
+                <div class="compact-field">
+                  <label id="textValueLabel" for="textValue">内容</label>
+                  <textarea id="textValue" rows="3"></textarea>
+                </div>
+                <div class="field-grid">
+                  <div class="compact-field">
+                    <label for="fontFamily">字体</label>
+                    <select id="fontFamily"></select>
+                  </div>
+                  <div class="compact-field">
+                    <label for="fontSize">字号</label>
+                    <input id="fontSize" type="number" min="8" max="320">
+                  </div>
+                </div>
+                <div class="button-row three">
+                  <button class="mini-btn" id="textAlignLeftBtn" type="button">左对齐</button>
+                  <button class="mini-btn" id="textAlignCenterBtn" type="button">居中</button>
+                  <button class="mini-btn" id="textAlignRightBtn" type="button">右对齐</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="inspector-group" id="appearanceGroup">
+              <div class="inspector-group-title"><span>外观</span></div>
+              <div class="inspector-content">
+                <div class="field-grid" id="appearanceGrid">
+                  <div class="compact-field">
+                    <label id="fillColorLabel" for="fillColor">颜色</label>
+                    <input id="fillColor" type="color">
+                  </div>
+                  <div class="compact-field">
+                    <label id="strokeColorLabel" for="strokeColor">描边</label>
+                    <input id="strokeColor" type="color">
+                  </div>
+                </div>
+                <div class="inline-control">
+                  <label for="strokeWidth">描边</label>
+                  <input id="strokeWidth" type="range" min="0" max="18" step="1">
+                  <output id="strokeWidthValue">0</output>
+                </div>
+                <div class="inline-control">
+                  <label for="opacity">透明度</label>
+                  <input id="opacity" type="range" min="0.05" max="1" step="0.05">
+                  <output id="opacityValue">100%</output>
+                </div>
+                <div class="inline-control">
+                  <label for="shadow">阴影</label>
+                  <input id="shadow" type="range" min="0" max="36" step="1">
+                  <output id="shadowValue">0</output>
+                </div>
+              </div>
+            </div>
+
+            <div class="inspector-group">
+              <div class="inspector-group-title"><span>图层</span></div>
+              <div class="inspector-content">
+                <div class="button-row">
+                  <button class="mini-btn" id="bringForwardBtn">上移</button>
+                  <button class="mini-btn" id="sendBackwardBtn">下移</button>
+                  <button class="mini-btn" id="bringFrontBtn">置顶</button>
+                  <button class="mini-btn" id="sendBackBtn">置底</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="inspector-group">
+            <div class="inspector-group-title"><span>背景</span></div>
+            <div class="inspector-content">
+              <div class="compact-field">
+                <label for="backgroundColor">画布颜色</label>
+                <input id="backgroundColor" type="color" value="#fff6d8">
+              </div>
+              <div class="swatches" id="swatches"></div>
+            </div>
+          </div>
+
+          <div class="inspector-group">
+            <div class="inspector-group-title"><span>图层</span></div>
+            <div class="inspector-content">
+              <div class="layers" id="layers"></div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const stage = document.getElementById("stage");
+    const selectionOverlay = document.getElementById("selectionOverlay");
+    const STORAGE_KEY = "social-cover-designer-v3";
+    const APP_VERSION = "1.0.0";
+
+    const iconPaths = {
+      add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
+      image: "M21 19V5H3V19H21ZM23 3V21H1V3H23ZM8.5 11.5L5 16H19L14.5 10L11 14.5L8.5 11.5ZM8 10C6.895 10 6 9.105 6 8S6.895 6 8 6S10 6.895 10 8S9.105 10 8 10Z",
+      text: "M13 6V21H11V6H5V4H19V6H13Z",
+      mascot: "M12 2C16.418 2 20 5.582 20 10V17C20 19.761 17.761 22 15 22H9C6.239 22 4 19.761 4 17V10C4 5.582 7.582 2 12 2ZM8.8 13.2C8.137 13.2 7.6 13.737 7.6 14.4S8.137 15.6 8.8 15.6S10 15.063 10 14.4S9.463 13.2 8.8 13.2ZM15.2 13.2C14.537 13.2 14 13.737 14 14.4S14.537 15.6 15.2 15.6S16.4 15.063 16.4 14.4S15.863 13.2 15.2 13.2ZM12 5C9.239 5 7 7.239 7 10H17C17 7.239 14.761 5 12 5Z",
+      shape: "M12 2L22 20H2L12 2ZM12 6.17L5.4 18H18.6L12 6.17Z",
+      logo: "M12 2L20.66 7V17L12 22L3.34 17V7L12 2ZM12 4.31L5.34 8.15V15.85L12 19.69L18.66 15.85V8.15L12 4.31Z",
+      tools: "M21.71 20.29L20.29 21.71L14 15.41V13.99L13.5 13.49C12.45 14.34 11.11 14.85 9.65 14.85C6.25 14.85 3.5 12.1 3.5 8.7C3.5 5.3 6.25 2.55 9.65 2.55C13.05 2.55 15.8 5.3 15.8 8.7C15.8 10.16 15.29 11.5 14.44 12.55L21.71 20.29ZM9.65 4.55C7.36 4.55 5.5 6.41 5.5 8.7S7.36 12.85 9.65 12.85S13.8 10.99 13.8 8.7S11.94 4.55 9.65 4.55Z",
+      ruler: "M3 4H21V20H3V4ZM5 6V18H19V6H17V10H15V6H13V9H11V6H9V10H7V6H5Z",
+      undo: "M8 7V3L1 10L8 17V13H14C17.314 13 20 15.686 20 19H22C22 14.582 18.418 11 14 11H8V7Z",
+      redo: "M16 7V3L23 10L16 17V13H10C6.686 13 4 15.686 4 19H2C2 14.582 5.582 11 10 11H16V7Z",
+      copy: "M7 7V3C7 2.448 7.448 2 8 2H20C20.552 2 21 2.448 21 3V15C21 15.552 20.552 16 20 16H16V20C16 20.552 15.552 21 15 21H4C3.448 21 3 20.552 3 20V8C3 7.448 3.448 7 4 7H7ZM9 7H15C15.552 7 16 7.448 16 8V14H19V4H9V7ZM5 9V19H14V9H5Z",
+      delete: "M17 6H22V8H20V21C20 21.552 19.552 22 19 22H5C4.448 22 4 21.552 4 21V8H2V6H7V3C7 2.448 7.448 2 8 2H16C16.552 2 17 2.448 17 3V6ZM9 4V6H15V4H9ZM6 8V20H18V8H6ZM9 11H11V17H9V11ZM13 11H15V17H13V11Z",
+      export: "M13 10H18L12 16L6 10H11V3H13V10ZM4 19H20V14H22V20C22 20.552 21.552 21 21 21H3C2.448 21 2 20.552 2 20V14H4V19Z",
+      refresh: "M17.65 6.35C16.2 4.9 14.21 4 12 4C7.58 4 4.01 7.58 4.01 12S7.58 20 12 20C15.73 20 18.84 17.45 19.73 14H17.65C16.82 16.33 14.6 18 12 18C8.69 18 6 15.31 6 12S8.69 6 12 6C13.66 6 15.14 6.69 16.22 7.78L13 11H20V4L17.65 6.35Z",
+      upload: "M13 5.829V16H11V5.829L7.05 9.778L5.636 8.364L12 2L18.364 8.364L16.95 9.778L13 5.828ZM4 18H20V13H22V19C22 19.552 21.552 20 21 20H3C2.448 20 2 19.552 2 19V13H4V18Z",
+      rect: "M4 5H20C20.552 5 21 5.448 21 6V18C21 18.552 20.552 19 20 19H4C3.448 19 3 18.552 3 18V6C3 5.448 3.448 5 4 5ZM5 7V17H19V7H5Z",
+      circle: "M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2S22 6.477 22 12S17.523 22 12 22ZM12 20C16.418 20 20 16.418 20 12S16.418 4 12 4S4 7.582 4 12S7.582 20 12 20Z",
+      line: "M4 11H20V13H4V11Z",
+      overlay: "M4 4H20V20H4V4ZM6 6V18H18V6H6ZM8 8H16V16H8V8Z",
+      alignLeft: "M4 4H6V20H4V4ZM8 6H20V8H8V6ZM8 11H16V13H8V11ZM8 16H20V18H8V16Z",
+      alignCenter: "M11 4H13V7H20V9H13V11H18V13H13V15H20V17H13V20H11V17H4V15H11V13H6V11H11V9H4V7H11V4Z",
+      alignRight: "M18 4H20V20H18V4ZM4 6H16V8H4V6ZM8 11H16V13H8V11ZM4 16H16V18H4V16Z",
+      layerUp: "M12 2L22 8L12 14L2 8L12 2ZM12 4.332L5.887 8L12 11.668L18.113 8L12 4.332ZM2 12L4 10.8L12 15.6L20 10.8L22 12L12 18L2 12ZM2 16L4 14.8L12 19.6L20 14.8L22 16L12 22L2 16Z"
+    };
+
+    function icon(name) {
+      return `<svg class="ri" viewBox="0 0 24 24" aria-hidden="true"><path d="${iconPaths[name] || iconPaths.add}"></path></svg>`;
+    }
+
+    function applyIconSystem() {
+      const toolIcons = {
+        sizeSection: "ruler",
+        addSection: "add",
+        upload: "image",
+        textTools: "text",
+        mascotPanel: "mascot",
+        shapeTools: "shape",
+        logoSection: "logo",
+        fontSection: "tools"
+      };
+      document.querySelectorAll(".tool-chip").forEach(button => {
+        const key = button.dataset.action || button.dataset.scroll;
+        const slot = button.querySelector("strong");
+        if (slot && toolIcons[key]) slot.innerHTML = icon(toolIcons[key]);
+      });
+      const idIcons = {
+        undoBtn: "undo",
+        redoBtn: "redo",
+        duplicateBtn: "copy",
+        deleteBtn: "delete",
+        checkUpdateBtn: "refresh",
+        installUpdateBtn: "refresh",
+        exportBtn: "export",
+        imageUploadBtn: "upload",
+        addRectBtn: "rect",
+        addCircleBtn: "circle",
+        addDividerBtn: "line",
+        addOverlayBtn: "overlay",
+        alignLeftBtn: "alignLeft",
+        alignCenterBtn: "alignCenter",
+        alignRightBtn: "alignRight",
+        textAlignLeftBtn: "alignLeft",
+        textAlignCenterBtn: "alignCenter",
+        textAlignRightBtn: "alignRight",
+        bringForwardBtn: "layerUp",
+        sendBackwardBtn: "layerUp",
+        bringFrontBtn: "layerUp",
+        sendBackBtn: "layerUp"
+      };
+      Object.entries(idIcons).forEach(([id, name]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (el.classList.contains("icon-btn")) {
+          el.innerHTML = icon(name);
+          return;
+        }
+        if (id === "exportBtn" || id === "checkUpdateBtn" || id === "installUpdateBtn") {
+          const label = id === "exportBtn" ? "导出图片" : id === "checkUpdateBtn" ? "检查更新" : "重启安装";
+          el.innerHTML = `${icon(name)}<span>${label}</span>`;
+          return;
+        }
+        if (id === "imageUploadBtn") {
+          const slot = el.querySelector(".upload-icon");
+          if (slot) slot.innerHTML = icon(name);
+          return;
+        }
+        if (el.classList.contains("mini-btn")) {
+          const label = el.textContent.trim();
+          el.innerHTML = `${icon(name)}<span>${label}</span>`;
+          return;
+        }
+        const slot = el.querySelector(".element-icon");
+        if (slot) slot.innerHTML = icon(name);
+      });
+    }
+
+    const presets = [
+      { platform: "小红书", label: "图文竖版封面", width: 1080, height: 1440, recommended: true },
+      { platform: "小红书", label: "高清竖版封面", width: 1242, height: 1660 },
+      { platform: "小红书", label: "正方形笔记", width: 1080, height: 1080 },
+      { platform: "小红书", label: "横版笔记", width: 1440, height: 1080 },
+      { platform: "微信朋友圈", label: "九宫格单图", width: 1080, height: 1080, recommended: true },
+      { platform: "微信朋友圈", label: "竖版海报", width: 1080, height: 1440, recommended: true },
+      { platform: "微信朋友圈", label: "长竖图", width: 1080, height: 1920 },
+      { platform: "微信朋友圈", label: "相册封面 / 主页封面", width: 2560, height: 1440, safe: "右下角预留头像区域" },
+      { platform: "微信", label: "状态 / 视频封面兼容图", width: 1080, height: 1080 },
+      { platform: "公众号", label: "首图", width: 900, height: 383, recommended: true },
+      { platform: "公众号", label: "次图", width: 500, height: 500 },
+      { platform: "抖音", label: "竖版视频封面", width: 1080, height: 1920, recommended: true, safe: "上下 UI 可能遮挡" },
+      { platform: "抖音", label: "信息流安全封面", width: 1080, height: 1464, safe: "安全展示区" },
+      { platform: "抖音", label: "直播封面", width: 1080, height: 1464 },
+      { platform: "视频号", label: "竖版封面", width: 1080, height: 1920 },
+      { platform: "视频号", label: "横版封面", width: 1280, height: 720 },
+      { platform: "B站", label: "视频封面", width: 1146, height: 717, recommended: true }
+    ];
+
+    const swatchColors = ["#fff6d8", "#fff100", "#ff4d23", "#171411", "#f7f7f2", "#2563eb", "#12b981", "#ffe4ec", "#efe7ff", "#d9f99d", "#f8fafc", "#f97316", "#0f172a", "#fef3c7"];
+    const baseFonts = [
+      { family: "PingFang SC", label: "苹方" },
+      { family: "Microsoft YaHei", label: "微软雅黑" },
+      { family: "SimHei", label: "黑体" },
+      { family: "Songti SC", label: "宋体" },
+      { family: "Georgia", label: "Georgia" },
+      { family: "Arial", label: "Arial" }
+    ];
+    const fallbackLogos = [
+      "垂直logo.png",
+      "标准logo.png",
+      "标准描边.png",
+      "垂直logo描边.png",
+      "垂直logo描边白字.png",
+      "垂直反白.png",
+      "标准反白.png",
+      "垂直单黑.png",
+      "标准单黑.png",
+      "youxiake-logo.png"
+    ];
+    const fallbackMascots = ["01.png", "02.png", "03.png", "04.png", "05.png", "06.png", "07.png"];
+    let localFonts = [];
+    let logoAssets = [];
+    let mascotAssets = [];
+
+    const state = {
+      width: 1080,
+      height: 1440,
+      platform: "小红书",
+      label: "图文竖版封面",
+      background: "#fff6d8",
+      objects: [],
+      selectedId: null,
+      selectedIds: [],
+      zoom: "fit",
+      zoomScale: 1,
+      history: [],
+      future: [],
+      dragging: null
+    };
+
+    function uid() {
+      return Math.random().toString(36).slice(2, 10);
+    }
+
+    function text(value, x, y, fontSize, fill, extra = {}) {
+      return {
+        id: uid(),
+        type: "text",
+        name: value.split("\n")[0].slice(0, 10) || "文字",
+        text: value,
+        x, y,
+        width: extra.width || 780,
+        height: extra.height || fontSize * 1.25,
+        rotation: 0,
+        opacity: 1,
+        fontFamily: extra.fontFamily || "PingFang SC",
+        fontSize,
+        fontWeight: extra.fontWeight || 800,
+        fill,
+        stroke: extra.stroke || "#171411",
+        strokeWidth: extra.strokeWidth || 0,
+        shadow: extra.shadow || 0,
+        align: extra.align || "left",
+        lockAspect: extra.lockAspect || false
+      };
+    }
+
+    function shape(kind, x, y, width, heightOrFill, fillOrExtra, maybeExtra = {}) {
+      const isCircle = kind === "circle";
+      const height = isCircle ? width : heightOrFill;
+      const fill = isCircle ? heightOrFill : fillOrExtra;
+      const extra = isCircle ? fillOrExtra || {} : maybeExtra;
+      return {
+        id: uid(),
+        type: "shape",
+        kind,
+        name: kind === "circle" ? "圆形" : "矩形",
+        x, y,
+        width,
+        height,
+        rotation: 0,
+        opacity: 1,
+        fill,
+        stroke: extra.stroke || "#171411",
+        strokeWidth: extra.strokeWidth || 0,
+        radius: extra.radius || 0,
+        shadow: extra.shadow || 0,
+        lockAspect: extra.lockAspect ?? kind === "circle"
+      };
+    }
+
+    function imageObject(img, x, y, width, height, src) {
+      return {
+        id: uid(),
+        type: "image",
+        name: "图片",
+        x, y, width, height,
+        rotation: 0,
+        opacity: 1,
+        radius: 0,
+        shadow: 0,
+        lockAspect: true,
+        src,
+        image: img
+      };
+    }
+
+    function fileLabel(path) {
+      const name = decodeURIComponent(path.split("/").pop() || path);
+      return name.replace(/\.[^.]+$/, "");
+    }
+
+    function saveHistory() {
+      state.history.push(snapshot());
+      if (state.history.length > 60) state.history.shift();
+      state.future = [];
+    }
+
+    function snapshot() {
+      return JSON.stringify({
+        width: state.width,
+        height: state.height,
+        platform: state.platform,
+        label: state.label,
+        background: state.background,
+        objects: state.objects.map(o => ({ ...o, image: undefined }))
+      });
+    }
+
+    async function restore(raw) {
+      const data = JSON.parse(raw);
+      Object.assign(state, data);
+      state.objects = await Promise.all(data.objects.map(async o => {
+        if (o.type === "image" && o.src) {
+          o.image = await loadImage(o.src);
+        }
+        return o;
+      }));
+      setSelection([]);
+      resizeCanvas();
+      renderAll();
+      syncUi();
+    }
+
+    function persist() {
+      localStorage.setItem(STORAGE_KEY, snapshot());
+    }
+
+    function resizeCanvas() {
+      canvas.width = state.width;
+      canvas.height = state.height;
+      applyZoom();
+      document.getElementById("currentSizeLabel").textContent = `${state.width} × ${state.height}`;
+      document.getElementById("docInfo").textContent = `${state.platform} · ${state.label} · ${state.width} × ${state.height}`;
+    }
+
+    function applyZoom() {
+      const value = document.getElementById("zoomSelect").value;
+      let scale = value === "custom" ? state.zoomScale : Number(value);
+      if (value === "fit") {
+        const availableW = Math.max(320, stage.clientWidth - 82);
+        const availableH = Math.max(320, stage.clientHeight - 82);
+        scale = Math.min(availableW / state.width, availableH / state.height, 1);
+      }
+      setCanvasScale(scale, value);
+    }
+
+    function setCanvasScale(scale, mode = "custom") {
+      const nextScale = Math.max(.1, Math.min(3, scale));
+      state.zoom = mode;
+      state.zoomScale = nextScale;
+      canvas.style.width = `${state.width * nextScale}px`;
+      canvas.style.height = `${state.height * nextScale}px`;
+      const label = `${Math.round(nextScale * 100)}%`;
+      document.getElementById("zoomPercent").textContent = label;
+      document.querySelector('#zoomSelect option[value="custom"]').textContent = label;
+    }
+
+    function getScale() {
+      return canvas.width / canvas.getBoundingClientRect().width;
+    }
+
+    function selected() {
+      return state.objects.find(o => o.id === state.selectedId);
+    }
+
+    function selectedObjects() {
+      const ids = new Set(state.selectedIds && state.selectedIds.length ? state.selectedIds : state.selectedId ? [state.selectedId] : []);
+      return state.objects.filter(o => ids.has(o.id));
+    }
+
+    function setSelection(ids) {
+      state.selectedIds = [...new Set(ids)].filter(id => state.objects.some(o => o.id === id));
+      state.selectedId = state.selectedIds[state.selectedIds.length - 1] || null;
+    }
+
+    function toggleSelection(id) {
+      const ids = new Set(state.selectedIds && state.selectedIds.length ? state.selectedIds : state.selectedId ? [state.selectedId] : []);
+      if (ids.has(id)) ids.delete(id);
+      else ids.add(id);
+      setSelection([...ids]);
+    }
+
+    function selectionBounds(objects = selectedObjects()) {
+      if (!objects.length) return null;
+      const left = Math.min(...objects.map(o => o.x));
+      const top = Math.min(...objects.map(o => o.y));
+      const right = Math.max(...objects.map(o => o.x + o.width));
+      const bottom = Math.max(...objects.map(o => o.y + o.height));
+      return { x: left, y: top, width: right - left, height: bottom - top, right, bottom };
+    }
+
+    function renderAll(exporting = false, scale = 1, targetCtx = ctx) {
+      targetCtx.save();
+      targetCtx.setTransform(scale, 0, 0, scale, 0, 0);
+      targetCtx.clearRect(0, 0, state.width, state.height);
+      targetCtx.fillStyle = state.background;
+      targetCtx.fillRect(0, 0, state.width, state.height);
+      drawSafeZones(targetCtx, exporting);
+      for (const obj of state.objects) drawObject(targetCtx, obj);
+      targetCtx.restore();
+      if (!exporting) renderSelectionOverlay();
+    }
+
+    function drawSafeZones(c, exporting) {
+      if (exporting) return;
+      c.save();
+      c.strokeStyle = "rgba(37,99,235,.32)";
+      c.setLineDash([12, 12]);
+      c.lineWidth = 3;
+      if (state.platform.includes("抖音") || state.platform.includes("视频号")) {
+        c.strokeRect(60, 228, state.width - 120, state.height - 456);
+      }
+      if (state.label.includes("相册封面")) {
+        c.strokeRect(state.width - 430, state.height - 330, 260, 260);
+      }
+      c.restore();
+    }
+
+    function drawObject(c, obj) {
+      c.save();
+      c.globalAlpha = obj.opacity ?? 1;
+      c.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+      c.rotate((obj.rotation || 0) * Math.PI / 180);
+      c.translate(-obj.width / 2, -obj.height / 2);
+      if (obj.shadow) {
+        c.shadowColor = "rgba(0,0,0,.22)";
+        c.shadowBlur = obj.shadow;
+        c.shadowOffsetX = obj.shadow / 3;
+        c.shadowOffsetY = obj.shadow / 3;
+      }
+      if (obj.type === "text") drawText(c, obj);
+      if (obj.type === "shape") drawShape(c, obj);
+      if (obj.type === "image" && obj.image) drawImage(c, obj);
+      c.restore();
+    }
+
+    function drawText(c, obj) {
+      c.font = `${obj.fontWeight || 800} ${obj.fontSize}px "${obj.fontFamily}", sans-serif`;
+      c.textAlign = obj.align || "left";
+      c.textBaseline = "top";
+      c.lineJoin = "round";
+      const lines = wrapText(c, obj.text, obj.width, obj.fontSize * 1.12);
+      const lineHeight = obj.fontSize * 1.14;
+      obj.height = Math.max(lineHeight, lines.length * lineHeight);
+      lines.forEach((line, i) => {
+        const x = obj.align === "center" ? obj.width / 2 : obj.align === "right" ? obj.width : 0;
+        const y = i * lineHeight;
+        if (obj.strokeWidth > 0) {
+          c.strokeStyle = obj.stroke;
+          c.lineWidth = obj.strokeWidth;
+          c.strokeText(line, x, y);
+        }
+        c.fillStyle = obj.fill;
+        c.fillText(line, x, y);
+      });
+    }
+
+    function wrapText(c, value, maxWidth, baseSize) {
+      const hardLines = String(value || "").split("\n");
+      const result = [];
+      hardLines.forEach(line => {
+        let current = "";
+        for (const ch of line) {
+          const test = current + ch;
+          if (c.measureText(test).width > maxWidth && current) {
+            result.push(current);
+            current = ch;
+          } else {
+            current = test;
+          }
+        }
+        result.push(current || " ");
+      });
+      return result;
+    }
+
+    function roundRect(c, x, y, w, h, r) {
+      const radius = Math.min(r || 0, w / 2, h / 2);
+      c.beginPath();
+      c.moveTo(x + radius, y);
+      c.arcTo(x + w, y, x + w, y + h, radius);
+      c.arcTo(x + w, y + h, x, y + h, radius);
+      c.arcTo(x, y + h, x, y, radius);
+      c.arcTo(x, y, x + w, y, radius);
+      c.closePath();
+    }
+
+    function drawShape(c, obj) {
+      c.fillStyle = obj.fill;
+      c.strokeStyle = obj.stroke || obj.fill;
+      c.lineWidth = obj.strokeWidth || 0;
+      if (obj.kind === "circle") {
+        c.beginPath();
+        c.ellipse(obj.width / 2, obj.height / 2, obj.width / 2, obj.height / 2, 0, 0, Math.PI * 2);
+      } else {
+        roundRect(c, 0, 0, obj.width, obj.height, obj.radius);
+      }
+      c.fill();
+      if (obj.strokeWidth > 0) c.stroke();
+    }
+
+    function drawImage(c, obj) {
+      roundRect(c, 0, 0, obj.width, obj.height, obj.radius || 0);
+      c.clip();
+      c.drawImage(obj.image, 0, 0, obj.width, obj.height);
+    }
+
+    function drawSelection(c, obj) {
+      c.save();
+      c.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+      c.rotate((obj.rotation || 0) * Math.PI / 180);
+      c.translate(-obj.width / 2, -obj.height / 2);
+      c.strokeStyle = "#2563eb";
+      c.lineWidth = 3;
+      c.setLineDash([10, 6]);
+      c.strokeRect(0, 0, obj.width, obj.height);
+      c.setLineDash([]);
+      c.fillStyle = "#ffffff";
+      c.strokeStyle = "#2563eb";
+      handlePoints(obj).forEach(p => {
+        c.beginPath();
+        c.rect(p.x - 8, p.y - 8, 16, 16);
+        c.fill();
+        c.stroke();
+      });
+      c.beginPath();
+      c.arc(obj.width / 2, -34, 10, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+      c.restore();
+    }
+
+    function renderSelectionOverlay() {
+      const objects = selectedObjects();
+      selectionOverlay.innerHTML = "";
+      if (!objects.length) return;
+      const scale = canvas.getBoundingClientRect().width / state.width;
+      const makeBox = (bounds, className = "selection-box") => {
+        const box = document.createElement("div");
+        box.className = className;
+        box.style.left = `${bounds.x * scale}px`;
+        box.style.top = `${bounds.y * scale}px`;
+        box.style.width = `${bounds.width * scale}px`;
+        box.style.height = `${bounds.height * scale}px`;
+        selectionOverlay.appendChild(box);
+      };
+      objects.forEach(obj => makeBox(obj));
+      const bounds = selectionBounds(objects);
+      if (!bounds) return;
+      const handlePoints = [
+        { mode: "resize", name: "se", x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+        { mode: "rotate", name: "rotate", x: bounds.x + bounds.width / 2, y: bounds.y - 34 }
+      ];
+      handlePoints.forEach(point => {
+        const handle = document.createElement("button");
+        handle.type = "button";
+        handle.className = "selection-handle";
+        handle.dataset.mode = point.mode;
+        handle.dataset.name = point.name;
+        handle.style.left = `${point.x * scale}px`;
+        handle.style.top = `${point.y * scale}px`;
+        handle.title = point.mode === "resize" ? "缩放" : "旋转";
+        selectionOverlay.appendChild(handle);
+      });
+    }
+
+    function handlePoints(obj) {
+      return [
+        { name: "nw", x: 0, y: 0 },
+        { name: "ne", x: obj.width, y: 0 },
+        { name: "se", x: obj.width, y: obj.height },
+        { name: "sw", x: 0, y: obj.height }
+      ];
+    }
+
+    function toLocalPoint(event) {
+      const rect = canvas.getBoundingClientRect();
+      const scale = getScale();
+      return {
+        x: (event.clientX - rect.left) * scale,
+        y: (event.clientY - rect.top) * scale
+      };
+    }
+
+    function hitTest(point) {
+      for (let i = state.objects.length - 1; i >= 0; i--) {
+        const obj = state.objects[i];
+        if (point.x >= obj.x && point.x <= obj.x + obj.width && point.y >= obj.y && point.y <= obj.y + obj.height) return obj;
+      }
+      return null;
+    }
+
+    function hitHandle(point, obj) {
+      if (!obj) return null;
+      const handles = [
+        { mode: "resize", name: "se", x: obj.x + obj.width, y: obj.y + obj.height },
+        { mode: "rotate", name: "rotate", x: obj.x + obj.width / 2, y: obj.y - 34 }
+      ];
+      return handles.find(h => Math.hypot(point.x - h.x, point.y - h.y) < 22);
+    }
+
+    selectionOverlay.addEventListener("pointerdown", e => {
+      const handle = e.target.closest(".selection-handle");
+      if (!handle) return;
+      const objects = selectedObjects();
+      if (!objects.length) return;
+      e.preventDefault();
+      const p = toLocalPoint(e);
+      state.dragging = {
+        mode: handle.dataset.mode,
+        start: p,
+        obj: selected() ? { ...selected() } : null,
+        objects: objects.map(o => ({ ...o })),
+        bounds: selectionBounds(objects),
+        saved: false
+      };
+      selectionOverlay.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener("pointerdown", e => {
+      const p = toLocalPoint(e);
+      const obj = selected();
+      const handle = hitHandle(p, obj);
+      if (handle) {
+        const objects = selectedObjects();
+        state.dragging = { mode: handle.mode, start: p, obj: { ...obj }, objects: objects.map(o => ({ ...o })), bounds: selectionBounds(objects), saved: false };
+        canvas.setPointerCapture(e.pointerId);
+        renderAll();
+        syncUi();
+        return;
+      }
+      const target = hitTest(p);
+      if (target && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+        toggleSelection(target.id);
+      } else {
+        setSelection(target ? [target.id] : []);
+      }
+      if (target) {
+        const objects = selectedObjects();
+        state.dragging = { mode: "move", start: p, obj: { ...target }, objects: objects.map(o => ({ ...o })), saved: false };
+        canvas.setPointerCapture(e.pointerId);
+      }
+      renderAll();
+      syncUi();
+    });
+
+    function handlePointerMove(e) {
+      const objects = selectedObjects();
+      if (!state.dragging || !objects.length) return;
+      const p = toLocalPoint(e);
+      const obj = selected();
+      const dx = p.x - state.dragging.start.x;
+      const dy = p.y - state.dragging.start.y;
+      if (!state.dragging.saved) {
+        if (Math.hypot(dx, dy) < 3) return;
+        saveHistory();
+        state.dragging.saved = true;
+      }
+      if (state.dragging.mode === "move") {
+        state.dragging.objects.forEach(start => {
+          const current = state.objects.find(o => o.id === start.id);
+          if (!current) return;
+          current.x = start.x + dx;
+          current.y = start.y + dy;
+        });
+      }
+      if (state.dragging.mode === "resize") {
+        if (objects.length > 1 && state.dragging.bounds) {
+          resizeObjects(objects, state.dragging.objects, state.dragging.bounds, dx, dy, e.shiftKey);
+        } else if (obj) {
+          resizeObject(obj, state.dragging.obj, dx, dy, e.shiftKey);
+        }
+      }
+      if (state.dragging.mode === "rotate" && obj) {
+        const cx = obj.x + obj.width / 2;
+        const cy = obj.y + obj.height / 2;
+        obj.rotation = Math.atan2(p.y - cy, p.x - cx) * 180 / Math.PI + 90;
+      }
+      renderAll();
+      syncUi(false);
+    }
+
+    canvas.addEventListener("pointermove", handlePointerMove);
+    selectionOverlay.addEventListener("pointermove", handlePointerMove);
+
+    function handlePointerUp() {
+      if (state.dragging) {
+        const changed = state.dragging.saved;
+        state.dragging = null;
+        if (changed) persist();
+        renderAll();
+        syncUi();
+      }
+    }
+
+    canvas.addEventListener("pointerup", handlePointerUp);
+    selectionOverlay.addEventListener("pointerup", handlePointerUp);
+
+    function addObject(obj) {
+      saveHistory();
+      state.objects.push(obj);
+      setSelection([obj.id]);
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    function defaultLockAspect(obj) {
+      return obj.lockAspect ?? (obj.type === "image" || obj.kind === "circle");
+    }
+
+    function resizeObject(obj, start, dx, dy, invertLock = false) {
+      const locked = invertLock ? !defaultLockAspect(obj) : defaultLockAspect(obj);
+      let nextW = Math.max(28, start.width + dx);
+      let nextH = Math.max(28, start.height + dy);
+      if (locked) {
+        const ratio = Math.max(.05, start.width / Math.max(1, start.height));
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          nextH = nextW / ratio;
+        } else {
+          nextW = nextH * ratio;
+        }
+        nextW = Math.max(28, nextW);
+        nextH = Math.max(28, nextH);
+      }
+      obj.width = nextW;
+      obj.height = nextH;
+      if (obj.kind === "circle" && locked) {
+        const size = Math.max(nextW, nextH);
+        obj.width = size;
+        obj.height = size;
+      }
+    }
+
+    function resizeObjects(objects, starts, bounds, dx, dy, invertLock = false) {
+      const locked = invertLock ? false : true;
+      let nextW = Math.max(28, bounds.width + dx);
+      let nextH = Math.max(28, bounds.height + dy);
+      if (locked) {
+        const ratio = Math.max(.05, bounds.width / Math.max(1, bounds.height));
+        if (Math.abs(dx) >= Math.abs(dy)) nextH = nextW / ratio;
+        else nextW = nextH * ratio;
+      }
+      const sx = nextW / Math.max(1, bounds.width);
+      const sy = nextH / Math.max(1, bounds.height);
+      starts.forEach(start => {
+        const obj = objects.find(o => o.id === start.id);
+        if (!obj) return;
+        obj.x = bounds.x + (start.x - bounds.x) * sx;
+        obj.y = bounds.y + (start.y - bounds.y) * sy;
+        obj.width = Math.max(1, start.width * sx);
+        obj.height = Math.max(1, start.height * sy);
+        if (obj.type === "text") obj.fontSize = Math.max(8, start.fontSize * Math.min(sx, sy));
+      });
+    }
+
+    function updateSelected(patch) {
+      const obj = selected();
+      if (!obj) return;
+      Object.assign(obj, patch);
+      renderAll();
+      syncUi(false);
+      syncTransformInputs(obj);
+      syncInspectorOutputs();
+      persist();
+    }
+
+    function wire(id, event, fn) {
+      document.getElementById(id).addEventListener(event, fn);
+    }
+
+    document.getElementById("quickTools").addEventListener("click", e => {
+      const button = e.target.closest(".tool-chip");
+      if (!button) return;
+      document.querySelectorAll(".tool-chip").forEach(item => item.classList.toggle("active", item === button));
+      if (button.dataset.action === "new") {
+        document.getElementById("newBlankBtn").click();
+        return;
+      }
+      if (button.dataset.action === "upload") {
+        document.getElementById("imageInput").click();
+        return;
+      }
+      const target = document.getElementById(button.dataset.scroll);
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    function addObjects(objects, selectedObj = objects[objects.length - 1]) {
+      saveHistory();
+      state.objects.push(...objects);
+      setSelection([selectedObj.id]);
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    wire("addTextBtn", "click", () => addObject(text("输入文字", 120, 260, 42, "#171411", { width: 520, fontWeight: 700 })));
+    wire("addTitleBtn", "click", () => addObject(text("输入你的封面标题", 120, 180, 82, "#171411", { stroke: "#ffffff", strokeWidth: 6 })));
+    wire("addSubtitleBtn", "click", () => addObject(text("这里填写补充说明", 124, 330, 38, "#6e6e73", { width: 640, fontWeight: 700 })));
+    wire("addBigNumberBtn", "click", () => addObject(text("07", 108, 190, 176, "#fff100", { width: 360, fontWeight: 900, stroke: "#1d1d1f", strokeWidth: 4, lockAspect: true })));
+    wire("addVerticalTextBtn", "click", () => {
+      const obj = text("旅\n行\n攻\n略", state.width - 170, 188, 50, "#171411", { width: 88, fontWeight: 900, align: "center", lockAspect: true });
+      obj.name = "竖排字";
+      addObject(obj);
+    });
+
+    wire("showMascotsBtn", "click", () => {
+      document.getElementById("mascotPanel").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    wire("addPillTagBtn", "click", () => {
+      const x = state.width * .12;
+      const y = state.height * .78;
+      const bg = shape("rect", x, y, 320, 76, "#171411", { radius: 38, shadow: 6 });
+      bg.name = "胶囊底";
+      const label = text("收藏攻略", x + 54, y + 19, 32, "#ffffff", { width: 220, fontWeight: 900 });
+      label.name = "胶囊文字";
+      addObjects([bg, label], label);
+    });
+    wire("addCornerBadgeBtn", "click", () => {
+      const x = state.width - 300;
+      const y = 110;
+      const bg = shape("rect", x, y, 210, 82, "#ff4d23", { radius: 24, shadow: 8 });
+      bg.name = "角标底";
+      bg.rotation = 4;
+      const label = text("必看", x + 50, y + 19, 34, "#ffffff", { width: 130, fontWeight: 900 });
+      label.name = "角标文字";
+      label.rotation = 4;
+      addObjects([bg, label], label);
+    });
+    wire("addTopBadgeBtn", "click", () => {
+      const x = state.width * .12;
+      const y = state.height * .1;
+      const bg = shape("circle", x, y, 180, "#171411", { shadow: 10 });
+      bg.name = "数字标签底";
+      const top = text("TOP", x + 42, y + 42, 30, "#fff100", { width: 105, fontWeight: 900, align: "center" });
+      top.name = "TOP 文字";
+      const num = text("5", x + 61, y + 76, 62, "#ffffff", { width: 64, fontWeight: 900, align: "center" });
+      num.name = "数字";
+      addObjects([bg, top, num], num);
+    });
+    wire("addRectBtn", "click", () => addObject(shape("rect", 160, 260, 380, 220, "#ff4d23", { radius: 24 })));
+    wire("addCircleBtn", "click", () => addObject(shape("circle", 180, 280, 240, "#2563eb")));
+    wire("addDividerBtn", "click", () => {
+      const obj = shape("rect", 120, 470, 520, 10, "#171411", { radius: 5, lockAspect: false });
+      obj.name = "分割线";
+      addObject(obj);
+    });
+    wire("addOverlayBtn", "click", () => {
+      const obj = shape("rect", 0, 0, state.width, state.height, "#000000", { lockAspect: false });
+      obj.name = "半透明遮罩";
+      obj.opacity = .28;
+      addObject(obj);
+    });
+    wire("backgroundColor", "input", e => {
+      state.background = e.target.value;
+      renderAll();
+      persist();
+    });
+
+    ["posX", "posY", "objWidth", "objHeight", "rotation", "textValue", "fontFamily", "fontSize", "fillColor", "strokeColor", "strokeWidth", "opacity", "shadow", "lockAspect"].forEach(id => {
+      const handler = e => {
+        const obj = selected();
+        if (!obj) return;
+        const keyMap = {
+          posX: "x",
+          posY: "y",
+          objWidth: "width",
+          objHeight: "height",
+          rotation: "rotation",
+          textValue: "text",
+          fontFamily: "fontFamily",
+          fontSize: "fontSize",
+          fillColor: "fill",
+          strokeColor: "stroke",
+          strokeWidth: "strokeWidth",
+          opacity: "opacity",
+          shadow: "shadow",
+          lockAspect: "lockAspect"
+        };
+        let value = id === "lockAspect" ? e.target.checked : e.target.value;
+        if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "strokeWidth", "opacity", "shadow"].includes(id)) value = Number(value);
+        if (id === "objWidth" || id === "objHeight") value = Math.max(1, value);
+        saveHistory();
+        const patch = { [keyMap[id]]: value };
+        if ((id === "objWidth" || id === "objHeight") && defaultLockAspect(obj)) {
+          const ratio = Math.max(.05, obj.width / Math.max(1, obj.height));
+          if (id === "objWidth") patch.height = obj.kind === "circle" ? value : Math.max(1, value / ratio);
+          if (id === "objHeight") patch.width = obj.kind === "circle" ? value : Math.max(1, value * ratio);
+          if (obj.kind === "circle") {
+            patch.width = value;
+            patch.height = value;
+          }
+        }
+        updateSelected(patch);
+      };
+      wire(id, id === "lockAspect" ? "change" : "input", handler);
+      if (id === "fillColor" || id === "strokeColor") wire(id, "change", handler);
+    });
+
+    function alignObjects(mode) {
+      const objects = selectedObjects();
+      if (!objects.length) return;
+      const bounds = selectionBounds(objects);
+      if (!bounds) return;
+      const target = objects.length > 1
+        ? mode === "left" ? bounds.x : mode === "right" ? bounds.right : bounds.x + bounds.width / 2
+        : mode === "left" ? 0 : mode === "right" ? state.width : state.width / 2;
+      saveHistory();
+      objects.forEach(obj => {
+        if (mode === "left") obj.x = target;
+        if (mode === "center") obj.x = target - obj.width / 2;
+        if (mode === "right") obj.x = target - obj.width;
+      });
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    function setTextAlign(align) {
+      const objects = selectedObjects().filter(obj => obj.type === "text");
+      if (!objects.length) return;
+      saveHistory();
+      objects.forEach(obj => { obj.align = align; });
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    wire("alignLeftBtn", "click", () => alignObjects("left"));
+    wire("alignCenterBtn", "click", () => alignObjects("center"));
+    wire("alignRightBtn", "click", () => alignObjects("right"));
+    wire("textAlignLeftBtn", "click", () => setTextAlign("left"));
+    wire("textAlignCenterBtn", "click", () => setTextAlign("center"));
+    wire("textAlignRightBtn", "click", () => setTextAlign("right"));
+
+    wire("bringForwardBtn", "click", () => moveLayer(1));
+    wire("sendBackwardBtn", "click", () => moveLayer(-1));
+    wire("bringFrontBtn", "click", () => moveLayer(99));
+    wire("sendBackBtn", "click", () => moveLayer(-99));
+
+    function moveLayer(delta) {
+      const index = state.objects.findIndex(o => o.id === state.selectedId);
+      if (index < 0) return;
+      saveHistory();
+      const [obj] = state.objects.splice(index, 1);
+      const next = delta > 50 ? state.objects.length : delta < -50 ? 0 : Math.max(0, Math.min(state.objects.length, index + delta));
+      state.objects.splice(next, 0, obj);
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    wire("duplicateBtn", "click", () => {
+      const objects = selectedObjects();
+      if (!objects.length) return;
+      saveHistory();
+      const clones = objects.map(obj => ({ ...obj, id: uid(), name: obj.name + " 副本", x: obj.x + 28, y: obj.y + 28 }));
+      state.objects.push(...clones);
+      setSelection(clones.map(obj => obj.id));
+      renderAll();
+      syncUi();
+      persist();
+    });
+
+    wire("deleteBtn", "click", deleteSelected);
+    function deleteSelected() {
+      const ids = new Set(selectedObjects().map(o => o.id));
+      if (!ids.size) return;
+      saveHistory();
+      state.objects = state.objects.filter(o => !ids.has(o.id));
+      setSelection([]);
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    wire("undoBtn", "click", undo);
+    wire("redoBtn", "click", redo);
+
+    async function undo() {
+      if (!state.history.length) return;
+      state.future.push(snapshot());
+      await restore(state.history.pop());
+      persist();
+    }
+
+    async function redo() {
+      if (!state.future.length) return;
+      state.history.push(snapshot());
+      await restore(state.future.pop());
+      persist();
+    }
+
+    document.addEventListener("keydown", e => {
+      const tag = document.activeElement.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") undo();
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "y") redo();
+      const objects = selectedObjects();
+      if (!objects.length) return;
+      const step = e.shiftKey ? 10 : 1;
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        saveHistory();
+        objects.forEach(obj => {
+          if (e.key === "ArrowUp") obj.y -= step;
+          if (e.key === "ArrowDown") obj.y += step;
+          if (e.key === "ArrowLeft") obj.x -= step;
+          if (e.key === "ArrowRight") obj.x += step;
+        });
+        renderAll();
+        syncUi(false);
+        syncTransformInputs();
+        persist();
+      }
+    });
+
+    wire("zoomSelect", "change", () => {
+      applyZoom();
+      renderAll();
+    });
+
+    stage.addEventListener("wheel", e => {
+      if (!e.altKey) return;
+      e.preventDefault();
+      const before = canvas.getBoundingClientRect();
+      const focusX = before.width ? (e.clientX - before.left) / before.width : .5;
+      const focusY = before.height ? (e.clientY - before.top) / before.height : .5;
+      const factor = e.deltaY < 0 ? 1.08 : 1 / 1.08;
+      const nextScale = (state.zoomScale || before.width / state.width || 1) * factor;
+      const zoomSelect = document.getElementById("zoomSelect");
+      zoomSelect.value = "custom";
+      setCanvasScale(nextScale);
+      const after = canvas.getBoundingClientRect();
+      stage.scrollLeft += (after.width - before.width) * focusX;
+      stage.scrollTop += (after.height - before.height) * focusY;
+      renderAll();
+      persist();
+    }, { passive: false });
+
+    window.addEventListener("resize", () => {
+      applyZoom();
+      renderAll();
+    });
+
+    wire("imageUploadBtn", "click", () => document.getElementById("imageInput").click());
+
+    wire("imageInput", "change", async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById("imageUploadTitle").textContent = file.name;
+      document.getElementById("imageUploadMeta").textContent = "正在读取图片...";
+      const src = await readFile(file);
+      const img = await loadImage(src);
+      const maxW = state.width * .72;
+      const ratio = img.width / img.height;
+      const w = Math.min(maxW, img.width);
+      const h = w / ratio;
+      addObject(imageObject(img, state.width * .14, state.height * .22, w, h, src));
+      document.getElementById("imageUploadMeta").textContent = `${img.width} × ${img.height}，已添加到画布`;
+      e.target.value = "";
+    });
+
+    async function addLogoToCanvas(asset) {
+      const img = await loadImage(asset.src);
+      const maxW = state.width * .24;
+      const maxH = state.height * .12;
+      const ratio = img.width / img.height;
+      let w = Math.min(maxW, img.width);
+      let h = w / ratio;
+      if (h > maxH) {
+        h = maxH;
+        w = h * ratio;
+      }
+      const obj = imageObject(img, state.width - w - state.width * .08, state.height * .07, w, h, asset.src);
+      obj.name = asset.label;
+      obj.lockAspect = true;
+      addObject(obj);
+      normalizeObjectImageSource(obj);
+    }
+
+    async function addMascotToCanvas(asset) {
+      const img = await loadImage(asset.src);
+      const maxW = state.width * .28;
+      const maxH = state.height * .28;
+      const ratio = img.width / img.height;
+      let w = Math.min(maxW, img.width);
+      let h = w / ratio;
+      if (h > maxH) {
+        h = maxH;
+        w = h * ratio;
+      }
+      const obj = imageObject(img, state.width - w - state.width * .08, state.height - h - state.height * .08, w, h, asset.src);
+      obj.name = `游小侠 ${asset.label}`;
+      obj.lockAspect = true;
+      addObject(obj);
+      normalizeObjectImageSource(obj);
+    }
+
+    async function loadImageAssets(folder, fallbackNames) {
+      const fromFallback = () => fallbackNames.map(name => ({
+        label: fileLabel(name),
+        src: `${folder}/${encodeURIComponent(name)}`
+      }));
+      try {
+        const response = await fetch(`${folder}/`);
+        if (!response.ok) throw new Error(`${folder} directory unavailable`);
+        const html = await response.text();
+        const matches = [...html.matchAll(/href="([^"]+\.(?:png|jpe?g|webp|svg))"/gi)]
+          .map(match => decodeURIComponent(match[1]))
+          .filter(path => !path.startsWith("."));
+        const unique = [...new Set(matches)];
+        return unique.length
+          ? unique.map(path => ({ label: fileLabel(path), src: `${folder}/${encodeURIComponent(path.split("/").pop())}` }))
+          : fromFallback();
+      } catch (err) {
+        return fromFallback();
+      }
+    }
+
+    async function loadLogoAssets() {
+      logoAssets = await loadImageAssets("logo", fallbackLogos);
+      renderLogos();
+    }
+
+    async function loadMascotAssets() {
+      mascotAssets = await loadImageAssets("游小侠", fallbackMascots);
+      renderMascots();
+    }
+
+    function renderLogos() {
+      const list = document.getElementById("logoList");
+      list.innerHTML = "";
+      logoAssets.forEach(asset => {
+        const btn = document.createElement("button");
+        btn.className = "logo-item";
+        btn.type = "button";
+        btn.innerHTML = `<img src="${asset.src}" alt=""><span>${asset.label}</span>`;
+        btn.onclick = () => addLogoToCanvas(asset);
+        list.appendChild(btn);
+      });
+      if (!logoAssets.length) list.innerHTML = `<div class="empty">没有找到 logo 图片，请把 PNG/JPG/WebP/SVG 放入 logo 文件夹。</div>`;
+    }
+
+    function renderMascots() {
+      const list = document.getElementById("mascotList");
+      list.innerHTML = "";
+      mascotAssets.forEach(asset => {
+        const btn = document.createElement("button");
+        btn.className = "logo-item";
+        btn.type = "button";
+        btn.innerHTML = `<img src="${asset.src}" alt=""><span>${asset.label}</span>`;
+        btn.onclick = () => addMascotToCanvas(asset);
+        list.appendChild(btn);
+      });
+      if (!mascotAssets.length) list.innerHTML = `<div class="empty">没有找到游小侠贴纸，请把 PNG/JPG/WebP/SVG 放入游小侠文件夹。</div>`;
+    }
+
+    wire("exportBtn", "click", async () => {
+      try {
+        await document.fonts.ready;
+        await normalizeAllImageSources();
+        const scale = Number(document.getElementById("exportScale").value);
+        const type = document.getElementById("exportType").value;
+        const out = document.createElement("canvas");
+        out.width = state.width * scale;
+        out.height = state.height * scale;
+        renderAll(true, scale, out.getContext("2d"));
+        out.toBlob(blob => {
+          if (!blob) {
+            alert("导出失败：画布里有浏览器禁止导出的图片资源。请刷新页面后重新添加贴纸或图片。");
+            return;
+          }
+          const a = document.createElement("a");
+          const ext = type === "image/jpeg" ? "jpg" : "png";
+          a.href = URL.createObjectURL(blob);
+          a.download = `${state.platform}-${state.label}-${state.width}x${state.height}.${ext}`.replace(/[\\/:\s]+/g, "-");
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }, type, .94);
+      } catch (err) {
+        alert("导出失败：画布里有浏览器禁止导出的图片资源。请刷新页面后重新添加贴纸或图片。");
+      }
+    });
+
+    wire("localFontsBtn", "click", async () => {
+      if (!("queryLocalFonts" in window)) {
+        document.getElementById("fontStatus").textContent = "当前浏览器不支持";
+        return;
+      }
+      try {
+        const fonts = await window.queryLocalFonts();
+        const seen = new Set();
+        localFonts = fonts
+          .filter(f => {
+            const key = `${f.family}-${f.style}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .map(f => ({ family: f.family, label: `${f.family} ${f.style}`, source: "local" }))
+          .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
+        document.getElementById("fontStatus").textContent = `本地 ${localFonts.length} 款`;
+        syncFontSelect();
+      } catch (err) {
+        document.getElementById("fontStatus").textContent = "授权被拒绝";
+      }
+    });
+
+    function readFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function assetSourceToDataUrl(src) {
+      if (src.startsWith("data:")) return src;
+      try {
+        const response = await fetch(src);
+        if (!response.ok) throw new Error("asset fetch failed");
+        const blob = await response.blob();
+        return await readFile(blob);
+      } catch (err) {
+        return src;
+      }
+    }
+
+    async function normalizeObjectImageSource(obj) {
+      if (!obj || obj.type !== "image" || !obj.src || obj.src.startsWith("data:")) return;
+      const dataUrl = await assetSourceToDataUrl(obj.src);
+      if (dataUrl === obj.src) return;
+      obj.src = dataUrl;
+      obj.image = await loadImage(dataUrl);
+      renderAll();
+      persist();
+    }
+
+    async function normalizeAllImageSources() {
+      for (const obj of state.objects) {
+        await normalizeObjectImageSource(obj);
+      }
+    }
+
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        if (!src.startsWith("data:") && !src.startsWith("blob:")) img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
+    }
+
+    function setPreset(preset, keepObjects = false) {
+      saveHistory();
+      const oldW = state.width;
+      const oldH = state.height;
+      state.width = preset.width;
+      state.height = preset.height;
+      state.platform = preset.platform;
+      state.label = preset.label;
+      if (keepObjects) {
+        const sx = state.width / oldW;
+        const sy = state.height / oldH;
+        state.objects.forEach(o => {
+          o.x *= sx; o.y *= sy; o.width *= sx; o.height *= sy;
+          if (o.type === "text") o.fontSize *= Math.min(sx, sy);
+        });
+      } else {
+        state.objects = [];
+        setSelection([]);
+      }
+      resizeCanvas();
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    function renderPresets() {
+      const list = document.getElementById("presetList");
+      const q = document.getElementById("presetSearch").value.trim().toLowerCase();
+      list.innerHTML = "";
+      presets
+        .filter(p => `${p.platform} ${p.label} ${p.width} ${p.height}`.toLowerCase().includes(q))
+        .sort((a, b) => Number(b.recommended) - Number(a.recommended))
+        .forEach(p => {
+          const btn = document.createElement("button");
+          btn.className = `preset ${p.width === state.width && p.height === state.height && p.platform === state.platform ? "active" : ""}`;
+          btn.innerHTML = `<strong>${p.platform} · ${p.label}</strong><span>${p.width} × ${p.height}${p.safe ? " · " + p.safe : ""}</span>`;
+          btn.onclick = () => {
+            const keep = state.objects.length && confirm("是否将现有元素等比适配到新尺寸？\n取消则创建空白画布。");
+            setPreset(p, keep);
+          };
+          list.appendChild(btn);
+        });
+    }
+
+    wire("presetSearch", "input", renderPresets);
+
+    wire("newBlankBtn", "click", () => {
+      if (state.objects.length && !confirm("确定清空当前画布并新建空白画布吗？")) return;
+      saveHistory();
+      state.objects = [];
+      setSelection([]);
+      state.background = "#ffffff";
+      document.getElementById("backgroundColor").value = state.background;
+      renderAll();
+      syncUi();
+      persist();
+    });
+
+    function renderSwatches() {
+      const box = document.getElementById("swatches");
+      box.innerHTML = "";
+      swatchColors.forEach(color => {
+        const btn = document.createElement("button");
+        btn.className = "swatch";
+        btn.style.background = color;
+        btn.title = color;
+        btn.onclick = () => {
+          state.background = color;
+          document.getElementById("backgroundColor").value = color;
+          renderAll();
+          persist();
+        };
+        box.appendChild(btn);
+      });
+    }
+
+    function syncFontSelect() {
+      const select = document.getElementById("fontFamily");
+      const current = select.value;
+      select.innerHTML = "";
+      [
+        ["推荐字体", baseFonts],
+        ["本地字体", localFonts]
+      ].forEach(([label, fonts]) => {
+        if (!fonts.length) return;
+        const group = document.createElement("optgroup");
+        group.label = label;
+        fonts.forEach(f => {
+          const option = document.createElement("option");
+          option.value = f.family;
+          option.textContent = f.label;
+          option.style.fontFamily = `"${f.family}", sans-serif`;
+          group.appendChild(option);
+        });
+        select.appendChild(group);
+      });
+      if (current) select.value = current;
+    }
+
+    function syncInspectorOutputs(obj = selected()) {
+      if (!obj) return;
+      document.getElementById("strokeWidthValue").textContent = String(obj.strokeWidth || 0);
+      document.getElementById("opacityValue").textContent = `${Math.round((obj.opacity ?? 1) * 100)}%`;
+      document.getElementById("shadowValue").textContent = String(obj.shadow || 0);
+    }
+
+    function syncTransformInputs(obj = selected()) {
+      const objects = selectedObjects();
+      const bounds = objects.length > 1 ? selectionBounds(objects) : obj;
+      if (!bounds) return;
+      document.getElementById("posX").value = Math.round(bounds.x || 0);
+      document.getElementById("posY").value = Math.round(bounds.y || 0);
+      document.getElementById("objWidth").value = Math.round(bounds.width || 0);
+      document.getElementById("objHeight").value = Math.round(bounds.height || 0);
+      document.getElementById("rotation").value = objects.length > 1 ? "" : Math.round(obj.rotation || 0);
+      document.getElementById("lockAspect").checked = objects.length > 1 ? true : defaultLockAspect(obj);
+    }
+
+    function syncUi(updateValues = true) {
+      renderPresets();
+      renderLayers();
+      const obj = selected();
+      const objects = selectedObjects();
+      const multi = objects.length > 1;
+      document.querySelector(".right").classList.toggle("has-selection", !!objects.length);
+      document.getElementById("emptyPanel").classList.toggle("hidden", !!objects.length);
+      document.getElementById("propsPanel").classList.toggle("hidden", !objects.length);
+      document.getElementById("selectionLabel").textContent = multi ? `${objects.length} 个图层` : obj ? obj.name : "未选中";
+      document.getElementById("backgroundColor").value = state.background;
+      if (!objects.length || !updateValues) return;
+      const isText = obj.type === "text";
+      const isShape = obj.type === "shape";
+      const isImage = obj.type === "image";
+      const hasAppearance = isText || isShape || isImage;
+      const allText = objects.every(item => item.type === "text");
+      document.getElementById("textGroup").classList.toggle("hidden", multi ? !allText : !isText);
+      document.getElementById("appearanceGroup").classList.toggle("hidden", multi || !hasAppearance);
+      document.getElementById("appearanceGrid").classList.toggle("hidden", isImage);
+      document.getElementById("strokeWidth").closest(".inline-control").classList.toggle("hidden", isImage);
+      document.getElementById("fillColorLabel").textContent = isShape ? "填充颜色" : "文字颜色";
+      document.getElementById("strokeColorLabel").textContent = isShape ? "描边颜色" : "描边颜色";
+      syncTransformInputs(obj);
+      if (multi) return;
+      document.getElementById("textValue").value = obj.text || "";
+      document.getElementById("fontFamily").value = obj.fontFamily || "PingFang SC";
+      document.getElementById("fontSize").value = Math.round(obj.fontSize || 42);
+      document.getElementById("fillColor").value = obj.fill || "#171411";
+      document.getElementById("strokeColor").value = obj.stroke || "#171411";
+      document.getElementById("strokeWidth").value = obj.strokeWidth || 0;
+      document.getElementById("opacity").value = obj.opacity ?? 1;
+      document.getElementById("shadow").value = obj.shadow || 0;
+      syncInspectorOutputs(obj);
+      ["left", "center", "right"].forEach(align => {
+        document.getElementById(`textAlign${align[0].toUpperCase()}${align.slice(1)}Btn`).classList.toggle("active", obj.align === align);
+      });
+    }
+
+    function setupInspectorInteractions() {
+      document.querySelectorAll(".inspector-group").forEach((group, index) => {
+        const title = group.querySelector(".inspector-group-title");
+        if (!title || title.dataset.ready) return;
+        title.dataset.ready = "true";
+        title.tabIndex = 0;
+        title.setAttribute("role", "button");
+        title.setAttribute("aria-expanded", "true");
+
+        const toggle = document.createElement("span");
+        toggle.className = "inspector-toggle";
+        toggle.setAttribute("aria-hidden", "true");
+        toggle.innerHTML = '<svg viewBox="0 0 16 16"><path d="M5.4 2.8L10.6 8L5.4 13.2L4.3 12.1L8.4 8L4.3 3.9L5.4 2.8Z"></path></svg>';
+        title.appendChild(toggle);
+
+        const setCollapsed = collapsed => {
+          group.classList.toggle("collapsed", collapsed);
+          title.setAttribute("aria-expanded", String(!collapsed));
+        };
+
+        title.addEventListener("click", () => setCollapsed(!group.classList.contains("collapsed")));
+        title.addEventListener("keydown", event => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          setCollapsed(!group.classList.contains("collapsed"));
+        });
+
+        if (index > 4 && window.innerHeight < 820) setCollapsed(true);
+      });
+
+      document.querySelectorAll(".right input[type='number']").forEach(input => {
+        input.addEventListener("wheel", event => {
+          if (document.activeElement !== input) return;
+          event.preventDefault();
+          const direction = event.deltaY < 0 ? 1 : -1;
+          const step = Number(input.step || 1) || 1;
+          input.value = String(Number(input.value || 0) + direction * step);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        }, { passive: false });
+      });
+    }
+
+    function renderLayers() {
+      const box = document.getElementById("layers");
+      box.innerHTML = "";
+      [...state.objects].reverse().forEach(obj => {
+        const btn = document.createElement("button");
+        const active = selectedObjects().some(selectedObj => selectedObj.id === obj.id);
+        btn.className = `layer ${active ? "active" : ""}`;
+        btn.innerHTML = `<span>${obj.name}</span><span>${obj.type}</span>`;
+        btn.onclick = event => {
+          if (event.shiftKey || event.metaKey || event.ctrlKey) toggleSelection(obj.id);
+          else setSelection([obj.id]);
+          renderAll();
+          syncUi();
+        };
+        box.appendChild(btn);
+      });
+      if (!state.objects.length) box.innerHTML = `<div class="empty">暂无图层。添加文字、图片、Logo 或图形开始。</div>`;
+    }
+
+    function setUpdateUi(status, payload = {}) {
+      const statusEl = document.getElementById("updateStatus");
+      const checkBtn = document.getElementById("checkUpdateBtn");
+      const installBtn = document.getElementById("installUpdateBtn");
+      if (!statusEl || !checkBtn || !installBtn) return;
+
+      statusEl.className = "update-pill";
+      installBtn.classList.add("hidden");
+      checkBtn.disabled = false;
+
+      if (status === "idle") {
+        statusEl.classList.add("hidden");
+        statusEl.textContent = "更新就绪";
+      } else if (status === "checking") {
+        statusEl.classList.add("is-checking");
+        statusEl.textContent = "正在检查更新";
+        checkBtn.disabled = true;
+      } else if (status === "available") {
+        statusEl.classList.add("is-ready");
+        statusEl.textContent = `发现 ${payload.version || "新版本"}`;
+      } else if (status === "downloading") {
+        statusEl.classList.add("is-downloading");
+        statusEl.textContent = `下载中 ${payload.percent || 0}%`;
+        checkBtn.disabled = true;
+      } else if (status === "downloaded") {
+        statusEl.classList.add("is-ready");
+        statusEl.textContent = `已下载 ${payload.version || "新版"}`;
+        installBtn.classList.remove("hidden");
+      } else if (status === "not-available") {
+        statusEl.textContent = "已是最新";
+      } else if (status === "dev-mode") {
+        statusEl.textContent = "开发模式";
+      } else if (status === "error") {
+        statusEl.textContent = "更新检查失败";
+      }
+    }
+
+    function setupUpdateUi() {
+      const checkBtn = document.getElementById("checkUpdateBtn");
+      const installBtn = document.getElementById("installUpdateBtn");
+      if (!checkBtn || !installBtn) return;
+
+      if (!window.youdesignDesktop) {
+        checkBtn.classList.add("hidden");
+        installBtn.classList.add("hidden");
+        setUpdateUi("idle");
+        return;
+      }
+
+      checkBtn.addEventListener("click", () => window.youdesignDesktop.checkForUpdates());
+      installBtn.addEventListener("click", () => window.youdesignDesktop.installUpdate());
+      window.youdesignDesktop.onUpdateStatus(payload => setUpdateUi(payload.status, payload));
+      window.youdesignDesktop.onCheckUpdate(() => window.youdesignDesktop.checkForUpdates());
+      setUpdateUi("idle");
+    }
+
+    async function init() {
+      applyIconSystem();
+      setupInspectorInteractions();
+      setupUpdateUi();
+      syncFontSelect();
+      renderSwatches();
+      loadLogoAssets();
+      loadMascotAssets();
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) {
+        try { await restore(cached); return; } catch (e) {}
+      }
+      resizeCanvas();
+      state.background = "#ffffff";
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    init();
+  </script>
+</body>
+</html>
