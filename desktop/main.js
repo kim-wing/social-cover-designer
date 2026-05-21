@@ -14,6 +14,23 @@ let updateReadyToInstall = false;
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
+function log(message, error) {
+  try {
+    const dir = app.getPath("userData");
+    fs.mkdirSync(dir, { recursive: true });
+    const line = `[${new Date().toISOString()}] ${message}${error ? `\n${error.stack || error.message || String(error)}` : ""}\n`;
+    fs.appendFileSync(path.join(dir, "youdesign.log"), line);
+  } catch (_) {}
+}
+
+process.on("uncaughtException", error => {
+  log("Uncaught exception", error);
+});
+
+process.on("unhandledRejection", error => {
+  log("Unhandled rejection", error);
+});
+
 function sendUpdateStatus(status, data = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send("youdesign:update-status", { status, ...data });
@@ -91,15 +108,20 @@ function startStaticServer() {
   });
 
   return new Promise((resolve, reject) => {
-    staticServer.once("error", reject);
+    staticServer.once("error", error => {
+      log("Static server failed", error);
+      reject(error);
+    });
     staticServer.listen(0, "127.0.0.1", () => {
       staticPort = staticServer.address().port;
+      log(`Static server started on port ${staticPort}`);
       resolve(staticPort);
     });
   });
 }
 
 async function createWindow() {
+  log(`Creating window. packaged=${app.isPackaged}, platform=${process.platform}, appRoot=${APP_ROOT}`);
   const port = await startStaticServer();
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -116,7 +138,12 @@ async function createWindow() {
     }
   });
 
+  mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
+    log(`Window failed to load: ${errorCode} ${errorDescription}`);
+  });
+
   await mainWindow.loadURL(`http://127.0.0.1:${port}/index.html`);
+  log("Window loaded");
 
   if (app.isPackaged) {
     setTimeout(() => checkForUpdates(false), 1800);
@@ -272,7 +299,7 @@ function createMenu() {
       submenu: [
         {
           label: "打开发布页",
-          click: () => shell.openExternal("https://github.com/your-org/youdesign/releases/latest")
+          click: () => shell.openExternal("https://github.com/kim-wing/social-cover-designer/releases/latest")
         }
       ]
     }
@@ -282,10 +309,14 @@ function createMenu() {
 }
 
 app.whenReady().then(() => {
+  log(`App ready. version=${app.getVersion()}`);
   setupAutoUpdater();
   setupIpc();
   createMenu();
-  createWindow();
+  createWindow().catch(error => {
+    log("Failed to create main window", error);
+    dialog.showErrorBox("YOUDESIGN 启动失败", error.message || String(error));
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
