@@ -2300,7 +2300,7 @@
     const stage = document.getElementById("stage");
     const selectionOverlay = document.getElementById("selectionOverlay");
     const STORAGE_KEY = "social-cover-designer-v3";
-    const APP_VERSION = "1.0.2";
+    const APP_VERSION = "1.0.3";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -3731,6 +3731,8 @@
       statusEl.className = "update-pill";
       installBtn.classList.add("hidden");
       checkBtn.disabled = false;
+      const installLabel = installBtn.querySelector("span");
+      if (installLabel) installLabel.textContent = "重启安装";
 
       if (status === "idle") {
         statusEl.classList.add("hidden");
@@ -3750,6 +3752,11 @@
         statusEl.classList.add("is-ready");
         statusEl.textContent = `已下载 ${payload.version || "新版"}`;
         installBtn.classList.remove("hidden");
+      } else if (status === "manual-download") {
+        statusEl.classList.add("is-ready");
+        statusEl.textContent = `请手动下载 ${payload.version || "新版"}`;
+        installBtn.classList.remove("hidden");
+        if (installLabel) installLabel.textContent = "打开下载页";
       } else if (status === "not-available") {
         statusEl.textContent = "已是最新";
       } else if (status === "dev-mode") {

@@ -5,6 +5,7 @@ const http = require("http");
 const path = require("path");
 
 const APP_ROOT = path.join(__dirname, "..");
+const RELEASE_URL = "https://github.com/kim-wing/social-cover-designer/releases/latest";
 let staticServer;
 let staticPort;
 let mainWindow;
@@ -34,6 +35,10 @@ process.on("unhandledRejection", error => {
 function sendUpdateStatus(status, data = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send("youdesign:update-status", { status, ...data });
+}
+
+function openReleasePage() {
+  shell.openExternal(RELEASE_URL);
 }
 
 function contentType(filePath) {
@@ -191,6 +196,27 @@ function setupAutoUpdater() {
 
   autoUpdater.on("update-available", async info => {
     updateCheckInProgress = false;
+
+    if (process.platform === "darwin") {
+      sendUpdateStatus("manual-download", {
+        version: info.version,
+        releaseName: info.releaseName,
+        releaseDate: info.releaseDate
+      });
+
+      const result = await dialog.showMessageBox(mainWindow, {
+        type: "info",
+        buttons: ["打开下载页", "稍后"],
+        defaultId: 0,
+        cancelId: 1,
+        message: `发现新版本 ${info.version}`,
+        detail: "当前 macOS 测试包未做 Apple 签名与公证，不能稳定执行一键替换安装。请打开发布页下载对应芯片版本，退出应用后手动替换。"
+      });
+
+      if (result.response === 0) openReleasePage();
+      return;
+    }
+
     sendUpdateStatus("available", {
       version: info.version,
       releaseName: info.releaseName,
@@ -263,7 +289,10 @@ function createMenu() {
         {
           label: "重启并安装更新",
           enabled: updateReadyToInstall,
-          click: () => autoUpdater.quitAndInstall(false, true)
+          click: () => {
+            if (process.platform === "darwin") openReleasePage();
+            else autoUpdater.quitAndInstall(false, true);
+          }
         },
         { type: "separator" },
         { role: "quit", label: "退出" }
@@ -299,7 +328,7 @@ function createMenu() {
       submenu: [
         {
           label: "打开发布页",
-          click: () => shell.openExternal("https://github.com/kim-wing/social-cover-designer/releases/latest")
+          click: () => openReleasePage()
         }
       ]
     }
@@ -326,6 +355,10 @@ app.whenReady().then(() => {
 function setupIpc() {
   ipcMain.handle("youdesign:check-for-updates", () => checkForUpdates(true));
   ipcMain.handle("youdesign:install-update", () => {
+    if (process.platform === "darwin") {
+      openReleasePage();
+      return false;
+    }
     if (!updateReadyToInstall) return false;
     autoUpdater.quitAndInstall(false, true);
     return true;
