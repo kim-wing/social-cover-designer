@@ -1381,7 +1381,7 @@
     .canvas-shell {
       border-radius: 12px;
       box-shadow: var(--shadow), 0 0 0 1px rgba(255, 255, 255, .92);
-      overflow: hidden;
+      overflow: visible;
     }
 
     canvas {
@@ -1640,6 +1640,7 @@
         0 14px 38px rgba(15, 23, 42, .08),
         0 0 0 1px rgba(255, 255, 255, .96),
         0 0 0 7px rgba(255, 241, 0, .08);
+      overflow: visible;
     }
 
     .selection-box {
@@ -1945,6 +1946,12 @@
       color: rgba(29, 29, 31, .74);
     }
 
+    .mini-btn .ri {
+      width: 15px;
+      height: 15px;
+      opacity: .78;
+    }
+
     .mini-btn:hover {
       border-color: var(--accent-border);
       background: rgba(255, 255, 255, .94);
@@ -1956,6 +1963,10 @@
       background: var(--accent);
       color: rgba(29, 29, 31, .92);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72), 0 10px 20px var(--accent-shadow);
+    }
+
+    .mini-btn.active .ri {
+      opacity: 1;
     }
 
     .inline-control {
@@ -2314,6 +2325,12 @@
       alignLeft: "M4 4H6V20H4V4ZM8 6H20V8H8V6ZM8 11H16V13H8V11ZM8 16H20V18H8V16Z",
       alignCenter: "M11 4H13V7H20V9H13V11H18V13H13V15H20V17H13V20H11V17H4V15H11V13H6V11H11V9H4V7H11V4Z",
       alignRight: "M18 4H20V20H18V4ZM4 6H16V8H4V6ZM8 11H16V13H8V11ZM4 16H16V18H4V16Z",
+      objectAlignLeft: "M4 3H6V21H4V3ZM9 7H20V17H9V7ZM11 9V15H18V9H11Z",
+      objectAlignCenter: "M11 3H13V6H20V18H13V21H11V18H4V6H11V3ZM6 8V16H18V8H6Z",
+      objectAlignRight: "M18 3H20V21H18V3ZM4 7H15V17H4V7ZM6 9V15H13V9H6Z",
+      textAlignLeft: "M4 5H20V7H4V5ZM4 9H16V11H4V9ZM4 13H20V15H4V13ZM4 17H14V19H4V17Z",
+      textAlignCenter: "M4 5H20V7H4V5ZM7 9H17V11H7V9ZM4 13H20V15H4V13ZM8 17H16V19H8V17Z",
+      textAlignRight: "M4 5H20V7H4V5ZM8 9H20V11H8V9ZM4 13H20V15H4V13ZM10 17H20V19H10V17Z",
       layerUp: "M12 2L22 8L12 14L2 8L12 2ZM12 4.332L5.887 8L12 11.668L18.113 8L12 4.332ZM2 12L4 10.8L12 15.6L20 10.8L22 12L12 18L2 12ZM2 16L4 14.8L12 19.6L20 14.8L22 16L12 22L2 16Z"
     };
 
@@ -2350,12 +2367,12 @@
         addCircleBtn: "circle",
         addDividerBtn: "line",
         addOverlayBtn: "overlay",
-        alignLeftBtn: "alignLeft",
-        alignCenterBtn: "alignCenter",
-        alignRightBtn: "alignRight",
-        textAlignLeftBtn: "alignLeft",
-        textAlignCenterBtn: "alignCenter",
-        textAlignRightBtn: "alignRight",
+        alignLeftBtn: "objectAlignLeft",
+        alignCenterBtn: "objectAlignCenter",
+        alignRightBtn: "objectAlignRight",
+        textAlignLeftBtn: "textAlignLeft",
+        textAlignCenterBtn: "textAlignCenter",
+        textAlignRightBtn: "textAlignRight",
         bringForwardBtn: "layerUp",
         sendBackwardBtn: "layerUp",
         bringFrontBtn: "layerUp",
