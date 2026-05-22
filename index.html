@@ -804,6 +804,28 @@
       cursor: grab;
     }
 
+    .inline-text-editor {
+      position: absolute;
+      z-index: 6;
+      display: none;
+      min-width: 44px;
+      min-height: 34px;
+      padding: 0;
+      border: 2px solid var(--accent);
+      border-radius: 8px;
+      outline: none;
+      background: rgba(255, 255, 255, .88);
+      color: inherit;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, .16), 0 0 0 1px rgba(255, 255, 255, .86);
+      resize: none;
+      overflow: hidden;
+      backdrop-filter: blur(14px) saturate(1.15);
+    }
+
+    .inline-text-editor.is-active {
+      display: block;
+    }
+
     .zoom-hud {
       position: absolute;
       right: 14px;
@@ -2066,7 +2088,10 @@
         <button class="btn" id="checkUpdateBtn" type="button">检查更新</button>
         <button class="btn primary hidden" id="installUpdateBtn" type="button">重启安装</button>
         <span class="update-pill hidden" id="updateStatus">已是最新</span>
+        <button class="btn" id="importProjectBtn" type="button">导入工程</button>
+        <button class="btn" id="exportProjectBtn" type="button">导出工程</button>
         <button class="btn primary" id="exportBtn">导出图片</button>
+        <input class="file-input" id="projectInput" type="file" accept=".youdesign,application/json">
       </div>
     </header>
 
@@ -2104,8 +2129,8 @@
           <div class="element-group" id="textTools">
             <p class="element-title">文字</p>
             <div class="element-grid">
-              <button class="element-card" id="addTextBtn" type="button"><span class="element-icon">T</span><span><strong>文字</strong><span>普通说明文字</span></span></button>
               <button class="element-card" id="addTitleBtn" type="button"><span class="element-icon">H</span><span><strong>标题</strong><span>封面主视觉</span></span></button>
+              <button class="element-card" id="addTextBtn" type="button"><span class="element-icon">T</span><span><strong>文字</strong><span>普通说明文字</span></span></button>
               <button class="element-card" id="addSubtitleBtn" type="button"><span class="element-icon">S</span><span><strong>副标题</strong><span>补充说明</span></span></button>
               <button class="element-card" id="addBigNumberBtn" type="button"><span class="element-icon">7</span><span><strong>大数字</strong><span>清单/步骤</span></span></button>
               <button class="element-card" id="addVerticalTextBtn" type="button"><span class="element-icon">竖</span><span><strong>竖排字</strong><span>边栏标题</span></span></button>
@@ -2118,7 +2143,7 @@
               <div class="grid">
                 <button class="btn" id="localFontsBtn">读取本地字体</button>
               </div>
-              <p class="hint">读取本机已安装字体需要桌面浏览器授权。</p>
+              <p class="hint">只显示白名单中的免费商用字体和字魂字体，其他本地字体会自动过滤。</p>
             </div>
           </div>
           <div class="element-group">
@@ -2166,6 +2191,7 @@
           <div class="canvas-shell">
             <canvas id="canvas"></canvas>
             <div class="selection-overlay" id="selectionOverlay"></div>
+            <textarea class="inline-text-editor" id="inlineTextEditor" aria-label="直接编辑文字"></textarea>
           </div>
           <div class="zoom-hud" title="按住 Alt 并滚动鼠标滚轮缩放画布">
             <strong id="zoomPercent">100%</strong>
@@ -2246,6 +2272,15 @@
                   <input id="strokeWidth" type="range" min="0" max="18" step="1">
                   <output id="strokeWidthValue">0</output>
                 </div>
+                <div class="inline-control hidden" id="shapeRadiusControl">
+                  <label for="shapeRadius">圆角</label>
+                  <input id="shapeRadius" type="range" min="0" max="160" step="1">
+                  <output id="shapeRadiusValue">0</output>
+                </div>
+                <div class="button-row two hidden" id="shapeRadiusPresets">
+                  <button class="mini-btn" id="radiusStraightBtn" type="button">直角</button>
+                  <button class="mini-btn" id="radiusRoundBtn" type="button">圆角</button>
+                </div>
                 <div class="inline-control">
                   <label for="opacity">透明度</label>
                   <input id="opacity" type="range" min="0.05" max="1" step="0.05">
@@ -2299,8 +2334,9 @@
     const ctx = canvas.getContext("2d");
     const stage = document.getElementById("stage");
     const selectionOverlay = document.getElementById("selectionOverlay");
+    const inlineTextEditor = document.getElementById("inlineTextEditor");
     const STORAGE_KEY = "social-cover-designer-v3";
-    const APP_VERSION = "1.0.3";
+    const APP_VERSION = "1.0.4";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -2361,6 +2397,8 @@
         deleteBtn: "delete",
         checkUpdateBtn: "refresh",
         installUpdateBtn: "refresh",
+        importProjectBtn: "upload",
+        exportProjectBtn: "export",
         exportBtn: "export",
         imageUploadBtn: "upload",
         addRectBtn: "rect",
@@ -2385,8 +2423,14 @@
           el.innerHTML = icon(name);
           return;
         }
-        if (id === "exportBtn" || id === "checkUpdateBtn" || id === "installUpdateBtn") {
-          const label = id === "exportBtn" ? "导出图片" : id === "checkUpdateBtn" ? "检查更新" : "重启安装";
+        if (id === "exportBtn" || id === "checkUpdateBtn" || id === "installUpdateBtn" || id === "importProjectBtn" || id === "exportProjectBtn") {
+          const label = {
+            exportBtn: "导出图片",
+            checkUpdateBtn: "检查更新",
+            installUpdateBtn: "重启安装",
+            importProjectBtn: "导入工程",
+            exportProjectBtn: "导出工程"
+          }[id];
           el.innerHTML = `${icon(name)}<span>${label}</span>`;
           return;
         }
@@ -2426,13 +2470,43 @@
     ];
 
     const swatchColors = ["#fff6d8", "#fff100", "#ff4d23", "#171411", "#f7f7f2", "#2563eb", "#12b981", "#ffe4ec", "#efe7ff", "#d9f99d", "#f8fafc", "#f97316", "#0f172a", "#fef3c7"];
+    const safeFontKeywords = [
+      "字魂", "字小魂", "ZiHun", "ZiXiaoHun",
+      "思源", "Source Han", "Noto Sans CJK", "Noto Serif CJK", "SourceHanSans", "SourceHanSerif", "NotoSansCJK", "NotoSerifCJK",
+      "站酷", "ZCOOL", "Zcool",
+      "阿里巴巴普惠体", "Alibaba PuHuiTi", "AlibabaPuHuiTi", "Alibaba-PuHuiTi", "AlibabaSans",
+      "优设", "YouShe", "YouSheBiaoTiHei",
+      "庞门正道", "PangMenZhengDao",
+      "得意黑", "Smiley Sans", "SmileySans",
+      "抖音美好体", "Douyin Font", "DouyinSansBold",
+      "快看世界体", "KuaiKan Font", "KuaiKanShiJieTi",
+      "小米兰亭", "MiLan", "MiLanTing", "MiSans",
+      "OPPO Sans", "OPPOSans", "VIVO Type", "vivo Sans",
+      "鸿蒙", "HarmonyOS", "HarmonyOS Sans", "HarmonyOS_Sans",
+      "霞鹜", "LXGW", "LXGWWenKai", "LXGW WenKai",
+      "悠哉", "Yozai",
+      "文泉驿", "WenQuanYi", "Unifont", "GNU Unifont", "Fandol",
+      "Gentium", "DejaVu", "Liberation", "Droid",
+      "Roboto", "Open Sans", "Noto Sans", "Noto Serif", "Lato", "Montserrat", "Oswald", "Raleway", "PT Sans", "Merriweather",
+      "Ubuntu", "Cantarell", "Fira Sans", "Fira Code", "Fira Mono", "Inter", "Manrope", "Work Sans", "Playfair Display",
+      "Source Sans Pro", "Source Serif Pro", "Source Code Pro", "IBM Plex", "Space Grotesk", "DM Sans", "Karla", "Heebo",
+      "Nunito", "Rubik", "Barlow", "Titillium Web", "Varela Round", "Cabin", "Muli", "Quicksand", "Jost", "Sora",
+      "M PLUS", "MPLUS", "Kosugi", "Sawarabi", "Nanum",
+      "全字库", "TW-Kai", "TW-Sung", "TW-Moe-Kai", "TW-Moe-Sung",
+      "教育部標準楷書", "教育部標準宋體", "新細明體", "細明體", "標楷體", "港鐵宋體", "MTR Sung",
+      "胡晓波字体", "HuXiaoBo", "江西拙楷", "JiangXiZhuoKai", "猫啃网", "Maoken", "问藏书房", "WenCang",
+      "沐瑶软笔手写体", "MuYao", "手写体", "ShouXieTi", "杨任东竹石体", "YangRenDong", "齐伋体", "QiJi",
+      "钟齐流江毛笔草体", "钟齐志莽行书", "装甲明朝体", "SoukouMincho", "源界明朝", "GenkaiMincho",
+      "源云明体", "GenYoMin", "源样明体", "源流明体", "GenRyuMin", "源石黑体", "GenSekiGothic",
+      "源柔黑体", "GenJyuuGothic", "源泉圆体", "GenSenRounded", "源暎", "GenEi", "花园明朝", "Hanazono"
+    ];
     const baseFonts = [
-      { family: "PingFang SC", label: "苹方" },
-      { family: "Microsoft YaHei", label: "微软雅黑" },
-      { family: "SimHei", label: "黑体" },
-      { family: "Songti SC", label: "宋体" },
-      { family: "Georgia", label: "Georgia" },
-      { family: "Arial", label: "Arial" }
+      { family: "Alibaba PuHuiTi", label: "阿里巴巴普惠体" },
+      { family: "Noto Sans CJK SC", label: "Noto Sans CJK" },
+      { family: "Source Han Sans SC", label: "思源黑体" },
+      { family: "Smiley Sans", label: "得意黑" },
+      { family: "MiSans", label: "MiSans" },
+      { family: "HarmonyOS Sans", label: "HarmonyOS Sans" }
     ];
     const fallbackLogos = [
       "垂直logo.png",
@@ -2466,6 +2540,7 @@
       future: [],
       dragging: null
     };
+    let inlineEditing = null;
 
     function uid() {
       return Math.random().toString(36).slice(2, 10);
@@ -2482,7 +2557,7 @@
         height: extra.height || fontSize * 1.25,
         rotation: 0,
         opacity: 1,
-        fontFamily: extra.fontFamily || "PingFang SC",
+        fontFamily: extra.fontFamily || "Alibaba PuHuiTi",
         fontSize,
         fontWeight: extra.fontWeight || 800,
         fill,
@@ -2534,6 +2609,15 @@
       };
     }
 
+    function isSafeCommercialFontName(fontName) {
+      const normalized = String(fontName || "").toLowerCase();
+      return safeFontKeywords.some(keyword => normalized.includes(String(keyword).toLowerCase()));
+    }
+
+    function isSafeCommercialFont(font) {
+      return [font.family, font.fullName, font.postscriptName].some(isSafeCommercialFontName);
+    }
+
     function fileLabel(path) {
       const name = decodeURIComponent(path.split("/").pop() || path);
       return name.replace(/\.[^.]+$/, "");
@@ -2557,7 +2641,11 @@
     }
 
     async function restore(raw) {
-      const data = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      const data = parsed && parsed.schema === "youdesign.project" ? parsed.document : parsed;
+      if (!data || !Array.isArray(data.objects) || !Number(data.width) || !Number(data.height)) {
+        throw new Error("工程文件格式不正确");
+      }
       Object.assign(state, data);
       state.objects = await Promise.all(data.objects.map(async o => {
         if (o.type === "image" && o.src) {
@@ -2573,6 +2661,34 @@
 
     function persist() {
       localStorage.setItem(STORAGE_KEY, snapshot());
+    }
+
+    function projectSnapshot() {
+      return JSON.stringify({
+        schema: "youdesign.project",
+        version: 1,
+        appVersion: APP_VERSION,
+        exportedAt: new Date().toISOString(),
+        document: JSON.parse(snapshot())
+      }, null, 2);
+    }
+
+    function downloadTextFile(content, filename, type = "application/json") {
+      const blob = new Blob([content], { type });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function readTextFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
     }
 
     function resizeCanvas() {
@@ -2649,6 +2765,66 @@
       for (const obj of state.objects) drawObject(targetCtx, obj);
       targetCtx.restore();
       if (!exporting) renderSelectionOverlay();
+    }
+
+    function hideInlineTextEditor() {
+      inlineEditing = null;
+      inlineTextEditor.classList.remove("is-active");
+      inlineTextEditor.value = "";
+      inlineTextEditor.onblur = null;
+      inlineTextEditor.onkeydown = null;
+    }
+
+    function finishInlineTextEdit(commit = true) {
+      if (!inlineEditing) return;
+      const obj = state.objects.find(item => item.id === inlineEditing.id);
+      const nextText = inlineTextEditor.value;
+      if (commit && obj && obj.type === "text" && nextText !== inlineEditing.original) {
+        saveHistory();
+        obj.text = nextText || " ";
+        obj.name = obj.text.split("\n")[0].slice(0, 10) || "文字";
+        renderAll();
+        syncUi();
+        persist();
+      }
+      hideInlineTextEditor();
+    }
+
+    function startInlineTextEdit(obj) {
+      if (!obj || obj.type !== "text") return;
+      if (inlineEditing) finishInlineTextEdit(true);
+      setSelection([obj.id]);
+      renderAll();
+      syncUi();
+      const scale = canvas.getBoundingClientRect().width / state.width;
+      const lineHeight = obj.fontSize * 1.14 * scale;
+      inlineEditing = { id: obj.id, original: obj.text || "" };
+      inlineTextEditor.value = obj.text || "";
+      inlineTextEditor.style.left = `${obj.x * scale}px`;
+      inlineTextEditor.style.top = `${obj.y * scale}px`;
+      inlineTextEditor.style.width = `${Math.max(44, obj.width * scale)}px`;
+      inlineTextEditor.style.height = `${Math.max(34, obj.height * scale)}px`;
+      inlineTextEditor.style.font = `${obj.fontWeight || 800} ${obj.fontSize * scale}px "${obj.fontFamily}", sans-serif`;
+      inlineTextEditor.style.lineHeight = `${lineHeight}px`;
+      inlineTextEditor.style.color = obj.fill || "#171411";
+      inlineTextEditor.style.textAlign = obj.align || "left";
+      inlineTextEditor.style.opacity = String(obj.opacity ?? 1);
+      inlineTextEditor.style.transformOrigin = "50% 50%";
+      inlineTextEditor.style.transform = `rotate(${obj.rotation || 0}deg)`;
+      inlineTextEditor.classList.add("is-active");
+      inlineTextEditor.focus();
+      inlineTextEditor.select();
+      inlineTextEditor.onblur = () => finishInlineTextEdit(true);
+      inlineTextEditor.onkeydown = event => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          finishInlineTextEdit(false);
+        }
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+          event.preventDefault();
+          finishInlineTextEdit(true);
+        }
+      };
     }
 
     function drawSafeZones(c, exporting) {
@@ -2868,6 +3044,7 @@
     });
 
     canvas.addEventListener("pointerdown", e => {
+      if (inlineEditing) finishInlineTextEdit(true);
       const p = toLocalPoint(e);
       const obj = selected();
       const handle = hitHandle(p, obj);
@@ -2890,6 +3067,22 @@
         state.dragging = { mode: "move", start: p, obj: { ...target }, objects: objects.map(o => ({ ...o })), saved: false };
         canvas.setPointerCapture(e.pointerId);
       }
+      renderAll();
+      syncUi();
+    });
+
+    canvas.addEventListener("dblclick", e => {
+      const target = hitTest(toLocalPoint(e));
+      if (!target || target.type !== "text") return;
+      e.preventDefault();
+      startInlineTextEdit(target);
+    });
+
+    stage.addEventListener("pointerdown", e => {
+      if (e.target !== stage) return;
+      if (inlineEditing) finishInlineTextEdit(true);
+      if (!selectedObjects().length) return;
+      setSelection([]);
       renderAll();
       syncUi();
     });
@@ -3107,7 +3300,7 @@
       persist();
     });
 
-    ["posX", "posY", "objWidth", "objHeight", "rotation", "textValue", "fontFamily", "fontSize", "fillColor", "strokeColor", "strokeWidth", "opacity", "shadow", "lockAspect"].forEach(id => {
+    ["posX", "posY", "objWidth", "objHeight", "rotation", "textValue", "fontFamily", "fontSize", "fillColor", "strokeColor", "strokeWidth", "shapeRadius", "opacity", "shadow", "lockAspect"].forEach(id => {
       const handler = e => {
         const obj = selected();
         if (!obj) return;
@@ -3123,13 +3316,15 @@
           fillColor: "fill",
           strokeColor: "stroke",
           strokeWidth: "strokeWidth",
+          shapeRadius: "radius",
           opacity: "opacity",
           shadow: "shadow",
           lockAspect: "lockAspect"
         };
         let value = id === "lockAspect" ? e.target.checked : e.target.value;
-        if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "strokeWidth", "opacity", "shadow"].includes(id)) value = Number(value);
+        if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "strokeWidth", "shapeRadius", "opacity", "shadow"].includes(id)) value = Number(value);
         if (id === "objWidth" || id === "objHeight") value = Math.max(1, value);
+        if (id === "shapeRadius") value = Math.max(0, value);
         saveHistory();
         const patch = { [keyMap[id]]: value };
         if ((id === "objWidth" || id === "objHeight") && defaultLockAspect(obj)) {
@@ -3145,6 +3340,26 @@
       };
       wire(id, id === "lockAspect" ? "change" : "input", handler);
       if (id === "fillColor" || id === "strokeColor") wire(id, "change", handler);
+    });
+
+    wire("radiusStraightBtn", "click", () => {
+      const objects = selectedObjects().filter(obj => obj.type === "shape" && obj.kind === "rect");
+      if (!objects.length) return;
+      saveHistory();
+      objects.forEach(obj => { obj.radius = 0; });
+      renderAll();
+      syncUi();
+      persist();
+    });
+
+    wire("radiusRoundBtn", "click", () => {
+      const objects = selectedObjects().filter(obj => obj.type === "shape" && obj.kind === "rect");
+      if (!objects.length) return;
+      saveHistory();
+      objects.forEach(obj => { obj.radius = Math.round(Math.min(obj.width, obj.height) * .18); });
+      renderAll();
+      syncUi();
+      persist();
     });
 
     function alignObjects(mode) {
@@ -3289,6 +3504,7 @@
     }, { passive: false });
 
     window.addEventListener("resize", () => {
+      if (inlineEditing) finishInlineTextEdit(true);
       applyZoom();
       renderAll();
     });
@@ -3433,6 +3649,37 @@
       }
     });
 
+    wire("exportProjectBtn", "click", async () => {
+      try {
+        await normalizeAllImageSources();
+        const filename = `${state.platform}-${state.label}-${state.width}x${state.height}.youdesign`.replace(/[\\/:\s]+/g, "-");
+        downloadTextFile(projectSnapshot(), filename);
+      } catch (err) {
+        alert("导出工程失败：请刷新页面后重试。");
+      }
+    });
+
+    wire("importProjectBtn", "click", () => document.getElementById("projectInput").click());
+
+    wire("projectInput", "change", async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        if (state.objects.length && !confirm("导入工程会替换当前画布，是否继续？")) {
+          e.target.value = "";
+          return;
+        }
+        const raw = await readTextFile(file);
+        saveHistory();
+        await restore(raw);
+        persist();
+      } catch (err) {
+        alert(`导入工程失败：${err.message || "文件格式不正确"}`);
+      } finally {
+        e.target.value = "";
+      }
+    });
+
     wire("localFontsBtn", "click", async () => {
       if (!("queryLocalFonts" in window)) {
         document.getElementById("fontStatus").textContent = "当前浏览器不支持";
@@ -3441,16 +3688,18 @@
       try {
         const fonts = await window.queryLocalFonts();
         const seen = new Set();
+        const safeFonts = fonts.filter(isSafeCommercialFont);
         localFonts = fonts
+          .filter(isSafeCommercialFont)
           .filter(f => {
             const key = `${f.family}-${f.style}`;
             if (seen.has(key)) return false;
             seen.add(key);
             return true;
           })
-          .map(f => ({ family: f.family, label: `${f.family} ${f.style}`, source: "local" }))
+          .map(f => ({ family: f.family, label: `${f.family} ${f.style} · 可商用`, source: "local" }))
           .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
-        document.getElementById("fontStatus").textContent = `本地 ${localFonts.length} 款`;
+        document.getElementById("fontStatus").textContent = `可商用 ${localFonts.length} 款，过滤 ${fonts.length - safeFonts.length} 款`;
         syncFontSelect();
       } catch (err) {
         document.getElementById("fontStatus").textContent = "授权被拒绝";
@@ -3606,6 +3855,7 @@
     function syncInspectorOutputs(obj = selected()) {
       if (!obj) return;
       document.getElementById("strokeWidthValue").textContent = String(obj.strokeWidth || 0);
+      document.getElementById("shapeRadiusValue").textContent = String(Math.round(obj.radius || 0));
       document.getElementById("opacityValue").textContent = `${Math.round((obj.opacity ?? 1) * 100)}%`;
       document.getElementById("shadowValue").textContent = String(obj.shadow || 0);
     }
@@ -3637,12 +3887,15 @@
       const isText = obj.type === "text";
       const isShape = obj.type === "shape";
       const isImage = obj.type === "image";
+      const isRect = isShape && obj.kind === "rect";
       const hasAppearance = isText || isShape || isImage;
       const allText = objects.every(item => item.type === "text");
       document.getElementById("textGroup").classList.toggle("hidden", multi ? !allText : !isText);
       document.getElementById("appearanceGroup").classList.toggle("hidden", multi || !hasAppearance);
       document.getElementById("appearanceGrid").classList.toggle("hidden", isImage);
       document.getElementById("strokeWidth").closest(".inline-control").classList.toggle("hidden", isImage);
+      document.getElementById("shapeRadiusControl").classList.toggle("hidden", !isRect);
+      document.getElementById("shapeRadiusPresets").classList.toggle("hidden", !isRect);
       document.getElementById("fillColorLabel").textContent = isShape ? "填充颜色" : "文字颜色";
       document.getElementById("strokeColorLabel").textContent = isShape ? "描边颜色" : "描边颜色";
       syncTransformInputs(obj);
@@ -3653,6 +3906,7 @@
       document.getElementById("fillColor").value = obj.fill || "#171411";
       document.getElementById("strokeColor").value = obj.stroke || "#171411";
       document.getElementById("strokeWidth").value = obj.strokeWidth || 0;
+      document.getElementById("shapeRadius").value = obj.radius || 0;
       document.getElementById("opacity").value = obj.opacity ?? 1;
       document.getElementById("shadow").value = obj.shadow || 0;
       syncInspectorOutputs(obj);
