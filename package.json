@@ -1,19 +1,27 @@
 {
   "name": "youdesign",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "YOUDESIGN social cover designer desktop app.",
   "author": "YOUXIAKE",
   "main": "desktop/main.js",
   "private": true,
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
-    "build": "electron-builder",
-    "build:mac": "electron-builder --mac",
-    "build:win": "electron-builder --win",
-    "build:all": "electron-builder --mac --win",
-    "release:mac": "electron-builder --mac --publish always",
-    "release:win": "electron-builder --win --publish always"
+    "start": "tauri dev",
+    "dev": "tauri dev",
+    "build": "tauri build --bundles app",
+    "build:mac": "tauri build --bundles app",
+    "build:mac:x64": "tauri build --bundles app",
+    "build:mac:arm": "tauri build --target aarch64-apple-darwin --bundles app",
+    "build:mac:dmg": "tauri build --bundles dmg",
+    "build:win": "tauri build --bundles nsis",
+    "build:all": "tauri build --bundles all",
+    "tauri": "tauri",
+    "tauri:prepare": "node scripts/prepare-tauri-dist.js",
+    "tauri:local-update-manifest": "node scripts/create-local-update-manifest.js",
+    "electron:start": "electron .",
+    "electron:build": "electron-builder",
+    "electron:build:mac": "electron-builder --mac",
+    "electron:build:win": "electron-builder --win"
   },
   "build": {
     "appId": "com.youxiake.youdesign",
@@ -59,6 +67,7 @@
     }
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
     "electron": "^37.0.0",
     "electron-builder": "^26.0.12"
   },

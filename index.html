@@ -2336,7 +2336,7 @@
     const selectionOverlay = document.getElementById("selectionOverlay");
     const inlineTextEditor = document.getElementById("inlineTextEditor");
     const STORAGE_KEY = "social-cover-designer-v3";
-    const APP_VERSION = "1.0.4";
+    const APP_VERSION = "1.0.5";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -3998,6 +3998,17 @@
       } else if (status === "available") {
         statusEl.classList.add("is-ready");
         statusEl.textContent = `发现 ${payload.version || "新版本"}`;
+        installBtn.classList.remove("hidden");
+        if (window.youdesignDesktop && window.youdesignDesktop.platform === "tauri" && !window.__youdesignUpdatePrompting) {
+          window.__youdesignUpdatePrompting = true;
+          setTimeout(() => {
+            const version = payload.version || "新版本";
+            if (confirm(`发现 YOUDESIGN ${version}，是否立即下载并重启安装？`)) {
+              window.youdesignDesktop.installUpdate().catch(() => setUpdateUi("error"));
+            }
+            window.__youdesignUpdatePrompting = false;
+          }, 100);
+        }
       } else if (status === "downloading") {
         statusEl.classList.add("is-downloading");
         statusEl.textContent = `下载中 ${payload.percent || 0}%`;
@@ -4037,11 +4048,47 @@
       window.youdesignDesktop.onUpdateStatus(payload => setUpdateUi(payload.status, payload));
       window.youdesignDesktop.onCheckUpdate(() => window.youdesignDesktop.checkForUpdates());
       setUpdateUi("idle");
+      if (window.youdesignDesktop.platform === "tauri") {
+        setTimeout(() => window.youdesignDesktop.checkForUpdates().catch(() => {}), 1800);
+      }
+    }
+
+    function setupTauriDesktopBridge() {
+      if (window.youdesignDesktop || !window.__TAURI__ || !window.__TAURI__.core) return;
+      const { invoke } = window.__TAURI__.core;
+      const listen = window.__TAURI__.event && window.__TAURI__.event.listen;
+
+      window.youdesignDesktop = {
+        platform: "tauri",
+        version: APP_VERSION,
+        onCheckUpdate() {},
+        checkForUpdates() {
+          return invoke("check_for_updates");
+        },
+        installUpdate() {
+          return invoke("install_update");
+        },
+        onUpdateStatus(callback) {
+          if (!listen) return () => {};
+          let unlisten = null;
+          listen("youdesign:update-status", event => callback(event.payload))
+            .then(fn => { unlisten = fn; })
+            .catch(() => {});
+          return () => {
+            if (unlisten) unlisten();
+          };
+        }
+      };
+
+      invoke("app_version")
+        .then(version => { window.youdesignDesktop.version = version; })
+        .catch(() => {});
     }
 
     async function init() {
       applyIconSystem();
       setupInspectorInteractions();
+      setupTauriDesktopBridge();
       setupUpdateUi();
       syncFontSelect();
       renderSwatches();

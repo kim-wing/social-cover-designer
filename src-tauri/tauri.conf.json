@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "YOUDESIGN",
+  "version": "1.0.5",
+  "identifier": "com.youxiake.youdesign",
+  "build": {
+    "beforeDevCommand": "npm run tauri:prepare",
+    "beforeBuildCommand": "npm run tauri:prepare",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "YOUDESIGN",
+        "width": 1440,
+        "height": 920,
+        "minWidth": 1180,
+        "minHeight": 760,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "YOUXIAKE",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "YOUDESIGN social cover designer.",
+    "longDescription": "YOUDESIGN social cover designer desktop app.",
+    "macOS": {
+      "signingIdentity": "-"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDkwOTcyMzI2NUExN0RCQzYKUldURzJ4ZGFKaU9Ya0pEeWRQNXk2V1VZQkppM2dpcVU1M2tHY0JENGVoNEg3UWdlelNaR3BkUDIK",
+      "endpoints": [
+        "https://github.com/kim-wing/social-cover-designer/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
