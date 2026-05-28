@@ -161,7 +161,7 @@
     .workspace {
       min-height: 0;
       display: grid;
-      grid-template-columns: 424px 1fr 320px;
+      grid-template-columns: 72px minmax(0, 1fr) 320px;
     }
 
     aside {
@@ -174,8 +174,10 @@
     .left {
       border-right: 1px solid var(--line);
       display: grid;
-      grid-template-columns: 96px 1fr;
-      overflow: hidden;
+      grid-template-columns: 72px;
+      overflow: visible;
+      position: relative;
+      z-index: 8;
     }
 
     .right {
@@ -371,7 +373,7 @@
       display: grid;
       align-content: start;
       gap: 7px;
-      padding: 14px 9px;
+      padding: 14px 8px;
       border-right: 1px solid var(--line);
       background:
         linear-gradient(180deg, rgba(255, 255, 255, .88), rgba(246, 246, 249, .74));
@@ -379,9 +381,9 @@
     }
 
     .tool-chip {
-      min-height: 68px;
+      min-height: 62px;
       border: 1px solid transparent;
-      border-radius: 17px;
+      border-radius: 16px;
       background: transparent;
       color: var(--ink);
       display: grid;
@@ -391,6 +393,7 @@
       font-size: 13px;
       font-weight: 700;
       text-align: center;
+      position: relative;
     }
 
     .tool-chip:hover,
@@ -402,14 +405,19 @@
     }
 
     .tool-chip strong {
-      width: 36px;
-      height: 36px;
-      border-radius: 13px;
+      width: 38px;
+      height: 38px;
+      border-radius: 14px;
       background: rgba(118, 118, 128, .1);
       color: #4b5563;
       display: grid;
       place-items: center;
       font-size: 18px;
+      line-height: 1;
+    }
+
+    .tool-chip span {
+      font-size: 11px;
       line-height: 1;
     }
 
@@ -420,9 +428,49 @@
     }
 
     .tool-panel {
+      position: absolute;
+      left: 72px;
+      top: 8px;
+      width: 372px;
+      max-height: calc(100vh - 72px);
       min-height: 0;
       overflow: auto;
-      background: rgba(250, 250, 252, .58);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .9), rgba(247, 247, 250, .74));
+      border: 1px solid rgba(29, 29, 31, .09);
+      border-radius: 22px;
+      box-shadow: 0 28px 78px rgba(15, 23, 42, .18), var(--inner-shadow);
+      backdrop-filter: blur(30px) saturate(1.28);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-8px) scale(.985);
+      transform-origin: top left;
+      transition: opacity .16s ease, transform .16s ease;
+    }
+
+    .left.panel-open .tool-panel,
+    .tool-panel:focus-within,
+    .tool-panel:hover {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0) scale(1);
+    }
+
+    .tool-panel .section {
+      display: none;
+    }
+
+    .tool-panel .section.panel-active {
+      display: block;
+    }
+
+    .tool-panel .add-subpanel {
+      display: none;
+    }
+
+    .tool-panel .add-subpanel.panel-active {
+      display: grid;
+      gap: 10px;
     }
 
     .section h2 {
@@ -612,6 +660,187 @@
       line-height: 1.25;
     }
 
+    .prompt-generator {
+      display: grid;
+      gap: 12px;
+    }
+
+    .prompt-generator .compact-field textarea {
+      min-height: 76px;
+    }
+
+    .prompt-generator .compact-field.output textarea {
+      min-height: 260px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans Mono CJK SC", monospace;
+      line-height: 1.58;
+    }
+
+    .prompt-generator .full {
+      grid-column: 1 / -1;
+    }
+
+    .prompt-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .prompt-actions .mini-btn {
+      flex: 1 1 96px;
+    }
+
+    .prompt-status {
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .prompt-status.is-loading {
+      color: rgba(29, 29, 31, .82);
+      font-weight: 750;
+    }
+
+    .prompt-status.is-error {
+      color: #b42318;
+      font-weight: 750;
+    }
+
+    .generation-progress {
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      border: 1px solid rgba(29, 29, 31, .08);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .62);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .generation-progress.hidden {
+      display: none;
+    }
+
+    .generation-progress-bar {
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(29, 29, 31, .08);
+      overflow: hidden;
+    }
+
+    .generation-progress-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: #d6ca00;
+      transition: width .32s ease;
+    }
+
+    .generation-progress-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: rgba(29, 29, 31, .56);
+      font-size: 11px;
+      font-weight: 720;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .canvas-generation-placeholder {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity .22s ease;
+    }
+
+    .canvas-generation-placeholder.hidden {
+      display: none;
+    }
+
+    .canvas-generation-card {
+      width: min(78%, 340px);
+      min-height: 148px;
+      display: grid;
+      align-content: center;
+      gap: 12px;
+      padding: 20px 22px;
+      border: 1px solid rgba(29, 29, 31, .12);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .9);
+      box-shadow: 0 26px 80px rgba(15, 23, 42, .18), inset 0 1px 0 rgba(255, 255, 255, .72);
+      color: rgba(29, 29, 31, .86);
+      line-height: 1.35;
+      text-align: left;
+      backdrop-filter: blur(18px);
+    }
+
+    .canvas-generation-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 780;
+    }
+
+    .canvas-generation-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: #d6ca00;
+      box-shadow: 0 0 0 7px rgba(214, 202, 0, .14);
+      animation: pulseDot 1.35s ease-in-out infinite;
+      flex: 0 0 auto;
+    }
+
+    .canvas-generation-placeholder.is-done .canvas-generation-dot {
+      background: #1f9d55;
+      box-shadow: 0 0 0 7px rgba(31, 157, 85, .12);
+      animation: none;
+    }
+
+    .canvas-generation-placeholder.is-error .canvas-generation-dot {
+      background: #d92d20;
+      box-shadow: 0 0 0 7px rgba(217, 45, 32, .12);
+      animation: none;
+    }
+
+    .canvas-generation-text {
+      color: rgba(29, 29, 31, .58);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .canvas-generation-bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(29, 29, 31, .08);
+      overflow: hidden;
+    }
+
+    .canvas-generation-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: #d6ca00;
+      transition: width .32s ease, background .2s ease;
+    }
+
+    .canvas-generation-placeholder.is-done .canvas-generation-fill {
+      background: #1f9d55;
+    }
+
+    .canvas-generation-placeholder.is-error .canvas-generation-fill {
+      background: #d92d20;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: .86; }
+      50% { transform: scale(.78); opacity: .62; }
+    }
+
     .font-tools {
       display: grid;
       gap: 10px;
@@ -675,6 +904,28 @@
     .preset span {
       color: var(--muted);
       font-size: 12px;
+    }
+
+    .custom-size-card {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .72);
+      box-shadow: var(--inner-shadow);
+    }
+
+    .custom-size-card h3 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 780;
+    }
+
+    .custom-size-card .hint {
+      margin: 0;
     }
 
     .logo-list {
@@ -934,11 +1185,32 @@
       text-align: left;
       font-size: 12px;
       font-weight: 650;
+      cursor: grab;
     }
 
     .layer.active {
       border-color: rgba(0, 113, 227, .36);
       background: var(--accent-soft);
+    }
+
+    .layer:active {
+      cursor: grabbing;
+    }
+
+    .layer.dragging {
+      opacity: .56;
+      transform: scale(.985);
+    }
+
+    .layer.drop-before {
+      box-shadow: 0 -3px 0 #d6ca00, inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .layer-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .hint {
@@ -959,6 +1231,109 @@
 
     .inspector-body > .empty {
       margin: 12px;
+    }
+
+    .dialog-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(255, 255, 255, .52), transparent 38%),
+        rgba(29, 29, 31, .24);
+      backdrop-filter: blur(20px) saturate(1.18);
+      -webkit-backdrop-filter: blur(20px) saturate(1.18);
+    }
+
+    .dialog-card {
+      width: min(420px, calc(100vw - 40px));
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .72);
+      border-radius: 22px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .94), rgba(248, 248, 250, .88));
+      box-shadow:
+        0 42px 110px rgba(15, 23, 42, .24),
+        inset 0 1px 0 rgba(255, 255, 255, .86);
+      transform: translateY(0) scale(1);
+      animation: dialogIn .18s var(--ease);
+    }
+
+    .dialog-head {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 12px;
+      padding: 20px 20px 14px;
+      align-items: center;
+    }
+
+    .dialog-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 15px;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 241, 0, .28);
+      color: rgba(29, 29, 31, .86);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 12px 24px rgba(188, 176, 0, .13);
+    }
+
+    .dialog-mark .ri {
+      width: 20px;
+      height: 20px;
+    }
+
+    .dialog-card.is-danger .dialog-mark {
+      background: rgba(255, 77, 35, .13);
+      color: #b42318;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 12px 24px rgba(180, 35, 24, .08);
+    }
+
+    .dialog-title {
+      margin: 0;
+      color: rgba(29, 29, 31, .92);
+      font-size: 18px;
+      line-height: 1.18;
+      letter-spacing: -.02em;
+      font-weight: 780;
+    }
+
+    .dialog-message {
+      margin: 0;
+      padding: 0 20px 18px 74px;
+      color: rgba(29, 29, 31, .58);
+      font-size: 13px;
+      line-height: 1.55;
+      white-space: pre-line;
+    }
+
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 14px;
+      border-top: 1px solid rgba(29, 29, 31, .07);
+      background: rgba(255, 255, 255, .48);
+    }
+
+    .dialog-actions .btn {
+      min-width: 84px;
+    }
+
+    .dialog-actions .btn.primary.is-danger {
+      border-color: rgba(180, 35, 24, .22);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, 0)),
+        #ff4d23;
+      color: #fff;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), 0 14px 28px rgba(180, 35, 24, .16);
+    }
+
+    @keyframes dialogIn {
+      from { opacity: 0; transform: translateY(8px) scale(.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
 
     .hidden { display: none !important; }
@@ -1182,7 +1557,7 @@
     }
 
     .workspace {
-      grid-template-columns: 392px minmax(540px, 1fr) 336px;
+      grid-template-columns: 72px minmax(540px, 1fr) 336px;
       background: rgba(246, 246, 248, .28);
     }
 
@@ -1193,7 +1568,7 @@
     }
 
     .left {
-      grid-template-columns: 74px 1fr;
+      grid-template-columns: 72px;
       border-right-color: rgba(29, 29, 31, .07);
     }
 
@@ -1219,8 +1594,8 @@
     }
 
     .tool-chip strong {
-      width: 30px;
-      height: 30px;
+      width: 34px;
+      height: 34px;
       border-radius: 12px;
       background: transparent;
       color: currentColor;
@@ -1241,7 +1616,10 @@
     }
 
     .tool-panel {
-      background: rgba(250, 250, 252, .46);
+      left: 72px;
+      width: 372px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .9), rgba(247, 247, 250, .74));
     }
 
     .section {
@@ -1538,6 +1916,19 @@
       .window-lights { display: none; }
       .toolbar { justify-content: flex-start; }
       .quick-tools { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .left {
+        display: block;
+        overflow: visible;
+      }
+      .tool-panel {
+        position: static;
+        width: auto;
+        max-height: none;
+        margin: 0 10px 12px;
+        opacity: 1;
+        pointer-events: auto;
+        transform: none;
+      }
       .stage { padding: 26px; }
     }
 
@@ -2024,6 +2415,128 @@
       box-shadow: 0 0 0 1px rgba(29, 29, 31, .12), 0 5px 12px rgba(15, 23, 42, .06);
     }
 
+    .background-color-panel {
+      display: grid;
+      gap: 12px;
+    }
+
+    .color-control {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+      padding: 9px;
+      border: 1px solid rgba(29, 29, 31, .08);
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .88), rgba(248, 248, 250, .7));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .78);
+    }
+
+    .color-preview {
+      position: relative;
+      min-height: 54px;
+      border: 1px solid rgba(29, 29, 31, .12);
+      border-radius: 14px;
+      overflow: hidden;
+      background:
+        linear-gradient(45deg, rgba(29, 29, 31, .08) 25%, transparent 25% 75%, rgba(29, 29, 31, .08) 75%),
+        linear-gradient(45deg, rgba(29, 29, 31, .08) 25%, transparent 25% 75%, rgba(29, 29, 31, .08) 75%);
+      background-position: 0 0, 6px 6px;
+      background-size: 12px 12px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7), 0 8px 18px rgba(15, 23, 42, .06);
+    }
+
+    .color-preview::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--preview-color, #ffffff);
+    }
+
+    .color-fields {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 42px;
+      gap: 8px;
+      align-content: stretch;
+    }
+
+    .color-hex {
+      width: 100%;
+      min-width: 0;
+      min-height: 42px;
+      border: 1px solid rgba(29, 29, 31, .08);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .84);
+      color: rgba(29, 29, 31, .88);
+      padding: 0 10px;
+      outline: none;
+      font: 760 12px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .color-hex:focus {
+      border-color: var(--accent-border);
+      box-shadow: 0 0 0 4px rgba(255, 241, 0, .18);
+    }
+
+    .color-picker-shell {
+      position: relative;
+      min-width: 0;
+      border: 1px solid rgba(29, 29, 31, .08);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .78);
+      display: grid;
+      place-items: center;
+      color: rgba(29, 29, 31, .7);
+      overflow: hidden;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .color-picker-shell input[type="color"] {
+      position: absolute;
+      inset: -8px;
+      width: calc(100% + 16px);
+      height: calc(100% + 16px);
+      padding: 0;
+      border: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .palette-label {
+      color: rgba(29, 29, 31, .48);
+      font-size: 10px;
+      font-weight: 820;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .background-color-panel .swatches {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 9px;
+      margin-top: 0;
+    }
+
+    .background-color-panel .swatch {
+      position: relative;
+      height: 31px;
+      border: 2px solid rgba(255, 255, 255, .95);
+      border-radius: 11px;
+      box-shadow: 0 0 0 1px rgba(29, 29, 31, .11), 0 8px 15px rgba(15, 23, 42, .055);
+    }
+
+    .background-color-panel .swatch:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 1px rgba(29, 29, 31, .18), 0 10px 20px rgba(15, 23, 42, .08);
+    }
+
+    .background-color-panel .swatch.active {
+      box-shadow: 0 0 0 2px #d6ca00, 0 0 0 6px rgba(255, 241, 0, .2), 0 12px 22px rgba(15, 23, 42, .09);
+    }
+
     .layers {
       max-height: 255px;
       gap: 8px;
@@ -2035,7 +2548,7 @@
       padding: 8px 9px 8px 11px;
     }
 
-    .layer span:last-child {
+    .layer-type {
       padding: 4px 7px;
       border-radius: 999px;
       background: rgba(29, 29, 31, .055);
@@ -2044,13 +2557,812 @@
       text-transform: capitalize;
     }
 
-    .layer.active span:last-child {
+    .layer.active .layer-type {
       background: rgba(255, 255, 255, .66);
       color: rgba(29, 29, 31, .72);
     }
 
     .right:not(.has-selection) #propsPanel {
       display: none;
+    }
+
+    /* Figma-like editor surface: fixed panels and quiet chrome. */
+    :root {
+      --figma-bg: #f3f3f3;
+      --figma-panel: #fbfbfb;
+      --figma-panel-2: #f7f7f7;
+      --figma-line: #e6e6e6;
+      --figma-line-strong: #d4d4d4;
+      --figma-text: #202124;
+      --figma-muted: #737373;
+      --figma-blue: #0d99ff;
+      --figma-blue-soft: #e5f4ff;
+      --figma-shadow: 0 18px 40px rgba(15, 23, 42, .12);
+    }
+
+    body {
+      background: var(--figma-bg);
+    }
+
+    body::after,
+    .window-lights,
+    .brand-copy::before,
+    .stage-info span:first-child::before,
+    .inspector-header::after,
+    .inspector-group::before,
+    .inspector-group-title span:first-child::before,
+    .preset.active::after,
+    .layer.active::after {
+      display: none;
+    }
+
+    .app {
+      grid-template-rows: 48px minmax(0, 1fr);
+      background: var(--figma-bg);
+    }
+
+    .topbar {
+      padding: 0 12px;
+      border-bottom: 1px solid var(--figma-line);
+      background: #ffffff;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    .brand {
+      min-width: 244px;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand::before {
+      content: "";
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      background:
+        radial-gradient(circle at 30% 30%, #ff725e 0 22%, transparent 23%),
+        radial-gradient(circle at 70% 30%, #ffb84d 0 22%, transparent 23%),
+        radial-gradient(circle at 30% 70%, #a259ff 0 22%, transparent 23%),
+        radial-gradient(circle at 70% 70%, #1abcfe 0 22%, transparent 23%);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06);
+      flex: 0 0 auto;
+    }
+
+    .brand-copy {
+      display: flex;
+      align-items: baseline;
+      gap: 9px;
+    }
+
+    .brand strong {
+      color: var(--figma-text);
+      font-size: 13px;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .brand span,
+    .dim {
+      color: var(--figma-muted);
+      font-size: 11px;
+      font-weight: 620;
+    }
+
+    .toolbar {
+      margin-left: auto;
+      padding: 0;
+      gap: 6px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .btn,
+    .icon-btn,
+    .field,
+    select,
+    input[type="color"] {
+      min-height: 30px;
+      border-color: transparent;
+      border-radius: 6px;
+      background: transparent;
+      box-shadow: none;
+      color: var(--figma-text);
+    }
+
+    .btn,
+    .icon-btn {
+      padding: 0 9px;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .icon-btn {
+      width: 30px;
+    }
+
+    .field,
+    select {
+      padding: 0 24px 0 8px;
+      font-size: 12px;
+      font-weight: 620;
+    }
+
+    .btn:hover,
+    .icon-btn:hover,
+    .preset:hover,
+    .layer:hover {
+      border-color: transparent;
+      background: #f1f1f1;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .btn.primary {
+      border-color: #0d99ff;
+      background: #0d99ff;
+      color: #ffffff;
+      box-shadow: none;
+    }
+
+    .btn.primary:hover {
+      border-color: #007be5;
+      background: #007be5;
+      color: #ffffff;
+    }
+
+    .workspace {
+      grid-template-columns: 318px minmax(420px, 1fr) 280px;
+      background: var(--figma-bg);
+    }
+
+    aside,
+    .left,
+    .right,
+    .quick-tools,
+    .tool-panel,
+    .stage-wrap,
+    .stage-info,
+    .inspector-header {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    .left {
+      position: relative;
+      z-index: 6;
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      border-right: 1px solid var(--figma-line);
+      background: var(--figma-panel);
+      overflow: hidden;
+    }
+
+    .quick-tools {
+      display: grid;
+      grid-template-columns: 1fr;
+      align-content: start;
+      gap: 4px;
+      padding: 10px 7px;
+      border-right: 1px solid var(--figma-line);
+      background: #ffffff;
+      overflow: auto;
+    }
+
+    .tool-chip {
+      min-height: 48px;
+      border: 0;
+      border-radius: 7px;
+      padding: 5px 2px;
+      color: #505050;
+      font-size: 10px;
+      font-weight: 650;
+      gap: 3px;
+      background: transparent;
+    }
+
+    .tool-chip strong {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      background: transparent;
+      color: currentColor;
+      box-shadow: none;
+    }
+
+    .tool-chip span {
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .tool-chip:hover,
+    .tool-chip.active {
+      border-color: transparent;
+      background: var(--figma-blue-soft);
+      color: #096fb9;
+      box-shadow: none;
+    }
+
+    .tool-chip.active strong {
+      background: transparent;
+      color: #096fb9;
+      box-shadow: none;
+    }
+
+    .tool-panel {
+      position: static;
+      width: auto;
+      max-height: none;
+      min-height: 0;
+      opacity: 1;
+      pointer-events: auto;
+      transform: none;
+      border: 0;
+      border-radius: 0;
+      background: var(--figma-panel);
+      box-shadow: none;
+      overflow: auto;
+    }
+
+    .tool-panel .section {
+      padding: 14px 11px 16px;
+    }
+
+    .tool-panel > .section {
+      display: none;
+    }
+
+    .tool-panel > .section.panel-active {
+      display: block;
+    }
+
+    .tool-panel .add-subpanel {
+      display: none;
+    }
+
+    .tool-panel .add-subpanel.panel-active {
+      display: grid;
+      gap: 8px;
+    }
+
+    .section {
+      border-bottom: 1px solid var(--figma-line);
+      background: transparent;
+    }
+
+    .section h2,
+    .element-title {
+      margin-bottom: 12px;
+      color: var(--figma-text);
+      font-size: 12px;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    #addSection > h2 {
+      margin-bottom: 8px;
+    }
+
+    #addSection .element-group {
+      margin-bottom: 14px;
+    }
+
+    #mascotPanel,
+    #logoSection {
+      padding-top: 13px;
+    }
+
+    #mascotPanel .element-title,
+    #logoSection h2 {
+      min-height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 0 9px;
+      color: var(--figma-text);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .section h2 small {
+      color: var(--figma-muted);
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .search,
+    .control,
+    .compact-field input,
+    .compact-field select,
+    .compact-field textarea,
+    .color-hex {
+      min-height: 30px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: #f1f1f1;
+      color: var(--figma-text);
+      box-shadow: none;
+      font-size: 12px;
+      font-weight: 560;
+    }
+
+    .compact-field label,
+    .label,
+    .palette-label {
+      margin-bottom: 5px;
+      color: var(--figma-muted);
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .search:focus,
+    .control:focus,
+    select:focus,
+    .compact-field input:focus,
+    .compact-field select:focus,
+    .compact-field textarea:focus,
+    .color-hex:focus {
+      border-color: var(--figma-blue);
+      background: #ffffff;
+      box-shadow: 0 0 0 2px rgba(13, 153, 255, .16);
+      outline: 0;
+    }
+
+    .preset-list {
+      max-height: 310px;
+      gap: 2px;
+      margin-top: 9px;
+      padding-right: 0;
+    }
+
+    .preset,
+    .layer,
+    .upload-card,
+    .element-card,
+    .font-tools,
+    .logo-item,
+    .custom-size-card,
+    .toggle-row,
+    .mini-btn,
+    .color-control {
+      border-color: transparent;
+      border-radius: 7px;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .preset {
+      grid-template-columns: 1fr;
+      gap: 2px;
+      padding: 8px 9px;
+    }
+
+    .preset strong,
+    .layer {
+      color: var(--figma-text);
+      font-size: 12px;
+      font-weight: 620;
+    }
+
+    .preset span {
+      color: var(--figma-muted);
+      font-size: 10px;
+    }
+
+    .preset.active,
+    .layer.active,
+    .mini-btn.active {
+      border-color: transparent;
+      background: var(--figma-blue-soft);
+      color: #096fb9;
+      box-shadow: none;
+    }
+
+    .custom-size-card,
+    .font-tools,
+    .background-color-panel {
+      gap: 9px;
+      padding: 10px;
+      border: 1px solid var(--figma-line);
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    .custom-size-card h3,
+    .font-tools-head strong {
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .upload-card {
+      min-height: 86px;
+      grid-template-columns: 32px 1fr;
+      gap: 10px;
+      padding: 10px;
+      border: 1px dashed var(--figma-line-strong);
+      background: #ffffff;
+    }
+
+    .upload-icon,
+    .element-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      background: #f1f1f1;
+      color: var(--figma-text);
+      box-shadow: none;
+    }
+
+    .element-grid {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+
+    .element-card {
+      min-height: 50px;
+      grid-template-columns: 34px 1fr;
+      justify-items: start;
+      gap: 9px;
+      padding: 8px;
+      text-align: left;
+    }
+
+    .element-card:hover,
+    .logo-item:hover,
+    .upload-card:hover {
+      border-color: transparent;
+      background: #f1f1f1;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .logo-list {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .logo-item {
+      min-height: 68px;
+      padding: 7px;
+      border: 1px solid transparent;
+      background: #ffffff;
+    }
+
+    .stage-wrap {
+      grid-template-rows: 36px minmax(0, 1fr);
+      min-width: 0;
+      background: var(--figma-bg);
+    }
+
+    .stage-info {
+      padding: 0 14px;
+      border-bottom: 1px solid var(--figma-line);
+      background: var(--figma-bg);
+      color: var(--figma-muted);
+      font-size: 11px;
+      font-weight: 560;
+      letter-spacing: 0;
+    }
+
+    .stage-info span:first-child {
+      color: var(--figma-text);
+      font-weight: 650;
+    }
+
+    .stage {
+      padding: 46px 56px;
+      background: var(--figma-bg);
+    }
+
+    .canvas-shell {
+      border-radius: 2px;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, .12), 0 0 0 1px rgba(0, 0, 0, .08);
+      overflow: visible;
+    }
+
+    canvas {
+      border-radius: 2px;
+    }
+
+    .selection-box {
+      border: 1.5px solid var(--figma-blue);
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .selection-handle {
+      width: 9px;
+      height: 9px;
+      margin: -4.5px 0 0 -4.5px;
+      border: 1.5px solid var(--figma-blue);
+      border-radius: 2px;
+      background: #ffffff;
+      box-shadow: none;
+    }
+
+    .selection-handle[data-mode="rotate"] {
+      width: 12px;
+      height: 12px;
+      margin: -6px 0 0 -6px;
+      border-radius: 999px;
+    }
+
+    .zoom-hud {
+      right: 14px;
+      bottom: 14px;
+      min-height: 28px;
+      border: 1px solid var(--figma-line);
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--figma-text);
+      box-shadow: 0 8px 22px rgba(15, 23, 42, .1);
+    }
+
+    .right {
+      display: grid;
+      grid-template-rows: 48px minmax(0, 1fr);
+      border-left: 1px solid var(--figma-line);
+      background: var(--figma-panel);
+      overflow: hidden;
+    }
+
+    .inspector-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      min-height: 48px;
+      padding: 0 14px;
+      align-items: center;
+      border-bottom: 1px solid var(--figma-line);
+      background: #ffffff;
+    }
+
+    .inspector-title {
+      display: block;
+      color: var(--figma-text);
+      font-size: 12px;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .inspector-title::after {
+      display: none;
+    }
+
+    .inspector-subtitle {
+      min-height: 0;
+      max-width: 140px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      color: var(--figma-muted);
+      font-size: 11px;
+      text-align: right;
+    }
+
+    .right.has-selection .inspector-subtitle {
+      border-color: transparent;
+      background: transparent;
+      color: #096fb9;
+    }
+
+    .inspector-body {
+      padding: 0;
+      overflow: auto;
+      background: var(--figma-panel);
+    }
+
+    .inspector-body > .empty {
+      min-height: 84px;
+      margin: 10px;
+      border-style: solid;
+      border-color: var(--figma-line);
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: none;
+      color: var(--figma-muted);
+      font-size: 12px;
+    }
+
+    #propsPanel {
+      gap: 0;
+    }
+
+    .inspector-group {
+      border: 0;
+      border-bottom: 1px solid var(--figma-line);
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .inspector-group-title {
+      min-height: 40px;
+      padding: 0 14px;
+      color: var(--figma-text);
+      font-size: 12px;
+      font-weight: 720;
+      letter-spacing: 0;
+    }
+
+    .inspector-toggle {
+      width: 22px;
+      height: 22px;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--figma-muted);
+    }
+
+    .inspector-toggle:hover {
+      background: #eeeeee;
+    }
+
+    .inspector-content {
+      gap: 9px;
+      padding: 0 14px 12px;
+    }
+
+    .field-grid.four {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .inline-control {
+      grid-template-columns: 50px minmax(0, 1fr) 38px;
+      min-height: 30px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--figma-muted);
+      font-size: 11px;
+    }
+
+    .inline-control output {
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--figma-text);
+      font-size: 11px;
+      font-weight: 620;
+    }
+
+    .toggle-row {
+      min-height: 30px;
+      padding: 0 8px;
+      border: 0;
+      background: #f1f1f1;
+      font-size: 12px;
+    }
+
+    .mini-btn {
+      min-height: 30px;
+      background: #f1f1f1;
+      color: var(--figma-text);
+      font-size: 11px;
+      font-weight: 620;
+    }
+
+    .mini-btn:hover {
+      border-color: transparent;
+      background: #e9e9e9;
+      color: var(--figma-text);
+    }
+
+    .background-color-panel {
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .color-control {
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 8px;
+      padding: 0;
+      background: transparent;
+    }
+
+    .color-preview {
+      min-height: 30px;
+      border-radius: 6px;
+      box-shadow: none;
+    }
+
+    .color-fields {
+      grid-template-columns: minmax(0, 1fr) 34px;
+    }
+
+    .color-picker-shell {
+      border-color: transparent;
+      border-radius: 6px;
+      background: #f1f1f1;
+      box-shadow: none;
+      font-size: 11px;
+    }
+
+    .background-color-panel .swatches {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .background-color-panel .swatch {
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 0, 0, .12);
+      box-shadow: none;
+    }
+
+    .background-color-panel .swatch.active {
+      box-shadow: 0 0 0 2px var(--figma-blue);
+    }
+
+    .layers {
+      max-height: 220px;
+      gap: 2px;
+    }
+
+    .layer {
+      min-height: 30px;
+      padding: 6px 7px;
+      cursor: grab;
+    }
+
+    .layer-type {
+      padding: 0;
+      background: transparent;
+      color: var(--figma-muted);
+      font-size: 10px;
+    }
+
+    @media (max-width: 1100px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        height: auto;
+        min-height: 100dvh;
+      }
+
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .left {
+        grid-template-columns: 1fr;
+        border-right: 0;
+        border-bottom: 1px solid var(--figma-line);
+      }
+
+      .quick-tools {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        border-right: 0;
+        border-bottom: 1px solid var(--figma-line);
+      }
+
+      .tool-panel {
+        max-height: none;
+      }
+
+      .right {
+        border-left: 0;
+        border-top: 1px solid var(--figma-line);
+      }
+
+      .stage {
+        min-height: 520px;
+        padding: 30px 18px;
+      }
     }
   </style>
 </head>
@@ -2098,13 +3410,13 @@
     <main class="workspace">
       <aside class="left">
         <nav class="quick-tools" id="quickTools" aria-label="编辑工具栏">
-          <button class="tool-chip active" type="button" data-scroll="sizeSection"><strong>▣</strong><span>尺寸</span></button>
-          <button class="tool-chip" type="button" data-scroll="addSection"><strong>＋</strong><span>添加</span></button>
-          <button class="tool-chip" type="button" data-action="upload"><strong>▧</strong><span>图片</span></button>
-          <button class="tool-chip" type="button" data-scroll="textTools"><strong>T</strong><span>文字</span></button>
-          <button class="tool-chip" type="button" data-scroll="mascotPanel"><strong>侠</strong><span>素材</span></button>
-          <button class="tool-chip" type="button" data-scroll="shapeTools"><strong>△</strong><span>绘制</span></button>
-          <button class="tool-chip" type="button" data-scroll="logoSection"><strong>◆</strong><span>Logo</span></button>
+          <button class="tool-chip active" type="button" data-panel="sizeSection"><strong>▣</strong><span>尺寸</span></button>
+          <button class="tool-chip" type="button" data-panel="promptSection"><strong>词</strong><span>Prompt</span></button>
+          <button class="tool-chip" type="button" data-panel="imageTools" data-action="upload"><strong>▧</strong><span>图片</span></button>
+          <button class="tool-chip" type="button" data-panel="textTools"><strong>T</strong><span>文字</span></button>
+          <button class="tool-chip" type="button" data-panel="shapeTools"><strong>△</strong><span>组件</span></button>
+          <button class="tool-chip" type="button" data-panel="mascotPanel"><strong>侠</strong><span>素材</span></button>
+          <button class="tool-chip" type="button" data-panel="logoSection"><strong>◆</strong><span>Logo</span></button>
         </nav>
 
         <div class="tool-panel">
@@ -2112,21 +3424,175 @@
           <h2>尺寸 <small>平台预设</small></h2>
           <input class="search" id="presetSearch" placeholder="搜索平台或尺寸，例如 朋友圈 / 1080">
           <div class="preset-list" id="presetList"></div>
+          <div class="custom-size-card">
+            <h3>自定义画布</h3>
+            <div class="field-grid">
+              <div class="compact-field">
+                <label for="customCanvasWidth">宽度</label>
+                <input id="customCanvasWidth" type="number" min="100" max="8000" step="1" placeholder="1080">
+              </div>
+              <div class="compact-field">
+                <label for="customCanvasHeight">高度</label>
+                <input id="customCanvasHeight" type="number" min="100" max="8000" step="1" placeholder="1440">
+              </div>
+            </div>
+            <button class="btn" id="applyCustomSizeBtn" type="button">应用自定义尺寸</button>
+            <p class="hint" id="customSizeHint">支持 100-8000 px，适合临时非平台规格。</p>
+          </div>
           <button class="btn" id="newBlankBtn" type="button" style="width: 100%; margin-top: 12px;">新建空白画布</button>
         </section>
 
+        <section class="section" id="promptSection">
+          <h2>关键词 <small>旅游 Prompt</small></h2>
+          <div class="prompt-generator" aria-label="旅游 Prompt 生成器">
+            <div class="field-grid">
+              <div class="compact-field">
+                <label for="genTitle">线路 / 目的地</label>
+                <input id="genTitle" type="text" placeholder="杭州周边两日游">
+              </div>
+              <div class="compact-field">
+                <label for="genUseCase">宣发场景</label>
+                <select id="genUseCase">
+                  <option>线路主海报</option>
+                  <option>行程卡片</option>
+                  <option>地图路线图</option>
+                  <option>节假日活动海报</option>
+                  <option>目的地专题封面</option>
+                  <option>社媒封面图</option>
+                </select>
+              </div>
+              <div class="compact-field">
+                <label for="genAudience">目标客群</label>
+                <select id="genAudience">
+                  <option>年轻女性</option>
+                  <option>亲子家庭</option>
+                  <option>朋友结伴出游</option>
+                  <option>徒步爱好者</option>
+                  <option>摄影爱好者</option>
+                  <option>银发客群</option>
+                  <option>企业团建</option>
+                </select>
+              </div>
+              <div class="compact-field">
+                <label for="genAspect">画幅比例</label>
+                <select id="genAspect">
+                  <option>9:16 竖版</option>
+                  <option>4:5 社媒竖版</option>
+                  <option>3:4 海报</option>
+                  <option>1:1 方图</option>
+                  <option>16:9 横版</option>
+                </select>
+              </div>
+              <div class="compact-field">
+                <label for="genStyle">风格方向</label>
+                <select id="genStyle">
+                  <option>极简平面海报风</option>
+                  <option>旅游杂志编辑风</option>
+                  <option>地图信息图风</option>
+                  <option>拼贴纪实旅行风</option>
+                  <option>国潮文旅海报风</option>
+                  <option>双重曝光城市海报风</option>
+                  <option>3D 迪士尼风格</option>
+                  <option>扁平插画风</option>
+                  <option>轻奢品牌广告风</option>
+                  <option>旅行手账拼贴风</option>
+                </select>
+              </div>
+              <div class="compact-field">
+                <label for="genDensity">文字密度</label>
+                <select id="genDensity">
+                  <option>少字，留白充足</option>
+                  <option>中等信息量</option>
+                  <option>信息丰富但清晰</option>
+                </select>
+              </div>
+              <div class="compact-field full">
+                <label for="genSelling">核心卖点</label>
+                <input id="genSelling" type="text" placeholder="山水、民宿、轻徒步、美食">
+              </div>
+              <div class="compact-field">
+                <label for="genDeparture">出发地</label>
+                <input id="genDeparture" type="text" placeholder="上海 / 杭州 / 北京">
+              </div>
+              <div class="compact-field">
+                <label for="genDestination">目的地</label>
+                <input id="genDestination" type="text" placeholder="千岛湖 / 西安 / 三亚">
+              </div>
+              <div class="compact-field">
+                <label for="genDays">天数</label>
+                <input id="genDays" type="text" placeholder="2日 / 3天2晚">
+              </div>
+              <div class="compact-field">
+                <label for="genTime">出发时间</label>
+                <input id="genTime" type="text" placeholder="周六发团 / 5月1日">
+              </div>
+              <div class="compact-field">
+                <label for="genPrice">价格</label>
+                <input id="genPrice" type="text" placeholder="¥1299起">
+              </div>
+              <div class="compact-field full hidden" id="genItineraryField">
+                <label for="genItinerary">行程内容</label>
+                <textarea id="genItinerary" placeholder="D1 西湖漫步 - 午餐 - 晚霞游船；D2 灵隐寺 - 龙井村 - 返回"></textarea>
+              </div>
+              <div class="compact-field full hidden" id="genPointsField">
+                <label for="genPoints">点位内容</label>
+                <textarea id="genPoints" placeholder="西湖 - 雷峰塔 - 灵隐寺 - 龙井村 - 宋城"></textarea>
+              </div>
+              <div class="compact-field full">
+                <label for="genExtra">补充要求</label>
+                <textarea id="genExtra" placeholder="预留顶部标题区和底部报名信息区，不要过度复杂"></textarea>
+              </div>
+              <div class="compact-field output full">
+                <label for="generatedPrompt">生成结果</label>
+                <textarea id="generatedPrompt" readonly></textarea>
+              </div>
+              <div class="compact-field full">
+                <label for="imageApiKey">OpenAI API Key</label>
+                <input id="imageApiKey" type="password" autocomplete="off" placeholder="填入自己的 OpenAI API Key，仅保存在本机">
+              </div>
+              <div class="compact-field">
+                <label for="imageModel">生图模型</label>
+                <input id="imageModel" type="text" value="gpt-image-2">
+              </div>
+              <div class="compact-field">
+                <label for="imageResolution">生成质量</label>
+                <select id="imageResolution">
+                  <option value="low">快速</option>
+                  <option value="medium" selected>标准</option>
+                  <option value="high">高清</option>
+                </select>
+              </div>
+            </div>
+            <div class="prompt-actions">
+              <button class="mini-btn" id="copyGeneratedBtn" type="button">复制 Prompt</button>
+              <button class="mini-btn active" id="generateImageBtn" type="button">生成图片</button>
+            </div>
+            <div class="generation-progress hidden" id="generationProgress" aria-live="polite">
+              <div class="generation-progress-bar"><div class="generation-progress-fill" id="generationProgressFill"></div></div>
+              <div class="generation-progress-meta">
+                <span id="generationElapsed">已耗时 0s</span>
+                <span id="generationRemaining">预计剩余 --</span>
+              </div>
+            </div>
+            <div class="prompt-status" id="promptStatus">按业务信息生成可复制的旅游生图 Prompt。</div>
+          </div>
+        </section>
+
         <section class="section" id="addSection">
-          <h2>添加元素 <small>常用组件</small></h2>
-          <label class="label" for="imageInput">上传图片</label>
-          <button class="upload-card" id="imageUploadBtn" type="button">
-            <span class="upload-icon">+</span>
-            <span>
-              <strong id="imageUploadTitle">上传图片</strong>
-              <span id="imageUploadMeta">支持 JPG、PNG、WebP，上传后自动放入画布</span>
-            </span>
-          </button>
-          <input class="file-input" id="imageInput" type="file" accept="image/*">
-          <div class="element-group" id="textTools">
+          <h2>工具 <small>按左侧图标切换</small></h2>
+          <div class="add-subpanel" id="imageTools">
+            <p class="element-title">图片</p>
+            <label class="label" for="imageInput">上传图片</label>
+            <button class="upload-card" id="imageUploadBtn" type="button">
+              <span class="upload-icon">+</span>
+              <span>
+                <strong id="imageUploadTitle">上传图片</strong>
+                <span id="imageUploadMeta">支持 JPG、PNG、WebP，上传后自动放入画布</span>
+              </span>
+            </button>
+            <input class="file-input" id="imageInput" type="file" accept="image/*">
+          </div>
+          <div class="element-group add-subpanel" id="textTools">
             <p class="element-title">文字</p>
             <div class="element-grid">
               <button class="element-card" id="addTitleBtn" type="button"><span class="element-icon">H</span><span><strong>标题</strong><span>封面主视觉</span></span></button>
@@ -2145,23 +3611,20 @@
               </div>
               <p class="hint">只显示白名单中的免费商用字体和字魂字体，其他本地字体会自动过滤。</p>
             </div>
-          </div>
-          <div class="element-group">
             <p class="element-title">标签</p>
             <div class="element-grid">
-              <button class="element-card" id="showMascotsBtn" type="button"><span class="element-icon">侠</span><span><strong>游小侠贴纸</strong><span>选择吉祥物</span></span></button>
               <button class="element-card" id="addPillTagBtn" type="button"><span class="element-icon">●</span><span><strong>胶囊标签</strong><span>收藏/攻略</span></span></button>
               <button class="element-card" id="addCornerBadgeBtn" type="button"><span class="element-icon">⌜</span><span><strong>角标</strong><span>右上强调</span></span></button>
               <button class="element-card" id="addTopBadgeBtn" type="button"><span class="element-icon">TOP</span><span><strong>数字标签</strong><span>TOP / 必看</span></span></button>
             </div>
           </div>
-          <div class="element-group" id="mascotPanel">
+          <div class="element-group add-subpanel" id="mascotPanel">
             <p class="element-title">游小侠贴纸</p>
             <div class="logo-list" id="mascotList">
               <div class="empty">正在读取游小侠素材...</div>
             </div>
           </div>
-          <div class="element-group" id="shapeTools">
+          <div class="element-group add-subpanel" id="shapeTools">
             <p class="element-title">图形</p>
             <div class="element-grid">
               <button class="element-card" id="addRectBtn" type="button"><span class="element-icon">▭</span><span><strong>矩形</strong><span>色块/底板</span></span></button>
@@ -2190,6 +3653,16 @@
         <div class="stage" id="stage">
           <div class="canvas-shell">
             <canvas id="canvas"></canvas>
+            <div class="canvas-generation-placeholder hidden" id="canvasGenerationPlaceholder" aria-live="polite">
+              <div class="canvas-generation-card">
+                <div class="canvas-generation-head">
+                  <span class="canvas-generation-dot" aria-hidden="true"></span>
+                  <span id="canvasGenerationTitle">正在生成图片</span>
+                </div>
+                <div class="canvas-generation-text" id="canvasGenerationText">OpenAI 正在根据 Prompt 生成，完成后会自动加入画布。</div>
+                <div class="canvas-generation-bar"><div class="canvas-generation-fill" id="canvasGenerationFill"></div></div>
+              </div>
+            </div>
             <div class="selection-overlay" id="selectionOverlay"></div>
             <textarea class="inline-text-editor" id="inlineTextEditor" aria-label="直接编辑文字"></textarea>
           </div>
@@ -2294,39 +3767,60 @@
               </div>
             </div>
 
-            <div class="inspector-group">
-              <div class="inspector-group-title"><span>图层</span></div>
-              <div class="inspector-content">
-                <div class="button-row">
-                  <button class="mini-btn" id="bringForwardBtn">上移</button>
-                  <button class="mini-btn" id="sendBackwardBtn">下移</button>
-                  <button class="mini-btn" id="bringFrontBtn">置顶</button>
-                  <button class="mini-btn" id="sendBackBtn">置底</button>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div class="inspector-group">
             <div class="inspector-group-title"><span>背景</span></div>
             <div class="inspector-content">
-              <div class="compact-field">
-                <label for="backgroundColor">画布颜色</label>
-                <input id="backgroundColor" type="color" value="#fff6d8">
+              <div class="background-color-panel">
+                <div class="color-control">
+                  <div class="color-preview" id="backgroundColorPreview" style="--preview-color: #ffffff;" aria-hidden="true"></div>
+                  <div class="color-fields">
+                    <div class="compact-field">
+                      <label for="backgroundHex">HEX</label>
+                      <input class="color-hex" id="backgroundHex" type="text" inputmode="text" maxlength="7" value="#FFFFFF" aria-label="背景色 HEX">
+                    </div>
+                    <label class="color-picker-shell" title="打开系统取色器">
+                      <span aria-hidden="true">取</span>
+                      <input id="backgroundColor" type="color" value="#ffffff" aria-label="打开系统取色器">
+                    </label>
+                  </div>
+                </div>
+                <div class="palette-label">Palette</div>
+                <div class="swatches" id="swatches"></div>
               </div>
-              <div class="swatches" id="swatches"></div>
             </div>
           </div>
 
           <div class="inspector-group">
             <div class="inspector-group-title"><span>图层</span></div>
             <div class="inspector-content">
+              <div class="button-row">
+                <button class="mini-btn" id="bringForwardBtn">上移</button>
+                <button class="mini-btn" id="sendBackwardBtn">下移</button>
+                <button class="mini-btn" id="bringFrontBtn">置顶</button>
+                <button class="mini-btn" id="sendBackBtn">置底</button>
+              </div>
               <div class="layers" id="layers"></div>
             </div>
           </div>
         </div>
       </aside>
     </main>
+  </div>
+
+  <div class="dialog-layer hidden" id="appDialog" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle" aria-describedby="appDialogMessage">
+    <div class="dialog-card" id="appDialogCard">
+      <div class="dialog-head">
+        <span class="dialog-mark" id="appDialogMark" aria-hidden="true"></span>
+        <h2 class="dialog-title" id="appDialogTitle">提示</h2>
+      </div>
+      <p class="dialog-message" id="appDialogMessage"></p>
+      <div class="dialog-actions">
+        <button class="btn" id="appDialogCancel" type="button">取消</button>
+        <button class="btn primary" id="appDialogConfirm" type="button">确定</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -2336,7 +3830,9 @@
     const selectionOverlay = document.getElementById("selectionOverlay");
     const inlineTextEditor = document.getElementById("inlineTextEditor");
     const STORAGE_KEY = "social-cover-designer-v3";
-    const APP_VERSION = "1.0.5";
+    const IMAGE_API_KEY_STORAGE = "youdesign-openai-image-api-key";
+    const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
+    const APP_VERSION = "1.0.6";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -2378,6 +3874,8 @@
       const toolIcons = {
         sizeSection: "ruler",
         addSection: "add",
+        promptSection: "tools",
+        imageTools: "image",
         upload: "image",
         textTools: "text",
         mascotPanel: "mascot",
@@ -2386,7 +3884,7 @@
         fontSection: "tools"
       };
       document.querySelectorAll(".tool-chip").forEach(button => {
-        const key = button.dataset.action || button.dataset.scroll;
+        const key = button.dataset.panel || button.dataset.action || button.dataset.scroll;
         const slot = button.querySelector("strong");
         if (slot && toolIcons[key]) slot.innerHTML = icon(toolIcons[key]);
       });
@@ -2405,6 +3903,8 @@
         addCircleBtn: "circle",
         addDividerBtn: "line",
         addOverlayBtn: "overlay",
+        copyGeneratedBtn: "copy",
+        generateImageBtn: "image",
         alignLeftBtn: "objectAlignLeft",
         alignCenterBtn: "objectAlignCenter",
         alignRightBtn: "objectAlignRight",
@@ -2655,6 +4155,8 @@
       }));
       setSelection([]);
       resizeCanvas();
+      syncPromptAspectToCanvas();
+      generateTourismPrompt();
       renderAll();
       syncUi();
     }
@@ -2682,12 +4184,115 @@
       URL.revokeObjectURL(a.href);
     }
 
+    function blobToDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function saveExportFile(options) {
+      if (window.youdesignDesktop?.saveExportFile) {
+        return window.youdesignDesktop.saveExportFile(options);
+      }
+      if (options.text != null) {
+        downloadTextFile(options.text, options.filename, options.type || "application/json");
+        return "";
+      }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(options.blob);
+      a.download = options.filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return "";
+    }
+
     function readTextFile(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
         reader.readAsText(file);
+      });
+    }
+
+    function showAppDialog(options = {}) {
+      const layer = document.getElementById("appDialog");
+      const card = document.getElementById("appDialogCard");
+      const title = document.getElementById("appDialogTitle");
+      const message = document.getElementById("appDialogMessage");
+      const mark = document.getElementById("appDialogMark");
+      const cancelBtn = document.getElementById("appDialogCancel");
+      const confirmBtn = document.getElementById("appDialogConfirm");
+      const {
+        title: dialogTitle = "提示",
+        message: dialogMessage = "",
+        confirmText = "确定",
+        cancelText = "取消",
+        kind = "info",
+        showCancel = true
+      } = options;
+
+      return new Promise(resolve => {
+        const previousFocus = document.activeElement;
+        let settled = false;
+
+        const close = value => {
+          if (settled) return;
+          settled = true;
+          layer.classList.add("hidden");
+          document.removeEventListener("keydown", onKeyDown);
+          confirmBtn.onclick = null;
+          cancelBtn.onclick = null;
+          layer.onclick = null;
+          if (previousFocus && typeof previousFocus.focus === "function") previousFocus.focus();
+          resolve(value);
+        };
+
+        const onKeyDown = event => {
+          if (event.key === "Escape") close(false);
+          if (event.key === "Enter") close(true);
+        };
+
+        card.classList.toggle("is-danger", kind === "danger");
+        confirmBtn.classList.toggle("is-danger", kind === "danger");
+        title.textContent = dialogTitle;
+        message.textContent = dialogMessage;
+        mark.innerHTML = icon(kind === "danger" ? "delete" : kind === "update" ? "refresh" : "tools");
+        cancelBtn.textContent = cancelText;
+        confirmBtn.textContent = confirmText;
+        cancelBtn.classList.toggle("hidden", !showCancel);
+        layer.classList.remove("hidden");
+        document.addEventListener("keydown", onKeyDown);
+        confirmBtn.onclick = () => close(true);
+        cancelBtn.onclick = () => close(false);
+        layer.onclick = event => {
+          if (event.target === layer && showCancel) close(false);
+        };
+        requestAnimationFrame(() => confirmBtn.focus());
+      });
+    }
+
+    function appAlert(message, title = "提示", kind = "info") {
+      return showAppDialog({
+        title,
+        message,
+        kind,
+        showCancel: false,
+        confirmText: "知道了"
+      });
+    }
+
+    function appConfirm(message, options = {}) {
+      return showAppDialog({
+        title: options.title || "确认操作",
+        message,
+        kind: options.kind || "info",
+        confirmText: options.confirmText || "继续",
+        cancelText: options.cancelText || "取消",
+        showCancel: true
       });
     }
 
@@ -3212,21 +4817,459 @@
       document.getElementById(id).addEventListener(event, fn);
     }
 
-    document.getElementById("quickTools").addEventListener("click", e => {
-      const button = e.target.closest(".tool-chip");
-      if (!button) return;
+    function promptEls() {
+      const ids = [
+        "genTitle",
+        "genUseCase",
+        "genAudience",
+        "genAspect",
+        "genStyle",
+        "genDensity",
+        "genSelling",
+        "genDeparture",
+        "genDestination",
+        "genDays",
+        "genItinerary",
+        "genPoints",
+        "genTime",
+        "genPrice",
+        "genExtra",
+        "generatedPrompt",
+        "imageApiKey",
+        "imageModel",
+        "imageResolution",
+        "generateImageBtn",
+        "generationProgress",
+        "generationProgressFill",
+        "generationElapsed",
+        "generationRemaining",
+        "canvasGenerationPlaceholder",
+        "canvasGenerationTitle",
+        "canvasGenerationText",
+        "canvasGenerationFill",
+        "promptStatus"
+      ];
+      return Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+    }
+
+    function updatePromptSpecialFields() {
+      const els = promptEls();
+      const useCase = els.genUseCase.value;
+      document.getElementById("genItineraryField").classList.toggle("hidden", useCase !== "行程卡片");
+      document.getElementById("genPointsField").classList.toggle("hidden", useCase !== "地图路线图");
+    }
+
+    function generateTourismPrompt() {
+      const els = promptEls();
+      const title = els.genTitle.value.trim() || "杭州周边两日游";
+      const useCase = els.genUseCase.value;
+      const audience = els.genAudience.value;
+      const aspect = els.genAspect.value;
+      const style = els.genStyle.value;
+      const density = els.genDensity.value;
+      const selling = els.genSelling.value.trim() || "山水、民宿、轻徒步、美食";
+      const departure = els.genDeparture.value.trim();
+      const destination = els.genDestination.value.trim();
+      const days = els.genDays.value.trim();
+      const itinerary = els.genItinerary.value.trim();
+      const points = els.genPoints.value.trim();
+      const time = els.genTime.value.trim();
+      const price = els.genPrice.value.trim();
+      const extra = els.genExtra.value.trim();
+      const overlayItems = [
+        !time && "日期",
+        !price && "价格",
+        "CTA",
+        "品牌信息"
+      ].filter(Boolean);
+      const overlayText = overlayItems.length > 1
+        ? `${overlayItems.slice(0, -1).join("、")} 和${overlayItems[overlayItems.length - 1]}`
+        : overlayItems[0];
+      const routeLines = [
+        departure && `出发地：${departure}`,
+        destination && `目的地：${destination}`,
+        days && `天数：${days}`,
+        useCase === "行程卡片" && itinerary && `行程内容：${itinerary}`,
+        useCase === "地图路线图" && points && `点位内容：${points}`,
+        time && `出发时间：${time}`,
+        price && `价格：${price}`
+      ].filter(Boolean).join("\n");
+      const extraLine = extra ? `\n补充要求：${extra}` : "";
+      const prompt = `请生成一张适用于游侠客官网、公众号、小红书和朋友圈宣发的${aspect}旅游海报。
+主题：${title}
+用途：${useCase}
+目标客群：${audience}
+核心卖点：${selling}
+${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
+文字要求：${density}，只保留必要信息，不要让画面过于拥挤。
+画面要求：
+- 主视觉突出目的地或线路氛围
+- 预留顶部标题区和底部报名信息区
+- 适合后期叠加${overlayText}
+- 画面构图稳定，信息层级清楚
+- 更像高质量旅游品牌海报，而不是普通拼图
+品牌要求：
+- 适合游侠客旅游品牌宣发
+- 预留品牌 LOGO 位
+- 整体气质专业、利落、可信赖${extraLine}`;
+
+      els.generatedPrompt.value = prompt;
+      return prompt;
+    }
+
+    function greatestCommonDivisor(a, b) {
+      a = Math.abs(Math.round(a));
+      b = Math.abs(Math.round(b));
+      while (b) {
+        const next = a % b;
+        a = b;
+        b = next;
+      }
+      return a || 1;
+    }
+
+    function canvasAspectLabel() {
+      const divisor = greatestCommonDivisor(state.width, state.height);
+      const w = Math.max(1, Math.round(state.width / divisor));
+      const h = Math.max(1, Math.round(state.height / divisor));
+      const orientation = w === h ? "方图" : w > h ? "横版" : "竖版";
+      return `${w}:${h} ${orientation}`;
+    }
+
+    function syncPromptAspectToCanvas() {
+      const select = document.getElementById("genAspect");
+      if (!select) return;
+      const label = canvasAspectLabel();
+      let option = [...select.options].find(item => item.value === label || item.textContent === label);
+      if (!option) {
+        option = [...select.options].find(item => item.dataset.canvasAspect === "true");
+      }
+      if (!option) {
+        option = document.createElement("option");
+        option.dataset.canvasAspect = "true";
+        select.prepend(option);
+      }
+      option.value = label;
+      option.textContent = label;
+      select.value = label;
+    }
+
+    async function copyPromptText(value, message = "已复制 Prompt") {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(value);
+        } else {
+          const area = document.createElement("textarea");
+          area.value = value;
+          area.style.position = "fixed";
+          area.style.opacity = "0";
+          document.body.appendChild(area);
+          area.focus();
+          area.select();
+          document.execCommand("copy");
+          area.remove();
+        }
+        document.getElementById("promptStatus").textContent = message;
+      } catch (error) {
+        document.getElementById("promptStatus").textContent = "复制失败，请手动选择生成结果复制。";
+      }
+    }
+
+    function setPromptStatus(message, mode = "") {
+      const status = document.getElementById("promptStatus");
+      status.textContent = message;
+      status.classList.toggle("is-loading", mode === "loading");
+      status.classList.toggle("is-error", mode === "error");
+    }
+
+    function openAIImageSizeForCurrentCanvas() {
+      const ratio = state.width / Math.max(1, state.height);
+      if (ratio > 1.18) return "1536x1024";
+      if (ratio < .82) return "1024x1536";
+      return "1024x1024";
+    }
+
+    function startGenerationProgress() {
+      const els = promptEls();
+      const startedAt = Date.now();
+      els.generationProgress.classList.remove("hidden");
+      els.generationProgressFill.style.width = "1%";
+      els.canvasGenerationPlaceholder.classList.remove("hidden", "is-done", "is-error");
+      els.canvasGenerationTitle.textContent = "正在生成图片";
+      els.canvasGenerationText.textContent = "OpenAI 正在根据 Prompt 生成，完成后会自动加入画布。";
+      els.canvasGenerationFill.style.width = "1%";
+      const tick = () => {
+        const elapsed = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+        els.generationElapsed.textContent = `已耗时 ${elapsed}s`;
+        if (!els.generationRemaining.textContent || els.generationRemaining.textContent === "预计剩余 --") {
+          els.generationRemaining.textContent = "官方接口生成中";
+        }
+        const softProgress = Math.min(92, 8 + Math.floor(elapsed * 3.2));
+        els.generationProgressFill.style.width = `${softProgress}%`;
+        els.canvasGenerationFill.style.width = `${softProgress}%`;
+        els.canvasGenerationText.textContent = `OpenAI 正在生成中，已耗时 ${elapsed}s。完成后会自动加入画布。`;
+      };
+      tick();
+      window.clearInterval(window.__generationProgressTimer);
+      window.__generationProgressTimer = window.setInterval(tick, 1000);
+    }
+
+    function updateGenerationProgress(message, percent) {
+      const els = promptEls();
+      const progress = Math.max(1, Math.min(99, Math.round(Number(percent || 0))));
+      els.generationProgressFill.style.width = `${progress}%`;
+      els.generationRemaining.textContent = message || `进度 ${progress}%`;
+      els.canvasGenerationFill.style.width = `${progress}%`;
+      els.canvasGenerationText.textContent = message || `生成进度 ${progress}%`;
+    }
+
+    function stopGenerationProgress(done = false) {
+      const els = promptEls();
+      window.clearInterval(window.__generationProgressTimer);
+      window.__generationProgressTimer = null;
+      if (done) {
+        els.generationProgressFill.style.width = "100%";
+        els.generationRemaining.textContent = "完成";
+        els.canvasGenerationPlaceholder.classList.add("is-done");
+        els.canvasGenerationTitle.textContent = "图片生成完成";
+        els.canvasGenerationText.textContent = "正在把生成结果加入画布。";
+        els.canvasGenerationFill.style.width = "100%";
+        window.setTimeout(() => {
+          els.generationProgress.classList.add("hidden");
+          els.generationProgressFill.style.width = "0%";
+          els.canvasGenerationPlaceholder.classList.add("hidden");
+          els.canvasGenerationPlaceholder.classList.remove("is-done", "is-error");
+          els.canvasGenerationFill.style.width = "0%";
+        }, 900);
+      } else {
+        els.generationProgress.classList.add("hidden");
+        els.generationProgressFill.style.width = "0%";
+        els.canvasGenerationPlaceholder.classList.add("hidden");
+        els.canvasGenerationPlaceholder.classList.remove("is-done", "is-error");
+        els.canvasGenerationFill.style.width = "0%";
+      }
+    }
+
+    function failGenerationProgress(message) {
+      const els = promptEls();
+      window.clearInterval(window.__generationProgressTimer);
+      window.__generationProgressTimer = null;
+      els.generationProgressFill.style.width = "100%";
+      els.generationRemaining.textContent = "失败";
+      els.canvasGenerationPlaceholder.classList.remove("hidden", "is-done");
+      els.canvasGenerationPlaceholder.classList.add("is-error");
+      els.canvasGenerationTitle.textContent = "生成失败";
+      els.canvasGenerationText.textContent = message || "请检查 API Key、额度或网络连接后重试。";
+      els.canvasGenerationFill.style.width = "100%";
+      window.setTimeout(() => {
+        els.generationProgress.classList.add("hidden");
+        els.generationProgressFill.style.width = "0%";
+        els.canvasGenerationPlaceholder.classList.add("hidden");
+        els.canvasGenerationPlaceholder.classList.remove("is-error");
+        els.canvasGenerationFill.style.width = "0%";
+      }, 2600);
+    }
+
+    async function addGeneratedImageToCanvas(src) {
+      const stableSrc = src.startsWith("data:") ? src : await assetSourceToDataUrl(src);
+      let img;
+      try {
+        img = await loadImage(stableSrc);
+      } catch (err) {
+        if (stableSrc === src && /^https?:\/\//i.test(src)) {
+          img = await loadImage(src, false);
+        } else {
+          throw err;
+        }
+      }
+      const maxW = state.width * .9;
+      const maxH = state.height * .9;
+      const ratio = img.width / Math.max(1, img.height);
+      let width = Math.min(maxW, img.width);
+      let height = width / ratio;
+      if (height > maxH) {
+        height = maxH;
+        width = height * ratio;
+      }
+      const obj = imageObject(
+        img,
+        (state.width - width) / 2,
+        (state.height - height) / 2,
+        width,
+        height,
+        stableSrc
+      );
+      obj.name = "AI 生成图片";
+      addObject(obj);
+    }
+
+    async function requestJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.code && payload.code !== 200) {
+        const message = payload.error?.message || payload.message || `接口请求失败：${response.status}`;
+        throw new Error(message);
+      }
+      return payload;
+    }
+
+    function extractImageSourceFromContent(content) {
+      if (!content) return "";
+      if (typeof content !== "string") {
+        if (Array.isArray(content)) {
+          for (const part of content) {
+            const found = extractImageSourceFromContent(part?.image_url?.url || part?.imageUrl?.url || part?.url || part?.text || part?.content);
+            if (found) return found;
+          }
+        }
+        return "";
+      }
+      const text = content.trim();
+      if (!text) return "";
+      if (text.startsWith("data:image/")) return text;
+      const dataMatch = text.match(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/);
+      if (dataMatch) return dataMatch[0];
+      const markdownMatch = text.match(/!\[[^\]]*\]\((https?:\/\/[^)\s]+|data:image\/[^)\s]+)\)/);
+      if (markdownMatch) return markdownMatch[1];
+      const urlMatch = text.match(/https?:\/\/\S+\.(?:png|jpe?g|webp)(?:\?\S*)?/i);
+      if (urlMatch) return urlMatch[0].replace(/[),.;]+$/, "");
+      try {
+        const parsed = JSON.parse(text);
+        return extractImageSourceFromContent(parsed?.url || parsed?.image_url || parsed?.imageUrl || parsed?.b64_json || parsed?.base64 || parsed?.data);
+      } catch (_) {
+        return "";
+      }
+    }
+
+    function extractOpenAIImageSource(payload) {
+      const first = Array.isArray(payload?.data) ? payload.data[0] : null;
+      if (first?.b64_json) return `data:image/png;base64,${first.b64_json}`;
+      if (first?.url) return first.url;
+      throw new Error("OpenAI 没有返回图片数据。");
+    }
+
+    async function requestOpenAIImage(apiKey, body) {
+      const desktop = window.youdesignDesktop;
+      if (desktop?.generateOpenAIImage) {
+        updateGenerationProgress("OpenAI 正在生成图片", 18);
+        return desktop.generateOpenAIImage({ apiKey, ...body });
+      }
+      const payload = await requestJson(`${OPENAI_IMAGE_API_BASE}/images/generations`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+      return extractOpenAIImageSource(payload);
+    }
+
+    async function generateImageFromPrompt() {
+      const els = promptEls();
+      const apiKey = els.imageApiKey.value.trim();
+      if (!apiKey) {
+        setPromptStatus("请先填写自己的 OpenAI API Key。", "error");
+        els.imageApiKey.focus();
+        return;
+      }
+      localStorage.setItem(IMAGE_API_KEY_STORAGE, apiKey);
+      const prompt = els.generatedPrompt.value || generateTourismPrompt();
+      const model = els.imageModel.value.trim() || "gpt-image-2";
+      const quality = els.imageResolution.value || "medium";
+      els.generateImageBtn.disabled = true;
+      startGenerationProgress();
+      setPromptStatus("正在调用 OpenAI 官方生图接口...", "loading");
+      try {
+        const imageSrc = await requestOpenAIImage(apiKey, {
+          model,
+          prompt,
+          n: 1,
+          size: openAIImageSizeForCurrentCanvas(),
+          quality
+        });
+        setPromptStatus("图片已生成，正在加入画布...", "loading");
+        await addGeneratedImageToCanvas(imageSrc);
+        stopGenerationProgress(true);
+        setPromptStatus("已生成图片并加入画布。");
+      } catch (error) {
+        const message = error?.message || String(error || "") || "请检查 OpenAI API Key、额度或网络连接。";
+        console.error("OpenAI image generation failed", error);
+        failGenerationProgress(message);
+        setPromptStatus(`生成失败：${message}`, "error");
+      } finally {
+        els.generateImageBtn.disabled = false;
+      }
+    }
+
+    function setupPromptGenerator() {
+      const section = document.getElementById("promptSection");
+      if (!section) return;
+      const savedKey = localStorage.getItem(IMAGE_API_KEY_STORAGE);
+      if (savedKey) document.getElementById("imageApiKey").value = savedKey;
+      section.addEventListener("input", generateTourismPrompt);
+      section.addEventListener("change", generateTourismPrompt);
+      wire("imageApiKey", "input", e => {
+        localStorage.setItem(IMAGE_API_KEY_STORAGE, e.target.value.trim());
+      });
+      wire("genUseCase", "change", () => {
+        updatePromptSpecialFields();
+        generateTourismPrompt();
+      });
+      wire("copyGeneratedBtn", "click", () => {
+        copyPromptText(document.getElementById("generatedPrompt").value || generateTourismPrompt());
+      });
+      wire("generateImageBtn", "click", generateImageFromPrompt);
+      updatePromptSpecialFields();
+      syncPromptAspectToCanvas();
+      generateTourismPrompt();
+    }
+
+    function showToolPanel(panelId, button) {
+      const left = document.querySelector(".left");
+      const topLevel = ["sizeSection", "promptSection", "logoSection"];
+      const sectionId = topLevel.includes(panelId) ? panelId : "addSection";
+      left.classList.add("panel-open");
       document.querySelectorAll(".tool-chip").forEach(item => item.classList.toggle("active", item === button));
-      if (button.dataset.action === "new") {
-        document.getElementById("newBlankBtn").click();
-        return;
-      }
-      if (button.dataset.action === "upload") {
-        document.getElementById("imageInput").click();
-        return;
-      }
-      const target = document.getElementById(button.dataset.scroll);
-      if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+      document.querySelectorAll(".tool-panel > .section").forEach(section => {
+        section.classList.toggle("panel-active", section.id === sectionId);
+      });
+      document.querySelectorAll(".add-subpanel").forEach(panel => {
+        panel.classList.toggle("panel-active", panel.id === panelId);
+      });
+    }
+
+    function hideToolPanelSoon() {
+      window.clearTimeout(window.__toolPanelTimer);
+      window.__toolPanelTimer = window.setTimeout(() => {
+        const left = document.querySelector(".left");
+        if (!left.matches(":hover") && !left.contains(document.activeElement)) {
+          left.classList.remove("panel-open");
+        }
+      }, 120);
+    }
+
+    function setupToolPanelHover() {
+      const left = document.querySelector(".left");
+      const tools = document.getElementById("quickTools");
+      tools.querySelectorAll(".tool-chip").forEach(button => {
+        const panelId = button.dataset.panel || button.dataset.scroll;
+        if (!panelId) return;
+        const open = () => showToolPanel(panelId, button);
+        button.addEventListener("mouseenter", open);
+        button.addEventListener("focus", open);
+        button.addEventListener("click", e => {
+          open();
+          if (button.dataset.action === "upload") {
+            document.getElementById("imageInput").click();
+          }
+        });
+      });
+      left.addEventListener("mouseenter", () => window.clearTimeout(window.__toolPanelTimer));
+      left.addEventListener("mouseleave", hideToolPanelSoon);
+      showToolPanel("sizeSection", tools.querySelector(".tool-chip"));
+      left.classList.remove("panel-open");
+    }
 
     function addObjects(objects, selectedObj = objects[objects.length - 1]) {
       saveHistory();
@@ -3238,7 +5281,7 @@
     }
 
     wire("addTextBtn", "click", () => addObject(text("输入文字", 120, 260, 42, "#171411", { width: 520, fontWeight: 700 })));
-    wire("addTitleBtn", "click", () => addObject(text("输入你的封面标题", 120, 180, 82, "#171411", { stroke: "#ffffff", strokeWidth: 6 })));
+    wire("addTitleBtn", "click", () => addObject(text("输入你的封面标题", 120, 180, 82, "#171411", { stroke: "transparent", strokeWidth: 0 })));
     wire("addSubtitleBtn", "click", () => addObject(text("这里填写补充说明", 124, 330, 38, "#6e6e73", { width: 640, fontWeight: 700 })));
     wire("addBigNumberBtn", "click", () => addObject(text("07", 108, 190, 176, "#fff100", { width: 360, fontWeight: 900, stroke: "#1d1d1f", strokeWidth: 4, lockAspect: true })));
     wire("addVerticalTextBtn", "click", () => {
@@ -3247,9 +5290,6 @@
       addObject(obj);
     });
 
-    wire("showMascotsBtn", "click", () => {
-      document.getElementById("mascotPanel").scrollIntoView({ behavior: "smooth", block: "start" });
-    });
     wire("addPillTagBtn", "click", () => {
       const x = state.width * .12;
       const y = state.height * .78;
@@ -3294,10 +5334,50 @@
       obj.opacity = .28;
       addObject(obj);
     });
-    wire("backgroundColor", "input", e => {
-      state.background = e.target.value;
+    function normalizeHexColor(value) {
+      const raw = String(value || "").trim();
+      const withHash = raw.startsWith("#") ? raw : `#${raw}`;
+      if (/^#[0-9a-fA-F]{6}$/.test(withHash)) return withHash.toLowerCase();
+      if (/^#[0-9a-fA-F]{3}$/.test(withHash)) {
+        return `#${withHash[1]}${withHash[1]}${withHash[2]}${withHash[2]}${withHash[3]}${withHash[3]}`.toLowerCase();
+      }
+      return null;
+    }
+
+    function syncBackgroundColorUi(color = state.background) {
+      const normalized = normalizeHexColor(color) || "#ffffff";
+      const colorInput = document.getElementById("backgroundColor");
+      const hexInput = document.getElementById("backgroundHex");
+      const preview = document.getElementById("backgroundColorPreview");
+      if (colorInput) colorInput.value = normalized;
+      if (hexInput) hexInput.value = normalized.toUpperCase();
+      if (preview) preview.style.setProperty("--preview-color", normalized);
+      document.querySelectorAll("#swatches .swatch").forEach(button => {
+        button.classList.toggle("active", normalizeHexColor(button.dataset.color) === normalized);
+      });
+    }
+
+    function setBackgroundColor(color, shouldPersist = true) {
+      const normalized = normalizeHexColor(color);
+      if (!normalized) return false;
+      state.background = normalized;
+      syncBackgroundColorUi(normalized);
       renderAll();
-      persist();
+      if (shouldPersist) persist();
+      return true;
+    }
+
+    wire("backgroundColor", "input", e => {
+      setBackgroundColor(e.target.value);
+    });
+
+    wire("backgroundHex", "input", e => {
+      const normalized = normalizeHexColor(e.target.value);
+      if (normalized) setBackgroundColor(normalized);
+    });
+
+    wire("backgroundHex", "blur", e => {
+      if (!setBackgroundColor(e.target.value)) syncBackgroundColorUi();
     });
 
     ["posX", "posY", "objWidth", "objHeight", "rotation", "textValue", "fontFamily", "fontSize", "fillColor", "strokeColor", "strokeWidth", "shapeRadius", "opacity", "shadow", "lockAspect"].forEach(id => {
@@ -3410,6 +5490,23 @@
       const [obj] = state.objects.splice(index, 1);
       const next = delta > 50 ? state.objects.length : delta < -50 ? 0 : Math.max(0, Math.min(state.objects.length, index + delta));
       state.objects.splice(next, 0, obj);
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    function reorderLayer(draggedId, targetId) {
+      if (!draggedId || !targetId || draggedId === targetId) return;
+      const visualIds = [...state.objects].reverse().map(obj => obj.id);
+      const from = visualIds.indexOf(draggedId);
+      const to = visualIds.indexOf(targetId);
+      if (from < 0 || to < 0) return;
+      saveHistory();
+      visualIds.splice(from, 1);
+      visualIds.splice(to, 0, draggedId);
+      const byId = new Map(state.objects.map(obj => [obj.id, obj]));
+      state.objects = visualIds.reverse().map(id => byId.get(id)).filter(Boolean);
+      setSelection(state.selectedIds && state.selectedIds.length ? state.selectedIds : [draggedId]);
       renderAll();
       syncUi();
       persist();
@@ -3632,20 +5729,23 @@
         out.width = state.width * scale;
         out.height = state.height * scale;
         renderAll(true, scale, out.getContext("2d"));
-        out.toBlob(blob => {
+        out.toBlob(async blob => {
           if (!blob) {
-            alert("导出失败：画布里有浏览器禁止导出的图片资源。请刷新页面后重新添加贴纸或图片。");
+            appAlert("画布里有浏览器禁止导出的图片资源。请刷新页面后重新添加贴纸或图片。", "导出失败", "danger");
             return;
           }
-          const a = document.createElement("a");
-          const ext = type === "image/jpeg" ? "jpg" : "png";
-          a.href = URL.createObjectURL(blob);
-          a.download = `${state.platform}-${state.label}-${state.width}x${state.height}.${ext}`.replace(/[\\/:\s]+/g, "-");
-          a.click();
-          URL.revokeObjectURL(a.href);
+          try {
+            const ext = type === "image/jpeg" ? "jpg" : "png";
+            const filename = `${state.platform}-${state.label}-${state.width}x${state.height}.${ext}`.replace(/[\\/:\s]+/g, "-");
+            const dataUrl = window.youdesignDesktop?.saveExportFile ? await blobToDataUrl(blob) : null;
+            const savedPath = await saveExportFile({ filename, blob, dataUrl });
+            if (savedPath) appAlert(`已导出到：${savedPath}`, "导出完成");
+          } catch (err) {
+            appAlert(err?.message || String(err) || "请刷新页面后重试。", "导出失败", "danger");
+          }
         }, type, .94);
       } catch (err) {
-        alert("导出失败：画布里有浏览器禁止导出的图片资源。请刷新页面后重新添加贴纸或图片。");
+        appAlert("画布里有浏览器禁止导出的图片资源。请刷新页面后重新添加贴纸或图片。", "导出失败", "danger");
       }
     });
 
@@ -3653,9 +5753,14 @@
       try {
         await normalizeAllImageSources();
         const filename = `${state.platform}-${state.label}-${state.width}x${state.height}.youdesign`.replace(/[\\/:\s]+/g, "-");
-        downloadTextFile(projectSnapshot(), filename);
+        const savedPath = await saveExportFile({
+          filename,
+          text: projectSnapshot(),
+          type: "application/json"
+        });
+        if (savedPath) appAlert(`已导出到：${savedPath}`, "导出完成");
       } catch (err) {
-        alert("导出工程失败：请刷新页面后重试。");
+        appAlert(err?.message || String(err) || "请刷新页面后重试。", "导出工程失败", "danger");
       }
     });
 
@@ -3665,7 +5770,11 @@
       const file = e.target.files[0];
       if (!file) return;
       try {
-        if (state.objects.length && !confirm("导入工程会替换当前画布，是否继续？")) {
+        if (state.objects.length && !await appConfirm("导入工程会替换当前画布，是否继续？", {
+          title: "导入工程",
+          confirmText: "替换画布",
+          kind: "danger"
+        })) {
           e.target.value = "";
           return;
         }
@@ -3674,37 +5783,54 @@
         await restore(raw);
         persist();
       } catch (err) {
-        alert(`导入工程失败：${err.message || "文件格式不正确"}`);
+        appAlert(err.message || "文件格式不正确", "导入工程失败", "danger");
       } finally {
         e.target.value = "";
       }
     });
 
     wire("localFontsBtn", "click", async () => {
+      const fontStatus = document.getElementById("fontStatus");
+      try {
+        if (window.youdesignDesktop && window.youdesignDesktop.listLocalFonts) {
+          fontStatus.textContent = "读取中";
+          const fonts = await window.youdesignDesktop.listLocalFonts();
+          applyLocalFonts(fonts);
+          return;
+        }
+      } catch (err) {
+        fontStatus.textContent = "读取失败";
+        return;
+      }
+
       if (!("queryLocalFonts" in window)) {
         document.getElementById("fontStatus").textContent = "当前浏览器不支持";
         return;
       }
       try {
         const fonts = await window.queryLocalFonts();
-        const seen = new Set();
-        const safeFonts = fonts.filter(isSafeCommercialFont);
-        localFonts = fonts
-          .filter(isSafeCommercialFont)
-          .filter(f => {
-            const key = `${f.family}-${f.style}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          })
-          .map(f => ({ family: f.family, label: `${f.family} ${f.style} · 可商用`, source: "local" }))
-          .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
-        document.getElementById("fontStatus").textContent = `可商用 ${localFonts.length} 款，过滤 ${fonts.length - safeFonts.length} 款`;
-        syncFontSelect();
+        applyLocalFonts(fonts);
       } catch (err) {
         document.getElementById("fontStatus").textContent = "授权被拒绝";
       }
     });
+
+    function applyLocalFonts(fonts) {
+      const seen = new Set();
+      const safeFonts = fonts.filter(isSafeCommercialFont);
+      localFonts = fonts
+        .filter(isSafeCommercialFont)
+        .filter(f => {
+          const key = `${f.family}-${f.style}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        })
+        .map(f => ({ family: f.family, label: `${f.family} ${f.style || "Regular"} · 可商用`, source: "local" }))
+        .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
+      document.getElementById("fontStatus").textContent = `可商用 ${localFonts.length} 款，过滤 ${fonts.length - safeFonts.length} 款`;
+      syncFontSelect();
+    }
 
     function readFile(file) {
       return new Promise((resolve, reject) => {
@@ -3717,6 +5843,11 @@
 
     async function assetSourceToDataUrl(src) {
       if (src.startsWith("data:")) return src;
+      if (window.youdesignDesktop?.downloadRemoteAsset && /^https?:\/\//i.test(src)) {
+        try {
+          return await window.youdesignDesktop.downloadRemoteAsset(src);
+        } catch (err) {}
+      }
       try {
         const response = await fetch(src);
         if (!response.ok) throw new Error("asset fetch failed");
@@ -3743,10 +5874,10 @@
       }
     }
 
-    function loadImage(src) {
+    function loadImage(src, useCrossOrigin = true) {
       return new Promise((resolve, reject) => {
         const img = new Image();
-        if (!src.startsWith("data:") && !src.startsWith("blob:")) img.crossOrigin = "anonymous";
+        if (useCrossOrigin && !src.startsWith("data:") && !src.startsWith("blob:")) img.crossOrigin = "anonymous";
         img.onload = () => resolve(img);
         img.onerror = reject;
         img.src = src;
@@ -3773,6 +5904,8 @@
         setSelection([]);
       }
       resizeCanvas();
+      syncPromptAspectToCanvas();
+      generateTourismPrompt();
       renderAll();
       syncUi();
       persist();
@@ -3789,8 +5922,12 @@
           const btn = document.createElement("button");
           btn.className = `preset ${p.width === state.width && p.height === state.height && p.platform === state.platform ? "active" : ""}`;
           btn.innerHTML = `<strong>${p.platform} · ${p.label}</strong><span>${p.width} × ${p.height}${p.safe ? " · " + p.safe : ""}</span>`;
-          btn.onclick = () => {
-            const keep = state.objects.length && confirm("是否将现有元素等比适配到新尺寸？\n取消则创建空白画布。");
+          btn.onclick = async () => {
+            const keep = state.objects.length && await appConfirm("是否将现有元素等比适配到新尺寸？\n选择取消将创建空白画布。", {
+              title: "切换画布尺寸",
+              confirmText: "等比适配",
+              cancelText: "新建空白"
+            });
             setPreset(p, keep);
           };
           list.appendChild(btn);
@@ -3799,14 +5936,42 @@
 
     wire("presetSearch", "input", renderPresets);
 
-    wire("newBlankBtn", "click", () => {
-      if (state.objects.length && !confirm("确定清空当前画布并新建空白画布吗？")) return;
+    wire("applyCustomSizeBtn", "click", async () => {
+      const widthInput = document.getElementById("customCanvasWidth");
+      const heightInput = document.getElementById("customCanvasHeight");
+      const hint = document.getElementById("customSizeHint");
+      const width = Math.round(Number(widthInput.value));
+      const height = Math.round(Number(heightInput.value));
+      if (!Number.isFinite(width) || !Number.isFinite(height) || width < 100 || height < 100 || width > 8000 || height > 8000) {
+        hint.textContent = "请输入 100-8000 px 之间的宽度和高度。";
+        return;
+      }
+      const keep = state.objects.length && await appConfirm("是否将现有元素等比适配到自定义尺寸？\n选择取消将创建空白画布。", {
+        title: "应用自定义尺寸",
+        confirmText: "等比适配",
+        cancelText: "新建空白"
+      });
+      setPreset({
+        platform: "自定义",
+        label: `${width} × ${height}`,
+        width,
+        height
+      }, keep);
+      widthInput.value = width;
+      heightInput.value = height;
+      hint.textContent = `已应用自定义尺寸：${width} × ${height} px`;
+    });
+
+    wire("newBlankBtn", "click", async () => {
+      if (state.objects.length && !await appConfirm("确定清空当前画布并新建空白画布吗？", {
+        title: "新建空白画布",
+        confirmText: "清空并新建",
+        kind: "danger"
+      })) return;
       saveHistory();
       state.objects = [];
       setSelection([]);
-      state.background = "#ffffff";
-      document.getElementById("backgroundColor").value = state.background;
-      renderAll();
+      setBackgroundColor("#ffffff", false);
       syncUi();
       persist();
     });
@@ -3815,18 +5980,19 @@
       const box = document.getElementById("swatches");
       box.innerHTML = "";
       swatchColors.forEach(color => {
+        const normalized = normalizeHexColor(color);
         const btn = document.createElement("button");
         btn.className = "swatch";
-        btn.style.background = color;
-        btn.title = color;
+        btn.style.background = normalized;
+        btn.dataset.color = normalized;
+        btn.title = normalized.toUpperCase();
+        btn.setAttribute("aria-label", `设置背景色 ${normalized.toUpperCase()}`);
         btn.onclick = () => {
-          state.background = color;
-          document.getElementById("backgroundColor").value = color;
-          renderAll();
-          persist();
+          setBackgroundColor(normalized);
         };
         box.appendChild(btn);
       });
+      syncBackgroundColorUi();
     }
 
     function syncFontSelect() {
@@ -3882,7 +6048,7 @@
       document.getElementById("emptyPanel").classList.toggle("hidden", !!objects.length);
       document.getElementById("propsPanel").classList.toggle("hidden", !objects.length);
       document.getElementById("selectionLabel").textContent = multi ? `${objects.length} 个图层` : obj ? obj.name : "未选中";
-      document.getElementById("backgroundColor").value = state.background;
+      syncBackgroundColorUi();
       if (!objects.length || !updateValues) return;
       const isText = obj.type === "text";
       const isShape = obj.type === "shape";
@@ -3964,13 +6130,39 @@
         const btn = document.createElement("button");
         const active = selectedObjects().some(selectedObj => selectedObj.id === obj.id);
         btn.className = `layer ${active ? "active" : ""}`;
-        btn.innerHTML = `<span>${obj.name}</span><span>${obj.type}</span>`;
+        btn.type = "button";
+        btn.draggable = true;
+        btn.dataset.layerId = obj.id;
+        btn.innerHTML = `<span class="layer-name">${obj.name}</span><span class="layer-type">${obj.type}</span>`;
         btn.onclick = event => {
           if (event.shiftKey || event.metaKey || event.ctrlKey) toggleSelection(obj.id);
           else setSelection([obj.id]);
           renderAll();
           syncUi();
         };
+        btn.addEventListener("dragstart", event => {
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", obj.id);
+          btn.classList.add("dragging");
+        });
+        btn.addEventListener("dragend", () => {
+          btn.classList.remove("dragging");
+          document.querySelectorAll(".layer.drop-before").forEach(item => item.classList.remove("drop-before"));
+        });
+        btn.addEventListener("dragover", event => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          document.querySelectorAll(".layer.drop-before").forEach(item => item.classList.remove("drop-before"));
+          btn.classList.add("drop-before");
+        });
+        btn.addEventListener("dragleave", () => {
+          btn.classList.remove("drop-before");
+        });
+        btn.addEventListener("drop", event => {
+          event.preventDefault();
+          btn.classList.remove("drop-before");
+          reorderLayer(event.dataTransfer.getData("text/plain"), obj.id);
+        });
         box.appendChild(btn);
       });
       if (!state.objects.length) box.innerHTML = `<div class="empty">暂无图层。添加文字、图片、Logo 或图形开始。</div>`;
@@ -4001,9 +6193,14 @@
         installBtn.classList.remove("hidden");
         if (window.youdesignDesktop && window.youdesignDesktop.platform === "tauri" && !window.__youdesignUpdatePrompting) {
           window.__youdesignUpdatePrompting = true;
-          setTimeout(() => {
+          setTimeout(async () => {
             const version = payload.version || "新版本";
-            if (confirm(`发现 YOUDESIGN ${version}，是否立即下载并重启安装？`)) {
+            if (await appConfirm(`发现 YOUDESIGN ${version}，是否立即下载并重启安装？`, {
+              title: "发现新版本",
+              confirmText: "下载并安装",
+              cancelText: "稍后",
+              kind: "update"
+            })) {
               window.youdesignDesktop.installUpdate().catch(() => setUpdateUi("error"));
             }
             window.__youdesignUpdatePrompting = false;
@@ -4065,6 +6262,24 @@
         checkForUpdates() {
           return invoke("check_for_updates");
         },
+        listLocalFonts() {
+          return invoke("list_local_fonts");
+        },
+        generateOpenAIImage(options) {
+          return invoke("openai_generate_image", { request: options });
+        },
+        downloadRemoteAsset(url) {
+          return invoke("download_remote_asset", { request: { url } });
+        },
+        saveExportFile(options) {
+          return invoke("save_export_file", {
+            request: {
+              filename: options.filename,
+              text: options.text || null,
+              dataUrl: options.dataUrl || null
+            }
+          });
+        },
         installUpdate() {
           return invoke("install_update");
         },
@@ -4089,6 +6304,8 @@
       applyIconSystem();
       setupInspectorInteractions();
       setupTauriDesktopBridge();
+      setupPromptGenerator();
+      setupToolPanelHover();
       setupUpdateUi();
       syncFontSelect();
       renderSwatches();
@@ -4099,6 +6316,7 @@
         try { await restore(cached); return; } catch (e) {}
       }
       resizeCanvas();
+      syncPromptAspectToCanvas();
       state.background = "#ffffff";
       renderAll();
       syncUi();

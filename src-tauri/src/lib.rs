@@ -1,9 +1,402 @@
+use base64::Engine;
 use tauri::Emitter;
+use tauri::Manager;
 use tauri_plugin_updater::UpdaterExt;
+
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalFont {
+    family: String,
+    full_name: String,
+    postscript_name: String,
+    style: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OpenAIImageRequest {
+    api_key: String,
+    model: String,
+    prompt: Option<String>,
+    size: Option<String>,
+    quality: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteAssetRequest {
+    url: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ExportFileRequest {
+    filename: String,
+    text: Option<String>,
+    data_url: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct OpenAIImageResponse {
+    data: Option<Vec<OpenAIImageData>>,
+    error: Option<OpenAIError>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct OpenAIImageData {
+    b64_json: Option<String>,
+    url: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct OpenAIError {
+    message: String,
+}
 
 #[tauri::command]
 fn app_version(app: tauri::AppHandle) -> String {
     app.package_info().version.to_string()
+}
+
+#[tauri::command]
+async fn openai_generate_image(request: OpenAIImageRequest) -> Result<String, String> {
+    if request.api_key.trim().is_empty() {
+        return Err("请先填写 OpenAI API Key。".to_string());
+    }
+    let prompt = request
+        .prompt
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if prompt.is_empty() {
+        return Err("Prompt 不能为空。".to_string());
+    }
+
+    let mut body = serde_json::json!({
+        "model": if request.model.trim().is_empty() { "gpt-image-2" } else { request.model.trim() },
+        "prompt": prompt,
+        "n": 1,
+    });
+    if let Some(size) = request.size.filter(|value| !value.trim().is_empty()) {
+        body["size"] = serde_json::Value::String(size);
+    }
+    if let Some(quality) = request.quality.filter(|value| !value.trim().is_empty()) {
+        body["quality"] = serde_json::Value::String(quality);
+    }
+
+    let response = openai_http_client()
+        .post("https://api.openai.com/v1/images/generations")
+        .bearer_auth(request.api_key.trim())
+        .json(&body)
+        .send()
+        .await
+        .map_err(|error| format!("OpenAI 请求失败：{error}"))?;
+
+    let status = response.status();
+    let payload = response
+        .json::<OpenAIImageResponse>()
+        .await
+        .map_err(|error| format!("OpenAI 响应解析失败：{error}"))?;
+
+    if !status.is_success() {
+        return Err(payload
+            .error
+            .map(|error| error.message)
+            .unwrap_or_else(|| format!("OpenAI 接口请求失败：{status}")));
+    }
+
+    if let Some(first) = payload.data.and_then(|mut data| data.drain(..).next()) {
+        if let Some(image) = first.b64_json {
+            return Ok(format!("data:image/png;base64,{image}"));
+        }
+        if let Some(url) = first.url {
+            return image_source_to_data_url(&url).await;
+        }
+    }
+
+    Err("OpenAI 没有返回图片数据。".to_string())
+}
+
+fn openai_http_client() -> reqwest::Client {
+    reqwest::Client::new()
+}
+
+#[tauri::command]
+fn save_export_file(app: tauri::AppHandle, request: ExportFileRequest) -> Result<String, String> {
+    let filename = sanitize_export_filename(&request.filename);
+    if filename.is_empty() {
+        return Err("导出文件名不能为空。".to_string());
+    }
+
+    let bytes = if let Some(text) = request.text {
+        text.into_bytes()
+    } else if let Some(data_url) = request.data_url {
+        decode_export_data_url(&data_url)?
+    } else {
+        return Err("没有可导出的文件内容。".to_string());
+    };
+
+    let downloads_dir = app
+        .path()
+        .download_dir()
+        .map_err(|error| format!("无法定位下载目录：{error}"))?;
+    std::fs::create_dir_all(&downloads_dir)
+        .map_err(|error| format!("无法创建下载目录：{error}"))?;
+
+    let path = next_available_export_path(&downloads_dir, &filename);
+    std::fs::write(&path, bytes).map_err(|error| format!("导出文件写入失败：{error}"))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+fn sanitize_export_filename(filename: &str) -> String {
+    filename
+        .trim()
+        .chars()
+        .map(|ch| match ch {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '-',
+            ch if ch.is_control() => '-',
+            ch => ch,
+        })
+        .collect::<String>()
+        .trim_matches([' ', '.'])
+        .to_string()
+}
+
+fn decode_export_data_url(data_url: &str) -> Result<Vec<u8>, String> {
+    let (metadata, payload) = data_url
+        .split_once(',')
+        .ok_or_else(|| "图片导出数据格式不正确。".to_string())?;
+    if !metadata.starts_with("data:image/") || !metadata.ends_with(";base64") {
+        return Err("只支持导出 base64 图片数据。".to_string());
+    }
+    base64::engine::general_purpose::STANDARD
+        .decode(payload)
+        .map_err(|error| format!("图片导出数据解析失败：{error}"))
+}
+
+fn next_available_export_path(dir: &std::path::Path, filename: &str) -> std::path::PathBuf {
+    let initial_path = dir.join(filename);
+    if !initial_path.exists() {
+        return initial_path;
+    }
+
+    let source = std::path::Path::new(filename);
+    let stem = source
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("YOUDESIGN");
+    let extension = source.extension().and_then(|value| value.to_str());
+
+    for index in 1..1000 {
+        let candidate = match extension {
+            Some(extension) if !extension.is_empty() => {
+                dir.join(format!("{stem}-{index}.{extension}"))
+            }
+            _ => dir.join(format!("{stem}-{index}")),
+        };
+        if !candidate.exists() {
+            return candidate;
+        }
+    }
+
+    initial_path
+}
+
+async fn image_source_to_data_url(source: &str) -> Result<String, String> {
+    if source.starts_with("data:image/") {
+        return Ok(source.to_string());
+    }
+    if source.starts_with("http://") || source.starts_with("https://") {
+        return download_url_as_data_url(source).await;
+    }
+    Ok(format!("data:image/png;base64,{source}"))
+}
+
+#[tauri::command]
+async fn download_remote_asset(request: RemoteAssetRequest) -> Result<String, String> {
+    let url = request.url.trim();
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("只支持下载 http/https 图片资源。".to_string());
+    }
+
+    download_url_as_data_url(url).await
+}
+
+async fn download_url_as_data_url(url: &str) -> Result<String, String> {
+    let response = openai_http_client()
+        .get(url)
+        .send()
+        .await
+        .map_err(|error| format!("图片下载失败：{error}"))?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("图片下载失败：{status}"));
+    }
+    let content_type = response
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("image/png")
+        .split(';')
+        .next()
+        .unwrap_or("image/png")
+        .to_string();
+    if !content_type.starts_with("image/") {
+        return Err("远程资源不是图片。".to_string());
+    }
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|error| format!("图片读取失败：{error}"))?;
+    if bytes.len() > 20 * 1024 * 1024 {
+        return Err("图片超过 20MB，无法加入画布。".to_string());
+    }
+    let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+    Ok(format!("data:{content_type};base64,{encoded}"))
+}
+
+#[tauri::command]
+fn list_local_fonts() -> Vec<LocalFont> {
+    let mut fonts = Vec::new();
+    for dir in font_dirs() {
+        collect_fonts_from_dir(&dir, &mut fonts, 0);
+    }
+    fonts.sort_by(|a, b| {
+        a.family
+            .to_lowercase()
+            .cmp(&b.family.to_lowercase())
+            .then_with(|| a.style.to_lowercase().cmp(&b.style.to_lowercase()))
+    });
+    fonts.dedup_by(|a, b| {
+        a.family.eq_ignore_ascii_case(&b.family) && a.style.eq_ignore_ascii_case(&b.style)
+    });
+    fonts
+}
+
+fn font_dirs() -> Vec<std::path::PathBuf> {
+    let mut dirs = Vec::new();
+
+    #[cfg(target_os = "macos")]
+    {
+        dirs.push(std::path::PathBuf::from("/System/Library/Fonts"));
+        dirs.push(std::path::PathBuf::from("/Library/Fonts"));
+        if let Some(home) = std::env::var_os("HOME") {
+            dirs.push(std::path::PathBuf::from(home).join("Library/Fonts"));
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(windir) = std::env::var_os("WINDIR") {
+            dirs.push(std::path::PathBuf::from(windir).join("Fonts"));
+        } else {
+            dirs.push(std::path::PathBuf::from(r"C:\Windows\Fonts"));
+        }
+        if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
+            dirs.push(std::path::PathBuf::from(local_app_data).join("Microsoft/Windows/Fonts"));
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        dirs.push(std::path::PathBuf::from("/usr/share/fonts"));
+        dirs.push(std::path::PathBuf::from("/usr/local/share/fonts"));
+        if let Some(home) = std::env::var_os("HOME") {
+            dirs.push(std::path::PathBuf::from(home).join(".local/share/fonts"));
+            dirs.push(std::path::PathBuf::from(home).join(".fonts"));
+        }
+    }
+
+    dirs
+}
+
+fn collect_fonts_from_dir(dir: &std::path::Path, fonts: &mut Vec<LocalFont>, depth: usize) {
+    if depth > 6 {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_fonts_from_dir(&path, fonts, depth + 1);
+            continue;
+        }
+        if is_font_file(&path) {
+            collect_fonts_from_file(&path, fonts);
+        }
+    }
+}
+
+fn is_font_file(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "ttf" | "otf" | "ttc" | "otc"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn collect_fonts_from_file(path: &std::path::Path, fonts: &mut Vec<LocalFont>) {
+    let Ok(data) = std::fs::read(path) else {
+        return;
+    };
+    let face_count = ttf_parser::fonts_in_collection(&data).unwrap_or(1);
+    for index in 0..face_count {
+        let Ok(face) = ttf_parser::Face::parse(&data, index) else {
+            continue;
+        };
+        if let Some(font) = font_from_face(&face) {
+            fonts.push(font);
+        }
+    }
+}
+
+fn font_from_face(face: &ttf_parser::Face) -> Option<LocalFont> {
+    let mut family = None;
+    let mut typographic_family = None;
+    let mut full_name = None;
+    let mut postscript_name = None;
+    let mut style = None;
+
+    for name in face.names() {
+        let value = name.to_string();
+        let Some(value) = value.filter(|value| !value.trim().is_empty()) else {
+            continue;
+        };
+        match name.name_id {
+            1 => family.get_or_insert(value),
+            2 => style.get_or_insert(value),
+            4 => full_name.get_or_insert(value),
+            6 => postscript_name.get_or_insert(value),
+            16 => typographic_family.get_or_insert(value),
+            _ => continue,
+        };
+    }
+
+    let family = typographic_family.or(family).or_else(|| full_name.clone())?;
+    let style = style.unwrap_or_else(|| "Regular".to_string());
+    let full_name = full_name.clone().unwrap_or_else(|| {
+        if style.eq_ignore_ascii_case("regular") {
+            family.clone()
+        } else {
+            format!("{family} {style}")
+        }
+    });
+    let postscript_name = postscript_name.unwrap_or_else(|| full_name.replace(' ', ""));
+
+    Some(LocalFont {
+        family,
+        full_name,
+        postscript_name,
+        style,
+    })
 }
 
 #[tauri::command]
@@ -89,6 +482,10 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             app_version,
+            list_local_fonts,
+            openai_generate_image,
+            download_remote_asset,
+            save_export_file,
             check_for_updates,
             install_update
         ])

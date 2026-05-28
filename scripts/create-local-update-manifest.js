@@ -22,7 +22,10 @@ const candidates = [
   {
     target: "windows-x86_64",
     archiveName: `YOUDESIGN-${packageJson.version}-win-x64-setup.exe`,
-    sourceArchive: path.join(root, "src-tauri", "target", "x86_64-pc-windows-gnu", "release", "bundle", "nsis", `YOUDESIGN_${packageJson.version}_x64-setup.exe`)
+    sourceArchive: [
+      path.join(root, "src-tauri", "target", "x86_64-pc-windows-gnullvm", "release", "bundle", "nsis", `YOUDESIGN_${packageJson.version}_x64-setup.exe`),
+      path.join(root, "src-tauri", "target", "x86_64-pc-windows-gnu", "release", "bundle", "nsis", `YOUDESIGN_${packageJson.version}_x64-setup.exe`)
+    ]
   }
 ];
 
@@ -31,10 +34,13 @@ const copied = [];
 
 fs.mkdirSync(serverDir, { recursive: true });
 for (const candidate of candidates) {
-  const sourceSignature = `${candidate.sourceArchive}.sig`;
-  if (!fs.existsSync(candidate.sourceArchive) || !fs.existsSync(sourceSignature)) continue;
+  const sourceArchive = Array.isArray(candidate.sourceArchive)
+    ? candidate.sourceArchive.find(item => fs.existsSync(item) && fs.existsSync(`${item}.sig`))
+    : candidate.sourceArchive;
+  const sourceSignature = `${sourceArchive}.sig`;
+  if (!sourceArchive || !fs.existsSync(sourceArchive) || !fs.existsSync(sourceSignature)) continue;
 
-  fs.copyFileSync(candidate.sourceArchive, path.join(serverDir, candidate.archiveName));
+  fs.copyFileSync(sourceArchive, path.join(serverDir, candidate.archiveName));
   fs.copyFileSync(sourceSignature, path.join(serverDir, `${candidate.archiveName}.sig`));
   platforms[candidate.target] = {
     url: `${releaseBase}/${candidate.archiveName}`,
