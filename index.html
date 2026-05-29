@@ -714,8 +714,15 @@
     .image-ai-actions,
     .mask-mode-row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
       gap: 8px;
+    }
+
+    .image-ai-actions {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .mask-mode-row {
+      grid-template-columns: 1fr 1fr;
     }
 
     .image-ai-actions .mini-btn,
@@ -3832,6 +3839,7 @@
                 <div class="image-ai-panel">
                   <div class="image-ai-actions">
                     <button class="mini-btn active" id="removeBgBtn" type="button">智能抠图</button>
+                    <button class="mini-btn" id="startMaskEditBtn" type="button">修边</button>
                     <button class="mini-btn" id="restoreImageBtn" type="button">恢复原图</button>
                   </div>
                   <div class="mask-edit-card hidden" id="maskEditPanel">
@@ -3927,7 +3935,7 @@
     const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
     const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
     const RMBG_MODEL_ID = "briaai/RMBG-1.4";
-    const APP_VERSION = "1.0.7";
+    const APP_VERSION = "1.0.8";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -5373,6 +5381,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     function imageToolEls() {
       const ids = [
         "removeBgBtn",
+        "startMaskEditBtn",
         "restoreImageBtn",
         "maskEditPanel",
         "maskKeepBtn",
@@ -5568,6 +5577,25 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       renderAll();
     }
 
+    async function startMaskEditFromSelected() {
+      const obj = selected();
+      if (!obj || obj.type !== "image") return;
+      try {
+        await normalizeObjectImageSource(obj);
+        if (!obj.originalSrc) obj.originalSrc = obj.src;
+        await ensureObjectMaskCanvas(obj);
+        if (!obj.maskSrc) {
+          obj.maskSrc = obj.maskCanvas.toDataURL("image/png");
+          obj.maskImage = await loadImage(obj.maskSrc);
+        }
+        startMaskEdit(obj);
+        setMaskStatus("已进入修边模式。用擦除画笔去背景，用保留画笔恢复主体。");
+        persist();
+      } catch (error) {
+        setMaskStatus(error?.message || "无法进入修边模式。", "error");
+      }
+    }
+
     function stopMaskEdit(shouldPersist = true) {
       maskEditor.active = false;
       maskEditor.painting = false;
@@ -5591,6 +5619,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       els.maskBrushHardness.value = String(maskEditor.hardness);
       els.maskBrushHardnessValue.textContent = `${Math.round(maskEditor.hardness * 100)}%`;
       els.maskShowOverlay.checked = maskEditor.showOverlay;
+      els.startMaskEditBtn.disabled = !isImage;
       els.restoreImageBtn.disabled = !isImage || !obj.originalSrc;
       els.finishMaskEditBtn.disabled = !maskEditor.active;
     }
@@ -5724,6 +5753,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     function setupMaskTools() {
       const els = imageToolEls();
       els.removeBgBtn.addEventListener("click", removeBackgroundFromSelected);
+      els.startMaskEditBtn.addEventListener("click", startMaskEditFromSelected);
       els.restoreImageBtn.addEventListener("click", restoreSelectedImage);
       els.maskKeepBtn.addEventListener("click", () => {
         maskEditor.mode = "keep";
