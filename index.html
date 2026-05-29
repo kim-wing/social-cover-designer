@@ -3935,7 +3935,7 @@
     const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
     const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
     const RMBG_MODEL_ID = "briaai/RMBG-1.4";
-    const APP_VERSION = "1.0.8";
+    const APP_VERSION = "1.0.9";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -4154,6 +4154,7 @@
       showOverlay: true,
       painting: false,
       lastPoint: null,
+      hoverPoint: null,
       history: []
     };
 
@@ -4493,6 +4494,7 @@
       drawSafeZones(targetCtx, exporting);
       for (const obj of state.objects) drawObject(targetCtx, obj);
       if (!exporting) drawMaskEditorOverlay(targetCtx);
+      if (!exporting) drawMaskBrushPreview(targetCtx);
       targetCtx.restore();
       if (!exporting) renderSelectionOverlay();
     }
@@ -4687,6 +4689,39 @@
       c.restore();
     }
 
+    function drawMaskBrushPreview(c) {
+      if (!maskEditor.active || !maskEditor.hoverPoint) return;
+      const obj = state.objects.find(item => item.id === maskEditor.objectId);
+      if (!obj || obj.type !== "image") return;
+      const point = maskEditor.hoverPoint;
+      const inside = point.x >= 0 && point.y >= 0 && point.x <= obj.width && point.y <= obj.height;
+      c.save();
+      c.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+      c.rotate((obj.rotation || 0) * Math.PI / 180);
+      c.translate(-obj.width / 2, -obj.height / 2);
+      c.beginPath();
+      c.arc(point.x, point.y, maskEditor.brushSize / 2, 0, Math.PI * 2);
+      c.fillStyle = maskEditor.mode === "keep"
+        ? "rgba(18, 185, 129, .12)"
+        : "rgba(255, 77, 35, .13)";
+      c.strokeStyle = maskEditor.mode === "keep"
+        ? "rgba(18, 185, 129, .96)"
+        : "rgba(255, 77, 35, .96)";
+      c.lineWidth = Math.max(2, 2 / Math.max(.25, state.zoomScale || 1));
+      c.setLineDash(inside ? [] : [7, 5]);
+      c.fill();
+      c.stroke();
+      c.beginPath();
+      c.moveTo(point.x - 5, point.y);
+      c.lineTo(point.x + 5, point.y);
+      c.moveTo(point.x, point.y - 5);
+      c.lineTo(point.x, point.y + 5);
+      c.setLineDash([]);
+      c.globalAlpha = .82;
+      c.stroke();
+      c.restore();
+    }
+
     function drawSelection(c, obj) {
       c.save();
       c.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
@@ -4857,6 +4892,11 @@
     });
 
     async function handlePointerMove(e) {
+      if (maskEditor.active) {
+        const hit = maskPointFromEvent(e);
+        maskEditor.hoverPoint = hit ? hit.point : null;
+        renderAll();
+      }
       if (maskEditor.active && maskEditor.painting) {
         e.preventDefault();
         await paintMaskAt(e);
@@ -4899,6 +4939,11 @@
 
     canvas.addEventListener("pointermove", handlePointerMove);
     selectionOverlay.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerleave", () => {
+      if (!maskEditor.active) return;
+      maskEditor.hoverPoint = null;
+      renderAll();
+    });
 
     function handlePointerUp() {
       if (maskEditor.painting) {
@@ -4906,6 +4951,7 @@
         maskEditor.lastPoint = null;
         persist();
         syncUi(false);
+        renderAll();
         return;
       }
       if (state.dragging) {
@@ -5571,6 +5617,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       maskEditor.objectId = obj.id;
       maskEditor.painting = false;
       maskEditor.lastPoint = null;
+      maskEditor.hoverPoint = null;
       maskEditor.history = [];
       document.body.classList.add("mask-editing");
       syncMaskControls();
