@@ -706,6 +706,57 @@
       font-weight: 750;
     }
 
+    .image-ai-panel {
+      display: grid;
+      gap: 12px;
+    }
+
+    .image-ai-actions,
+    .mask-mode-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .image-ai-actions .mini-btn,
+    .mask-mode-row .mini-btn {
+      min-width: 0;
+    }
+
+    .mask-mode-row .mini-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .mask-edit-card {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid rgba(29, 29, 31, .09);
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, .88), rgba(247, 247, 250, .72));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .mask-status {
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .mask-status.is-loading {
+      color: rgba(29, 29, 31, .82);
+      font-weight: 760;
+    }
+
+    .mask-status.is-error {
+      color: #b42318;
+      font-weight: 760;
+    }
+
     .generation-progress {
       display: grid;
       gap: 6px;
@@ -1053,6 +1104,14 @@
       margin: -9px 0 0 -9px;
       border-radius: 50%;
       cursor: grab;
+    }
+
+    .mask-editing .canvas-shell {
+      cursor: crosshair;
+    }
+
+    .mask-editing .selection-handle {
+      display: none;
     }
 
     .inline-text-editor {
@@ -3767,6 +3826,40 @@
               </div>
             </div>
 
+            <div class="inspector-group" id="imageGroup">
+              <div class="inspector-group-title"><span>图片抠图</span></div>
+              <div class="inspector-content">
+                <div class="image-ai-panel">
+                  <div class="image-ai-actions">
+                    <button class="mini-btn active" id="removeBgBtn" type="button">智能抠图</button>
+                    <button class="mini-btn" id="restoreImageBtn" type="button">恢复原图</button>
+                  </div>
+                  <div class="mask-edit-card hidden" id="maskEditPanel">
+                    <div class="mask-mode-row">
+                      <button class="mini-btn active" id="maskKeepBtn" type="button">保留画笔</button>
+                      <button class="mini-btn" id="maskEraseBtn" type="button">擦除画笔</button>
+                    </div>
+                    <div class="inline-control">
+                      <label for="maskBrushSize">画笔</label>
+                      <input id="maskBrushSize" type="range" min="6" max="180" step="2" value="46">
+                      <output id="maskBrushSizeValue">46</output>
+                    </div>
+                    <div class="inline-control">
+                      <label for="maskBrushHardness">硬度</label>
+                      <input id="maskBrushHardness" type="range" min="0.2" max="1" step="0.05" value="0.82">
+                      <output id="maskBrushHardnessValue">82%</output>
+                    </div>
+                    <label class="toggle-row" for="maskShowOverlay"><span>显示蒙版</span><input id="maskShowOverlay" type="checkbox" checked></label>
+                    <div class="image-ai-actions">
+                      <button class="mini-btn" id="maskUndoBtn" type="button">撤销修边</button>
+                      <button class="mini-btn active" id="finishMaskEditBtn" type="button">完成修边</button>
+                    </div>
+                  </div>
+                  <div class="mask-status" id="maskStatus">首次使用会下载 RMBG-1.4 模型，之后在本机处理图片。</div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <div class="inspector-group">
@@ -3832,7 +3925,9 @@
     const STORAGE_KEY = "social-cover-designer-v3";
     const IMAGE_API_KEY_STORAGE = "youdesign-openai-image-api-key";
     const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
-    const APP_VERSION = "1.0.6";
+    const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
+    const RMBG_MODEL_ID = "briaai/RMBG-1.4";
+    const APP_VERSION = "1.0.7";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -4041,6 +4136,18 @@
       dragging: null
     };
     let inlineEditing = null;
+    let rmbgPipelinePromise = null;
+    const maskEditor = {
+      active: false,
+      objectId: null,
+      mode: "keep",
+      brushSize: 46,
+      hardness: .82,
+      showOverlay: true,
+      painting: false,
+      lastPoint: null,
+      history: []
+    };
 
     function uid() {
       return Math.random().toString(36).slice(2, 10);
@@ -4130,13 +4237,19 @@
     }
 
     function snapshot() {
+      const serializableObject = o => ({
+        ...o,
+        image: undefined,
+        maskImage: undefined,
+        maskCanvas: undefined
+      });
       return JSON.stringify({
         width: state.width,
         height: state.height,
         platform: state.platform,
         label: state.label,
         background: state.background,
-        objects: state.objects.map(o => ({ ...o, image: undefined }))
+        objects: state.objects.map(serializableObject)
       });
     }
 
@@ -4150,9 +4263,11 @@
       state.objects = await Promise.all(data.objects.map(async o => {
         if (o.type === "image" && o.src) {
           o.image = await loadImage(o.src);
+          if (o.maskSrc) o.maskImage = await loadImage(o.maskSrc);
         }
         return o;
       }));
+      stopMaskEdit(false);
       setSelection([]);
       resizeCanvas();
       syncPromptAspectToCanvas();
@@ -4342,6 +4457,7 @@
     function setSelection(ids) {
       state.selectedIds = [...new Set(ids)].filter(id => state.objects.some(o => o.id === id));
       state.selectedId = state.selectedIds[state.selectedIds.length - 1] || null;
+      if (maskEditor.active && !state.selectedIds.includes(maskEditor.objectId)) stopMaskEdit(false);
     }
 
     function toggleSelection(id) {
@@ -4368,6 +4484,7 @@
       targetCtx.fillRect(0, 0, state.width, state.height);
       drawSafeZones(targetCtx, exporting);
       for (const obj of state.objects) drawObject(targetCtx, obj);
+      if (!exporting) drawMaskEditorOverlay(targetCtx);
       targetCtx.restore();
       if (!exporting) renderSelectionOverlay();
     }
@@ -4536,6 +4653,32 @@
       c.drawImage(obj.image, 0, 0, obj.width, obj.height);
     }
 
+    function drawMaskEditorOverlay(c) {
+      if (!maskEditor.active || !maskEditor.showOverlay) return;
+      const obj = state.objects.find(item => item.id === maskEditor.objectId);
+      if (!obj || obj.type !== "image" || !obj.maskImage) return;
+      c.save();
+      c.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+      c.rotate((obj.rotation || 0) * Math.PI / 180);
+      c.translate(-obj.width / 2, -obj.height / 2);
+      const overlay = document.createElement("canvas");
+      overlay.width = Math.max(1, Math.round(obj.width));
+      overlay.height = Math.max(1, Math.round(obj.height));
+      const octx = overlay.getContext("2d");
+      octx.fillStyle = "#0071e3";
+      octx.fillRect(0, 0, overlay.width, overlay.height);
+      octx.globalCompositeOperation = "destination-in";
+      octx.drawImage(obj.maskImage, 0, 0, overlay.width, overlay.height);
+      c.globalAlpha = .28;
+      c.drawImage(overlay, 0, 0, obj.width, obj.height);
+      c.globalAlpha = 1;
+      c.strokeStyle = "rgba(0, 113, 227, .88)";
+      c.lineWidth = 3;
+      c.setLineDash([12, 7]);
+      c.strokeRect(0, 0, obj.width, obj.height);
+      c.restore();
+    }
+
     function drawSelection(c, obj) {
       c.save();
       c.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
@@ -4648,8 +4791,21 @@
       selectionOverlay.setPointerCapture(e.pointerId);
     });
 
-    canvas.addEventListener("pointerdown", e => {
+    canvas.addEventListener("pointerdown", async e => {
       if (inlineEditing) finishInlineTextEdit(true);
+      if (maskEditor.active) {
+        e.preventDefault();
+        const hit = maskPointFromEvent(e);
+        if (!hit) return;
+        await ensureObjectMaskCanvas(hit.obj);
+        saveHistory();
+        pushMaskHistory(hit.obj);
+        maskEditor.painting = true;
+        maskEditor.lastPoint = null;
+        canvas.setPointerCapture(e.pointerId);
+        await paintMaskAt(e);
+        return;
+      }
       const p = toLocalPoint(e);
       const obj = selected();
       const handle = hitHandle(p, obj);
@@ -4692,7 +4848,12 @@
       syncUi();
     });
 
-    function handlePointerMove(e) {
+    async function handlePointerMove(e) {
+      if (maskEditor.active && maskEditor.painting) {
+        e.preventDefault();
+        await paintMaskAt(e);
+        return;
+      }
       const objects = selectedObjects();
       if (!state.dragging || !objects.length) return;
       const p = toLocalPoint(e);
@@ -4732,6 +4893,13 @@
     selectionOverlay.addEventListener("pointermove", handlePointerMove);
 
     function handlePointerUp() {
+      if (maskEditor.painting) {
+        maskEditor.painting = false;
+        maskEditor.lastPoint = null;
+        persist();
+        syncUi(false);
+        return;
+      }
       if (state.dragging) {
         const changed = state.dragging.saved;
         state.dragging = null;
@@ -5202,6 +5370,334 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       }
     }
 
+    function imageToolEls() {
+      const ids = [
+        "removeBgBtn",
+        "restoreImageBtn",
+        "maskEditPanel",
+        "maskKeepBtn",
+        "maskEraseBtn",
+        "maskBrushSize",
+        "maskBrushSizeValue",
+        "maskBrushHardness",
+        "maskBrushHardnessValue",
+        "maskShowOverlay",
+        "maskUndoBtn",
+        "finishMaskEditBtn",
+        "maskStatus"
+      ];
+      return Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+    }
+
+    function setMaskStatus(message, mode = "idle") {
+      const status = document.getElementById("maskStatus");
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle("is-loading", mode === "loading");
+      status.classList.toggle("is-error", mode === "error");
+    }
+
+    async function loadRmbgPipeline() {
+      if (!rmbgPipelinePromise) {
+        rmbgPipelinePromise = import(TRANSFORMERS_CDN)
+          .then(async module => {
+            const { pipeline, env } = module;
+            env.allowLocalModels = false;
+            env.useBrowserCache = true;
+            return pipeline("image-segmentation", RMBG_MODEL_ID);
+          });
+      }
+      return rmbgPipelinePromise;
+    }
+
+    function imageLikeToCanvas(source) {
+      if (!source) throw new Error("没有可用的蒙版数据。");
+      if (source instanceof HTMLCanvasElement) return source;
+      const out = document.createElement("canvas");
+      if (source instanceof ImageData) {
+        out.width = source.width;
+        out.height = source.height;
+        out.getContext("2d").putImageData(source, 0, 0);
+        return out;
+      }
+      if (source.data && source.width && source.height) {
+        out.width = source.width;
+        out.height = source.height;
+        const data = source.data;
+        const imageData = out.getContext("2d").createImageData(source.width, source.height);
+        if (data.length === source.width * source.height) {
+          for (let i = 0; i < data.length; i++) {
+            const value = data[i];
+            const offset = i * 4;
+            imageData.data[offset] = value;
+            imageData.data[offset + 1] = value;
+            imageData.data[offset + 2] = value;
+            imageData.data[offset + 3] = 255;
+          }
+        } else {
+          imageData.data.set(data.slice ? data.slice(0, imageData.data.length) : data);
+        }
+        out.getContext("2d").putImageData(imageData, 0, 0);
+        return out;
+      }
+      if (typeof source.toCanvas === "function") return source.toCanvas();
+      throw new Error("RMBG 返回了无法识别的蒙版格式。");
+    }
+
+    function extractRmbgMaskCanvas(result) {
+      const candidate = Array.isArray(result)
+        ? result[0]?.mask || result[0]?.image || result[0]
+        : result?.mask || result?.image || result;
+      return normalizeMaskCanvas(imageLikeToCanvas(candidate));
+    }
+
+    function normalizeMaskCanvas(maskCanvas) {
+      const normalized = document.createElement("canvas");
+      normalized.width = maskCanvas.width;
+      normalized.height = maskCanvas.height;
+      const nctx = normalized.getContext("2d");
+      nctx.drawImage(maskCanvas, 0, 0);
+      const imageData = nctx.getImageData(0, 0, normalized.width, normalized.height);
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        const alpha = imageData.data[i + 3];
+        const luma = Math.round(imageData.data[i] * .299 + imageData.data[i + 1] * .587 + imageData.data[i + 2] * .114);
+        const value = alpha < 255 ? alpha : luma;
+        imageData.data[i] = 255;
+        imageData.data[i + 1] = 255;
+        imageData.data[i + 2] = 255;
+        imageData.data[i + 3] = value;
+      }
+      nctx.putImageData(imageData, 0, 0);
+      return normalized;
+    }
+
+    async function canvasToImage(canvasLike) {
+      const dataUrl = canvasLike.toDataURL("image/png");
+      return loadImage(dataUrl);
+    }
+
+    async function ensureObjectMaskCanvas(obj) {
+      if (!obj.maskCanvas) {
+        if (obj.maskSrc) {
+          const maskImage = obj.maskImage || await loadImage(obj.maskSrc);
+          obj.maskImage = maskImage;
+          const canvasEl = document.createElement("canvas");
+          canvasEl.width = maskImage.naturalWidth || maskImage.width;
+          canvasEl.height = maskImage.naturalHeight || maskImage.height;
+          canvasEl.getContext("2d").drawImage(maskImage, 0, 0, canvasEl.width, canvasEl.height);
+          obj.maskCanvas = canvasEl;
+        } else {
+          const baseImage = await loadImage(obj.originalSrc || obj.src);
+          const canvasEl = document.createElement("canvas");
+          canvasEl.width = baseImage.naturalWidth || baseImage.width;
+          canvasEl.height = baseImage.naturalHeight || baseImage.height;
+          const mctx = canvasEl.getContext("2d");
+          mctx.fillStyle = "#ffffff";
+          mctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+          obj.maskCanvas = canvasEl;
+        }
+      }
+      return obj.maskCanvas;
+    }
+
+    async function composeMaskedImage(obj, maskCanvas) {
+      const source = obj.originalSrc || obj.src;
+      const original = await loadImage(source);
+      const width = original.naturalWidth || original.width;
+      const height = original.naturalHeight || original.height;
+      const out = document.createElement("canvas");
+      out.width = width;
+      out.height = height;
+      const octx = out.getContext("2d");
+      octx.drawImage(original, 0, 0, width, height);
+      octx.globalCompositeOperation = "destination-in";
+      octx.drawImage(maskCanvas, 0, 0, width, height);
+      const dataUrl = out.toDataURL("image/png");
+      obj.src = dataUrl;
+      obj.image = await loadImage(dataUrl);
+      obj.maskSrc = maskCanvas.toDataURL("image/png");
+      obj.maskImage = await loadImage(obj.maskSrc);
+      obj.maskCanvas = maskCanvas;
+      obj.rmbgEdited = true;
+    }
+
+    async function removeBackgroundFromSelected() {
+      const obj = selected();
+      if (!obj || obj.type !== "image") return;
+      const confirmed = localStorage.getItem("youdesign-rmbg-download-ok") === "1"
+        || await appConfirm("首次使用需要联网下载 RMBG-1.4 模型。下载后图片会在本机处理，不会上传。", {
+          title: "下载抠图模型",
+          confirmText: "下载并抠图"
+        });
+      if (!confirmed) return;
+      localStorage.setItem("youdesign-rmbg-download-ok", "1");
+      const btn = document.getElementById("removeBgBtn");
+      btn.disabled = true;
+      setMaskStatus("正在加载 RMBG-1.4 模型，首次使用会稍慢...", "loading");
+      try {
+        await normalizeObjectImageSource(obj);
+        if (!obj.originalSrc) obj.originalSrc = obj.src;
+        const pipe = await loadRmbgPipeline();
+        setMaskStatus("模型已就绪，正在生成主体蒙版...", "loading");
+        const result = await pipe(obj.originalSrc || obj.src);
+        const maskCanvas = extractRmbgMaskCanvas(result);
+        saveHistory();
+        await composeMaskedImage(obj, maskCanvas);
+        startMaskEdit(obj);
+        setMaskStatus("已完成自动抠图。可以用保留/擦除画笔继续修边。");
+        renderAll();
+        syncUi();
+        persist();
+      } catch (error) {
+        console.error("RMBG failed", error);
+        setMaskStatus(error?.message || "抠图失败，请检查网络后重试。", "error");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function startMaskEdit(obj = selected()) {
+      if (!obj || obj.type !== "image") return;
+      maskEditor.active = true;
+      maskEditor.objectId = obj.id;
+      maskEditor.painting = false;
+      maskEditor.lastPoint = null;
+      maskEditor.history = [];
+      document.body.classList.add("mask-editing");
+      syncMaskControls();
+      renderAll();
+    }
+
+    function stopMaskEdit(shouldPersist = true) {
+      maskEditor.active = false;
+      maskEditor.painting = false;
+      maskEditor.lastPoint = null;
+      maskEditor.history = [];
+      document.body.classList.remove("mask-editing");
+      if (shouldPersist) persist();
+      syncMaskControls();
+      renderAll();
+    }
+
+    function syncMaskControls() {
+      const els = imageToolEls();
+      const obj = selected();
+      const isImage = obj?.type === "image";
+      els.maskEditPanel.classList.toggle("hidden", !isImage || !maskEditor.active || maskEditor.objectId !== obj.id);
+      els.maskKeepBtn.classList.toggle("active", maskEditor.mode === "keep");
+      els.maskEraseBtn.classList.toggle("active", maskEditor.mode === "erase");
+      els.maskBrushSize.value = String(maskEditor.brushSize);
+      els.maskBrushSizeValue.textContent = String(maskEditor.brushSize);
+      els.maskBrushHardness.value = String(maskEditor.hardness);
+      els.maskBrushHardnessValue.textContent = `${Math.round(maskEditor.hardness * 100)}%`;
+      els.maskShowOverlay.checked = maskEditor.showOverlay;
+      els.restoreImageBtn.disabled = !isImage || !obj.originalSrc;
+      els.finishMaskEditBtn.disabled = !maskEditor.active;
+    }
+
+    function canvasPointToObject(point, obj) {
+      const cx = obj.x + obj.width / 2;
+      const cy = obj.y + obj.height / 2;
+      const angle = -(obj.rotation || 0) * Math.PI / 180;
+      const dx = point.x - cx;
+      const dy = point.y - cy;
+      return {
+        x: dx * Math.cos(angle) - dy * Math.sin(angle) + obj.width / 2,
+        y: dx * Math.sin(angle) + dy * Math.cos(angle) + obj.height / 2
+      };
+    }
+
+    function objectPointToMask(point, obj, maskCanvas) {
+      return {
+        x: point.x / Math.max(1, obj.width) * maskCanvas.width,
+        y: point.y / Math.max(1, obj.height) * maskCanvas.height
+      };
+    }
+
+    function maskPointFromEvent(event) {
+      const obj = state.objects.find(item => item.id === maskEditor.objectId);
+      if (!obj) return null;
+      const point = canvasPointToObject(toLocalPoint(event), obj);
+      if (point.x < 0 || point.y < 0 || point.x > obj.width || point.y > obj.height) return null;
+      return { obj, point };
+    }
+
+    function pushMaskHistory(obj) {
+      if (!obj.maskCanvas) return;
+      maskEditor.history.push(obj.maskCanvas.toDataURL("image/png"));
+      if (maskEditor.history.length > 20) maskEditor.history.shift();
+    }
+
+    function drawMaskStroke(maskCanvas, from, to) {
+      const mctx = maskCanvas.getContext("2d");
+      const radius = Math.max(1, maskEditor.brushSize / 2);
+      const gradient = mctx.createRadialGradient(to.x, to.y, radius * maskEditor.hardness, to.x, to.y, radius);
+      gradient.addColorStop(0, "rgba(255,255,255,1)");
+      gradient.addColorStop(1, "rgba(255,255,255,0)");
+      mctx.save();
+      mctx.globalCompositeOperation = maskEditor.mode === "keep" ? "source-over" : "destination-out";
+      mctx.lineCap = "round";
+      mctx.lineJoin = "round";
+      mctx.strokeStyle = gradient;
+      mctx.fillStyle = gradient;
+      mctx.lineWidth = maskEditor.brushSize;
+      mctx.beginPath();
+      if (from) {
+        mctx.moveTo(from.x, from.y);
+        mctx.lineTo(to.x, to.y);
+        mctx.stroke();
+      }
+      mctx.beginPath();
+      mctx.arc(to.x, to.y, radius, 0, Math.PI * 2);
+      mctx.fill();
+      mctx.restore();
+    }
+
+    async function paintMaskAt(event) {
+      const hit = maskPointFromEvent(event);
+      if (!hit) return;
+      const maskCanvas = await ensureObjectMaskCanvas(hit.obj);
+      const point = objectPointToMask(hit.point, hit.obj, maskCanvas);
+      drawMaskStroke(maskCanvas, maskEditor.lastPoint, point);
+      maskEditor.lastPoint = point;
+      await composeMaskedImage(hit.obj, maskCanvas);
+      renderAll();
+    }
+
+    async function undoMaskStroke() {
+      const obj = state.objects.find(item => item.id === maskEditor.objectId);
+      const previous = maskEditor.history.pop();
+      if (!obj || !previous) return;
+      const maskImage = await loadImage(previous);
+      const canvasEl = document.createElement("canvas");
+      canvasEl.width = maskImage.width;
+      canvasEl.height = maskImage.height;
+      canvasEl.getContext("2d").drawImage(maskImage, 0, 0);
+      saveHistory();
+      await composeMaskedImage(obj, canvasEl);
+      setMaskStatus("已撤销上一笔修边。");
+      renderAll();
+      persist();
+    }
+
+    async function restoreSelectedImage() {
+      const obj = selected();
+      if (!obj || obj.type !== "image" || !obj.originalSrc) return;
+      saveHistory();
+      obj.src = obj.originalSrc;
+      obj.image = await loadImage(obj.src);
+      obj.originalSrc = undefined;
+      obj.maskSrc = undefined;
+      obj.maskImage = undefined;
+      obj.maskCanvas = undefined;
+      obj.rmbgEdited = false;
+      stopMaskEdit(false);
+      setMaskStatus("已恢复原图。");
+      renderAll();
+      syncUi();
+      persist();
+    }
+
     function setupPromptGenerator() {
       const section = document.getElementById("promptSection");
       if (!section) return;
@@ -5223,6 +5719,38 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       updatePromptSpecialFields();
       syncPromptAspectToCanvas();
       generateTourismPrompt();
+    }
+
+    function setupMaskTools() {
+      const els = imageToolEls();
+      els.removeBgBtn.addEventListener("click", removeBackgroundFromSelected);
+      els.restoreImageBtn.addEventListener("click", restoreSelectedImage);
+      els.maskKeepBtn.addEventListener("click", () => {
+        maskEditor.mode = "keep";
+        syncMaskControls();
+      });
+      els.maskEraseBtn.addEventListener("click", () => {
+        maskEditor.mode = "erase";
+        syncMaskControls();
+      });
+      els.maskBrushSize.addEventListener("input", event => {
+        maskEditor.brushSize = Number(event.target.value);
+        syncMaskControls();
+      });
+      els.maskBrushHardness.addEventListener("input", event => {
+        maskEditor.hardness = Number(event.target.value);
+        syncMaskControls();
+      });
+      els.maskShowOverlay.addEventListener("change", event => {
+        maskEditor.showOverlay = event.target.checked;
+        renderAll();
+      });
+      els.maskUndoBtn.addEventListener("click", undoMaskStroke);
+      els.finishMaskEditBtn.addEventListener("click", () => {
+        stopMaskEdit(true);
+        setMaskStatus("修边完成。");
+      });
+      syncMaskControls();
     }
 
     function showToolPanel(panelId, button) {
@@ -6058,6 +6586,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       const allText = objects.every(item => item.type === "text");
       document.getElementById("textGroup").classList.toggle("hidden", multi ? !allText : !isText);
       document.getElementById("appearanceGroup").classList.toggle("hidden", multi || !hasAppearance);
+      document.getElementById("imageGroup").classList.toggle("hidden", multi || !isImage);
       document.getElementById("appearanceGrid").classList.toggle("hidden", isImage);
       document.getElementById("strokeWidth").closest(".inline-control").classList.toggle("hidden", isImage);
       document.getElementById("shapeRadiusControl").classList.toggle("hidden", !isRect);
@@ -6076,6 +6605,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       document.getElementById("opacity").value = obj.opacity ?? 1;
       document.getElementById("shadow").value = obj.shadow || 0;
       syncInspectorOutputs(obj);
+      syncMaskControls();
       ["left", "center", "right"].forEach(align => {
         document.getElementById(`textAlign${align[0].toUpperCase()}${align.slice(1)}Btn`).classList.toggle("active", obj.align === align);
       });
@@ -6305,6 +6835,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       setupInspectorInteractions();
       setupTauriDesktopBridge();
       setupPromptGenerator();
+      setupMaskTools();
       setupToolPanelHover();
       setupUpdateUi();
       syncFontSelect();
