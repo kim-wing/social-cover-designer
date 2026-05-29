@@ -1,6 +1,5 @@
 use base64::Engine;
 use tauri::Emitter;
-use tauri::Manager;
 use tauri_plugin_updater::UpdaterExt;
 
 #[derive(Clone, Debug, serde::Serialize)]
@@ -123,7 +122,7 @@ fn openai_http_client() -> reqwest::Client {
 }
 
 #[tauri::command]
-fn save_export_file(app: tauri::AppHandle, request: ExportFileRequest) -> Result<String, String> {
+fn save_export_file(request: ExportFileRequest) -> Result<String, String> {
     let filename = sanitize_export_filename(&request.filename);
     if filename.is_empty() {
         return Err("导出文件名不能为空。".to_string());
@@ -137,14 +136,21 @@ fn save_export_file(app: tauri::AppHandle, request: ExportFileRequest) -> Result
         return Err("没有可导出的文件内容。".to_string());
     };
 
-    let downloads_dir = app
-        .path()
-        .download_dir()
-        .map_err(|error| format!("无法定位下载目录：{error}"))?;
-    std::fs::create_dir_all(&downloads_dir)
-        .map_err(|error| format!("无法创建下载目录：{error}"))?;
-
-    let path = next_available_export_path(&downloads_dir, &filename);
+    let mut dialog = rfd::FileDialog::new().set_file_name(&filename);
+    let extension = std::path::Path::new(&filename)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    dialog = match extension.as_str() {
+        "png" => dialog.add_filter("PNG 图片", &["png"]),
+        "jpg" | "jpeg" => dialog.add_filter("JPG 图片", &["jpg", "jpeg"]),
+        "youdesign" => dialog.add_filter("YOUDESIGN 工程", &["youdesign"]),
+        _ => dialog,
+    };
+    let Some(path) = dialog.save_file() else {
+        return Ok(String::new());
+    };
     std::fs::write(&path, bytes).map_err(|error| format!("导出文件写入失败：{error}"))?;
     Ok(path.to_string_lossy().to_string())
 }
@@ -173,34 +179,6 @@ fn decode_export_data_url(data_url: &str) -> Result<Vec<u8>, String> {
     base64::engine::general_purpose::STANDARD
         .decode(payload)
         .map_err(|error| format!("图片导出数据解析失败：{error}"))
-}
-
-fn next_available_export_path(dir: &std::path::Path, filename: &str) -> std::path::PathBuf {
-    let initial_path = dir.join(filename);
-    if !initial_path.exists() {
-        return initial_path;
-    }
-
-    let source = std::path::Path::new(filename);
-    let stem = source
-        .file_stem()
-        .and_then(|value| value.to_str())
-        .unwrap_or("YOUDESIGN");
-    let extension = source.extension().and_then(|value| value.to_str());
-
-    for index in 1..1000 {
-        let candidate = match extension {
-            Some(extension) if !extension.is_empty() => {
-                dir.join(format!("{stem}-{index}.{extension}"))
-            }
-            _ => dir.join(format!("{stem}-{index}")),
-        };
-        if !candidate.exists() {
-            return candidate;
-        }
-    }
-
-    initial_path
 }
 
 async fn image_source_to_data_url(source: &str) -> Result<String, String> {

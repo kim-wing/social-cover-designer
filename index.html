@@ -3935,7 +3935,7 @@
     const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
     const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
     const RMBG_MODEL_ID = "briaai/RMBG-1.4";
-    const APP_VERSION = "1.0.9";
+    const APP_VERSION = "1.0.10";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -6218,15 +6218,55 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       if (!file) return;
       document.getElementById("imageUploadTitle").textContent = file.name;
       document.getElementById("imageUploadMeta").textContent = "正在读取图片...";
+      const img = await addImageFileToCanvas(file, {
+        x: state.width * .14,
+        y: state.height * .22,
+        name: file.name ? file.name.replace(/\.[^.]+$/, "") : "图片"
+      });
+      document.getElementById("imageUploadMeta").textContent = `${img.width} × ${img.height}，已添加到画布`;
+      e.target.value = "";
+    });
+
+    async function addImageFileToCanvas(file, options = {}) {
       const src = await readFile(file);
+      return addImageSourceToCanvas(src, options);
+    }
+
+    async function addImageSourceToCanvas(src, options = {}) {
       const img = await loadImage(src);
       const maxW = state.width * .72;
       const ratio = img.width / img.height;
       const w = Math.min(maxW, img.width);
       const h = w / ratio;
-      addObject(imageObject(img, state.width * .14, state.height * .22, w, h, src));
-      document.getElementById("imageUploadMeta").textContent = `${img.width} × ${img.height}，已添加到画布`;
-      e.target.value = "";
+      const obj = imageObject(
+        img,
+        options.x ?? (state.width - w) / 2,
+        options.y ?? (state.height - h) / 2,
+        w,
+        h,
+        src
+      );
+      if (options.name) obj.name = options.name;
+      addObject(obj);
+      return img;
+    }
+
+    document.addEventListener("paste", async event => {
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || inlineEditing) return;
+      const items = [...(event.clipboardData?.items || [])];
+      const imageItem = items.find(item => item.kind === "file" && item.type.startsWith("image/"));
+      if (!imageItem) return;
+      const file = imageItem.getAsFile();
+      if (!file) return;
+      event.preventDefault();
+      try {
+        const img = await addImageFileToCanvas(file, { name: "粘贴图片" });
+        document.getElementById("imageUploadTitle").textContent = "粘贴图片";
+        document.getElementById("imageUploadMeta").textContent = `${img.width} × ${img.height}，已添加到画布`;
+      } catch (error) {
+        appAlert(error?.message || "剪贴板图片读取失败。", "粘贴图片失败", "danger");
+      }
     });
 
     async function addLogoToCanvas(asset) {
