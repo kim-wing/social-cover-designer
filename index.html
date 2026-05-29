@@ -525,7 +525,7 @@
         linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(247, 247, 250, .86));
       color: var(--ink);
       display: grid;
-      grid-template-columns: 42px 1fr;
+      grid-template-columns: 48px 1fr;
       align-items: center;
       gap: 12px;
       padding: 15px;
@@ -543,7 +543,7 @@
       width: 48px;
       height: 48px;
       border-radius: 16px;
-      background: linear-gradient(180deg, #eef6ff, #e4f0ff);
+      background: linear-gradient(180deg, #f0f1f4, #e7e9ee);
       color: var(--accent);
       display: grid;
       place-items: center;
@@ -558,7 +558,7 @@
       margin-bottom: 4px;
     }
 
-    .upload-card span {
+    .upload-card > div > span {
       display: block;
       color: var(--muted);
       font-size: 12px;
@@ -718,7 +718,7 @@
     }
 
     .image-ai-actions {
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: 1fr 1fr;
     }
 
     .mask-mode-row {
@@ -1113,12 +1113,38 @@
       cursor: grab;
     }
 
+    .selection-handle[data-mode="crop"] {
+      width: 12px;
+      height: 12px;
+      margin: -6px 0 0 -6px;
+      border-color: #ffb000;
+      background: #fff8d7;
+      cursor: grab;
+    }
+
     .mask-editing .canvas-shell {
       cursor: crosshair;
     }
 
     .mask-editing .selection-handle {
       display: none;
+    }
+
+    .crop-editing .selection-box {
+      border-color: #ffb000;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .86), 0 0 0 4px rgba(255, 176, 0, .14);
+    }
+
+    .space-panning .stage,
+    .space-panning .canvas-shell,
+    .space-panning .selection-overlay {
+      cursor: grab;
+    }
+
+    .space-panning.is-panning .stage,
+    .space-panning.is-panning .canvas-shell,
+    .space-panning.is-panning .selection-overlay {
+      cursor: grabbing;
     }
 
     .inline-text-editor {
@@ -1270,6 +1296,10 @@
 
     .layer.drop-before {
       box-shadow: 0 -3px 0 #d6ca00, inset 0 1px 0 rgba(255, 255, 255, .72);
+    }
+
+    .layer.drop-after {
+      box-shadow: 0 3px 0 #d6ca00, inset 0 1px 0 rgba(255, 255, 255, .72);
     }
 
     .layer-name {
@@ -3445,8 +3475,7 @@
       <div class="toolbar">
         <button class="icon-btn" id="undoBtn" title="撤销">↶</button>
         <button class="icon-btn" id="redoBtn" title="重做">↷</button>
-        <button class="icon-btn" id="duplicateBtn" title="复制">⧉</button>
-        <button class="icon-btn" id="deleteBtn" title="删除">⌫</button>
+        <button class="icon-btn" id="selectAllBtn" title="全选图层">□</button>
         <select id="zoomSelect" class="field" title="缩放">
           <option value="fit">适配</option>
           <option value="custom" hidden>100%</option>
@@ -3458,10 +3487,6 @@
         <select id="exportScale" class="field" title="导出倍率">
           <option value="1">1x</option>
           <option value="2" selected>2x</option>
-        </select>
-        <select id="exportType" class="field" title="导出格式">
-          <option value="image/png">PNG</option>
-          <option value="image/jpeg">JPG</option>
         </select>
         <button class="btn" id="checkUpdateBtn" type="button">检查更新</button>
         <button class="btn primary hidden" id="installUpdateBtn" type="button">重启安装</button>
@@ -3811,6 +3836,7 @@
                   <input id="strokeWidth" type="range" min="0" max="18" step="1">
                   <output id="strokeWidthValue">0</output>
                 </div>
+                <label class="toggle-row hidden" id="strokeDashControl" for="strokeDashToggle"><span>虚线</span><input id="strokeDashToggle" type="checkbox"></label>
                 <div class="inline-control hidden" id="shapeRadiusControl">
                   <label for="shapeRadius">圆角</label>
                   <input id="shapeRadius" type="range" min="0" max="160" step="1">
@@ -3833,14 +3859,39 @@
               </div>
             </div>
 
+            <div class="inspector-group hidden" id="booleanGroup">
+              <div class="inspector-group-title"><span>布尔运算</span></div>
+              <div class="inspector-content">
+                <div class="button-row two">
+                  <button class="mini-btn" id="booleanUnionBtn" type="button">并集</button>
+                  <button class="mini-btn" id="booleanSubtractBtn" type="button">相减</button>
+                  <button class="mini-btn" id="booleanIntersectBtn" type="button">相交</button>
+                  <button class="mini-btn" id="booleanExcludeBtn" type="button">异或</button>
+                </div>
+              </div>
+            </div>
+
             <div class="inspector-group" id="imageGroup">
-              <div class="inspector-group-title"><span>图片抠图</span></div>
+              <div class="inspector-group-title"><span>图片</span></div>
               <div class="inspector-content">
                 <div class="image-ai-panel">
                   <div class="image-ai-actions">
+                    <button class="mini-btn" id="toggleCropBtn" type="button">裁剪</button>
                     <button class="mini-btn active" id="removeBgBtn" type="button">智能抠图</button>
                     <button class="mini-btn" id="startMaskEditBtn" type="button">修边</button>
                     <button class="mini-btn" id="restoreImageBtn" type="button">恢复原图</button>
+                  </div>
+                  <div class="mask-edit-card hidden" id="cropPanel">
+                    <div class="field-grid four">
+                      <div class="compact-field"><label for="cropLeft">左</label><input id="cropLeft" type="number" min="0" max="90" step="1"></div>
+                      <div class="compact-field"><label for="cropRight">右</label><input id="cropRight" type="number" min="0" max="90" step="1"></div>
+                      <div class="compact-field"><label for="cropTop">上</label><input id="cropTop" type="number" min="0" max="90" step="1"></div>
+                      <div class="compact-field"><label for="cropBottom">下</label><input id="cropBottom" type="number" min="0" max="90" step="1"></div>
+                    </div>
+                    <div class="button-row two">
+                      <button class="mini-btn" id="resetCropBtn" type="button">重置裁剪</button>
+                      <button class="mini-btn active" id="finishCropBtn" type="button">完成裁剪</button>
+                    </div>
                   </div>
                   <div class="mask-edit-card hidden" id="maskEditPanel">
                     <div class="mask-mode-row">
@@ -3935,7 +3986,7 @@
     const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
     const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
     const RMBG_MODEL_ID = "briaai/RMBG-1.4";
-    const APP_VERSION = "1.0.10";
+    const APP_VERSION = "1.0.11";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -3950,6 +4001,7 @@
       redo: "M16 7V3L23 10L16 17V13H10C6.686 13 4 15.686 4 19H2C2 14.582 5.582 11 10 11H16V7Z",
       copy: "M7 7V3C7 2.448 7.448 2 8 2H20C20.552 2 21 2.448 21 3V15C21 15.552 20.552 16 20 16H16V20C16 20.552 15.552 21 15 21H4C3.448 21 3 20.552 3 20V8C3 7.448 3.448 7 4 7H7ZM9 7H15C15.552 7 16 7.448 16 8V14H19V4H9V7ZM5 9V19H14V9H5Z",
       delete: "M17 6H22V8H20V21C20 21.552 19.552 22 19 22H5C4.448 22 4 21.552 4 21V8H2V6H7V3C7 2.448 7.448 2 8 2H16C16.552 2 17 2.448 17 3V6ZM9 4V6H15V4H9ZM6 8V20H18V8H6ZM9 11H11V17H9V11ZM13 11H15V17H13V11Z",
+      selectAll: "M4 4H20V6H6V20H4V4ZM8 8H22V22H8V8ZM10 10V20H20V10H10Z",
       export: "M13 10H18L12 16L6 10H11V3H13V10ZM4 19H20V14H22V20C22 20.552 21.552 21 21 21H3C2.448 21 2 20.552 2 20V14H4V19Z",
       refresh: "M17.65 6.35C16.2 4.9 14.21 4 12 4C7.58 4 4.01 7.58 4.01 12S7.58 20 12 20C15.73 20 18.84 17.45 19.73 14H17.65C16.82 16.33 14.6 18 12 18C8.69 18 6 15.31 6 12S8.69 6 12 6C13.66 6 15.14 6.69 16.22 7.78L13 11H20V4L17.65 6.35Z",
       upload: "M13 5.829V16H11V5.829L7.05 9.778L5.636 8.364L12 2L18.364 8.364L16.95 9.778L13 5.828ZM4 18H20V13H22V19C22 19.552 21.552 20 21 20H3C2.448 20 2 19.552 2 19V13H4V18Z",
@@ -3994,8 +4046,7 @@
       const idIcons = {
         undoBtn: "undo",
         redoBtn: "redo",
-        duplicateBtn: "copy",
-        deleteBtn: "delete",
+        selectAllBtn: "selectAll",
         checkUpdateBtn: "refresh",
         installUpdateBtn: "refresh",
         importProjectBtn: "upload",
@@ -4017,7 +4068,14 @@
         bringForwardBtn: "layerUp",
         sendBackwardBtn: "layerUp",
         bringFrontBtn: "layerUp",
-        sendBackBtn: "layerUp"
+        sendBackBtn: "layerUp",
+        toggleCropBtn: "image",
+        resetCropBtn: "refresh",
+        finishCropBtn: "selectAll",
+        booleanUnionBtn: "shape",
+        booleanSubtractBtn: "shape",
+        booleanIntersectBtn: "shape",
+        booleanExcludeBtn: "shape"
       };
       Object.entries(idIcons).forEach(([id, name]) => {
         const el = document.getElementById(id);
@@ -4157,6 +4215,8 @@
       hoverPoint: null,
       history: []
     };
+    const cropEditor = { active: false, objectId: null };
+    const panState = { spaceDown: false, active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 };
 
     function uid() {
       return Math.random().toString(36).slice(2, 10);
@@ -4187,22 +4247,24 @@
 
     function shape(kind, x, y, width, heightOrFill, fillOrExtra, maybeExtra = {}) {
       const isCircle = kind === "circle";
-      const height = isCircle ? width : heightOrFill;
-      const fill = isCircle ? heightOrFill : fillOrExtra;
+      const isLine = kind === "line";
+      const height = isCircle ? width : isLine ? Math.max(12, heightOrFill || 24) : heightOrFill;
+      const fill = isCircle || isLine ? heightOrFill : fillOrExtra;
       const extra = isCircle ? fillOrExtra || {} : maybeExtra;
       return {
         id: uid(),
         type: "shape",
         kind,
-        name: kind === "circle" ? "圆形" : "矩形",
+        name: kind === "circle" ? "圆形" : kind === "line" ? "分割线" : "矩形",
         x, y,
         width,
         height,
         rotation: 0,
         opacity: 1,
-        fill,
+        fill: isLine ? "transparent" : fill,
         stroke: extra.stroke || "#171411",
-        strokeWidth: extra.strokeWidth || 0,
+        strokeWidth: isLine ? extra.strokeWidth ?? 1 : extra.strokeWidth || 0,
+        strokeDash: extra.strokeDash || false,
         radius: extra.radius || 0,
         shadow: extra.shadow || 0,
         lockAspect: extra.lockAspect ?? kind === "circle"
@@ -4220,6 +4282,7 @@
         radius: 0,
         shadow: 0,
         lockAspect: true,
+        crop: { left: 0, top: 0, right: 0, bottom: 0 },
         src,
         image: img
       };
@@ -4420,6 +4483,51 @@
       });
     }
 
+    function chooseExportImageType() {
+      const layer = document.getElementById("appDialog");
+      const card = document.getElementById("appDialogCard");
+      const title = document.getElementById("appDialogTitle");
+      const message = document.getElementById("appDialogMessage");
+      const mark = document.getElementById("appDialogMark");
+      const cancelBtn = document.getElementById("appDialogCancel");
+      const confirmBtn = document.getElementById("appDialogConfirm");
+      return new Promise(resolve => {
+        const previousFocus = document.activeElement;
+        let settled = false;
+        const close = value => {
+          if (settled) return;
+          settled = true;
+          layer.classList.add("hidden");
+          document.removeEventListener("keydown", onKeyDown);
+          confirmBtn.onclick = null;
+          cancelBtn.onclick = null;
+          layer.onclick = null;
+          if (previousFocus && typeof previousFocus.focus === "function") previousFocus.focus();
+          resolve(value);
+        };
+        const onKeyDown = event => {
+          if (event.key === "Escape") close(null);
+          if (event.key === "Enter") close("image/png");
+        };
+        card.classList.remove("is-danger");
+        confirmBtn.classList.remove("is-danger");
+        title.textContent = "导出格式";
+        message.textContent = "选择本次导出图片的文件格式。PNG 适合透明和高清图，JPG 适合普通封面。";
+        mark.innerHTML = icon("export");
+        cancelBtn.textContent = "JPG";
+        confirmBtn.textContent = "PNG";
+        cancelBtn.classList.remove("hidden");
+        layer.classList.remove("hidden");
+        document.addEventListener("keydown", onKeyDown);
+        confirmBtn.onclick = () => close("image/png");
+        cancelBtn.onclick = () => close("image/jpeg");
+        layer.onclick = event => {
+          if (event.target === layer) close(null);
+        };
+        requestAnimationFrame(() => confirmBtn.focus());
+      });
+    }
+
     function resizeCanvas() {
       canvas.width = state.width;
       canvas.height = state.height;
@@ -4467,6 +4575,7 @@
       state.selectedIds = [...new Set(ids)].filter(id => state.objects.some(o => o.id === id));
       state.selectedId = state.selectedIds[state.selectedIds.length - 1] || null;
       if (maskEditor.active && !state.selectedIds.includes(maskEditor.objectId)) stopMaskEdit(false);
+      if (cropEditor.active && !state.selectedIds.includes(cropEditor.objectId)) stopCropEdit(false);
     }
 
     function toggleSelection(id) {
@@ -4495,6 +4604,7 @@
       for (const obj of state.objects) drawObject(targetCtx, obj);
       if (!exporting) drawMaskEditorOverlay(targetCtx);
       if (!exporting) drawMaskBrushPreview(targetCtx);
+      if (!exporting) drawCropEditorOverlay(targetCtx);
       targetCtx.restore();
       if (!exporting) renderSelectionOverlay();
     }
@@ -4588,6 +4698,7 @@
       }
       if (obj.type === "text") drawText(c, obj);
       if (obj.type === "shape") drawShape(c, obj);
+      if (obj.type === "compoundShape") drawCompoundShape(c, obj);
       if (obj.type === "image" && obj.image) drawImage(c, obj);
       c.restore();
     }
@@ -4644,6 +4755,18 @@
     }
 
     function drawShape(c, obj) {
+      if (obj.kind === "line") {
+        c.strokeStyle = obj.stroke || "#171411";
+        c.lineWidth = Math.max(1, obj.strokeWidth || 1);
+        c.lineCap = "butt";
+        c.setLineDash(obj.strokeDash ? [12, 8] : []);
+        c.beginPath();
+        c.moveTo(0, obj.height / 2);
+        c.lineTo(obj.width, obj.height / 2);
+        c.stroke();
+        c.setLineDash([]);
+        return;
+      }
       c.fillStyle = obj.fill;
       c.strokeStyle = obj.stroke || obj.fill;
       c.lineWidth = obj.strokeWidth || 0;
@@ -4660,7 +4783,104 @@
     function drawImage(c, obj) {
       roundRect(c, 0, 0, obj.width, obj.height, obj.radius || 0);
       c.clip();
-      c.drawImage(obj.image, 0, 0, obj.width, obj.height);
+      const crop = normalizeCrop(obj.crop);
+      const naturalW = obj.image.naturalWidth || obj.image.width;
+      const naturalH = obj.image.naturalHeight || obj.image.height;
+      const sx = naturalW * crop.left / 100;
+      const sy = naturalH * crop.top / 100;
+      const sw = Math.max(1, naturalW * (100 - crop.left - crop.right) / 100);
+      const sh = Math.max(1, naturalH * (100 - crop.top - crop.bottom) / 100);
+      c.drawImage(obj.image, sx, sy, sw, sh, 0, 0, obj.width, obj.height);
+    }
+
+    function normalizeCrop(crop = {}) {
+      const next = {
+        left: Number(crop.left || 0),
+        top: Number(crop.top || 0),
+        right: Number(crop.right || 0),
+        bottom: Number(crop.bottom || 0)
+      };
+      ["left", "top", "right", "bottom"].forEach(key => {
+        next[key] = Math.max(0, Math.min(90, next[key]));
+      });
+      if (next.left + next.right > 92) {
+        const scale = 92 / (next.left + next.right);
+        next.left *= scale;
+        next.right *= scale;
+      }
+      if (next.top + next.bottom > 92) {
+        const scale = 92 / (next.top + next.bottom);
+        next.top *= scale;
+        next.bottom *= scale;
+      }
+      return next;
+    }
+
+    function drawCropEditorOverlay(c) {
+      if (!cropEditor.active) return;
+      const obj = state.objects.find(item => item.id === cropEditor.objectId);
+      if (!obj || obj.type !== "image") return;
+      c.save();
+      c.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+      c.rotate((obj.rotation || 0) * Math.PI / 180);
+      c.translate(-obj.width / 2, -obj.height / 2);
+      c.strokeStyle = "#ffb000";
+      c.lineWidth = Math.max(2, 2 / Math.max(.25, state.zoomScale || 1));
+      c.setLineDash([10, 6]);
+      c.strokeRect(0, 0, obj.width, obj.height);
+      c.setLineDash([]);
+      c.globalAlpha = .72;
+      c.beginPath();
+      c.moveTo(obj.width / 3, 0);
+      c.lineTo(obj.width / 3, obj.height);
+      c.moveTo(obj.width * 2 / 3, 0);
+      c.lineTo(obj.width * 2 / 3, obj.height);
+      c.moveTo(0, obj.height / 3);
+      c.lineTo(obj.width, obj.height / 3);
+      c.moveTo(0, obj.height * 2 / 3);
+      c.lineTo(obj.width, obj.height * 2 / 3);
+      c.stroke();
+      c.restore();
+    }
+
+    function drawShapePath(c, obj) {
+      c.save();
+      c.translate(obj.x, obj.y);
+      c.rotate((obj.rotation || 0) * Math.PI / 180);
+      if (obj.kind === "circle") {
+        c.beginPath();
+        c.ellipse(obj.width / 2, obj.height / 2, obj.width / 2, obj.height / 2, 0, 0, Math.PI * 2);
+      } else if (obj.kind === "line") {
+        c.lineWidth = Math.max(1, obj.strokeWidth || 1);
+        c.beginPath();
+        c.rect(0, obj.height / 2 - c.lineWidth / 2, obj.width, c.lineWidth);
+      } else {
+        roundRect(c, 0, 0, obj.width, obj.height, obj.radius || 0);
+      }
+      c.restore();
+    }
+
+    function drawCompoundShape(c, obj) {
+      const buffer = document.createElement("canvas");
+      buffer.width = Math.max(1, Math.ceil(obj.width));
+      buffer.height = Math.max(1, Math.ceil(obj.height));
+      const bctx = buffer.getContext("2d");
+      bctx.fillStyle = obj.fill || "#171411";
+      (obj.parts || []).forEach((part, index) => {
+        if (index === 0) bctx.globalCompositeOperation = "source-over";
+        else if (obj.booleanMode === "subtract") bctx.globalCompositeOperation = "destination-out";
+        else if (obj.booleanMode === "intersect") bctx.globalCompositeOperation = "source-in";
+        else if (obj.booleanMode === "exclude") bctx.globalCompositeOperation = "xor";
+        else bctx.globalCompositeOperation = "source-over";
+        drawShapePath(bctx, part);
+        bctx.fill();
+      });
+      c.drawImage(buffer, 0, 0, obj.width, obj.height);
+      if (obj.strokeWidth > 0) {
+        c.strokeStyle = obj.stroke || obj.fill || "#171411";
+        c.lineWidth = obj.strokeWidth;
+        c.strokeRect(0, 0, obj.width, obj.height);
+      }
     }
 
     function drawMaskEditorOverlay(c) {
@@ -4768,6 +4988,18 @@
         { mode: "resize", name: "se", x: bounds.x + bounds.width, y: bounds.y + bounds.height },
         { mode: "rotate", name: "rotate", x: bounds.x + bounds.width / 2, y: bounds.y - 34 }
       ];
+      if (cropEditor.active && objects.length === 1 && objects[0].id === cropEditor.objectId) {
+        const left = objects[0].x;
+        const top = objects[0].y;
+        const right = objects[0].x + objects[0].width;
+        const bottom = objects[0].y + objects[0].height;
+        handlePoints.length = 0;
+        [
+          ["nw", left, top], ["n", (left + right) / 2, top], ["ne", right, top],
+          ["e", right, (top + bottom) / 2], ["se", right, bottom], ["s", (left + right) / 2, bottom],
+          ["sw", left, bottom], ["w", left, (top + bottom) / 2]
+        ].forEach(([name, x, y]) => handlePoints.push({ mode: "crop", name, x, y }));
+      }
       handlePoints.forEach(point => {
         const handle = document.createElement("button");
         handle.type = "button";
@@ -4776,7 +5008,7 @@
         handle.dataset.name = point.name;
         handle.style.left = `${point.x * scale}px`;
         handle.style.top = `${point.y * scale}px`;
-        handle.title = point.mode === "resize" ? "缩放" : "旋转";
+        handle.title = point.mode === "crop" ? "裁剪" : point.mode === "resize" ? "缩放" : "旋转";
         selectionOverlay.appendChild(handle);
       });
     }
@@ -4825,6 +5057,7 @@
       const p = toLocalPoint(e);
       state.dragging = {
         mode: handle.dataset.mode,
+        name: handle.dataset.name,
         start: p,
         obj: selected() ? { ...selected() } : null,
         objects: objects.map(o => ({ ...o })),
@@ -4849,6 +5082,7 @@
         await paintMaskAt(e);
         return;
       }
+      if (panState.spaceDown) return;
       const p = toLocalPoint(e);
       const obj = selected();
       const handle = hitHandle(p, obj);
@@ -4928,6 +5162,9 @@
           resizeObject(obj, state.dragging.obj, dx, dy, e.shiftKey);
         }
       }
+      if (state.dragging.mode === "crop" && obj && obj.type === "image") {
+        cropObjectFromDrag(obj, state.dragging.obj, state.dragging.name, dx, dy);
+      }
       if (state.dragging.mode === "rotate" && obj) {
         const cx = obj.x + obj.width / 2;
         const cy = obj.y + obj.height / 2;
@@ -4965,6 +5202,33 @@
 
     canvas.addEventListener("pointerup", handlePointerUp);
     selectionOverlay.addEventListener("pointerup", handlePointerUp);
+
+    stage.addEventListener("pointerdown", event => {
+      if (!panState.spaceDown || maskEditor.active) return;
+      event.preventDefault();
+      event.stopPropagation();
+      panState.active = true;
+      panState.startX = event.clientX;
+      panState.startY = event.clientY;
+      panState.scrollLeft = stage.scrollLeft;
+      panState.scrollTop = stage.scrollTop;
+      document.body.classList.add("is-panning");
+      stage.setPointerCapture(event.pointerId);
+    }, true);
+
+    stage.addEventListener("pointermove", event => {
+      if (!panState.active) return;
+      event.preventDefault();
+      stage.scrollLeft = panState.scrollLeft - (event.clientX - panState.startX);
+      stage.scrollTop = panState.scrollTop - (event.clientY - panState.startY);
+    });
+
+    stage.addEventListener("pointerup", event => {
+      if (!panState.active) return;
+      panState.active = false;
+      document.body.classList.remove("is-panning");
+      stage.releasePointerCapture(event.pointerId);
+    });
 
     function addObject(obj) {
       saveHistory();
@@ -5022,6 +5286,139 @@
         obj.height = Math.max(1, start.height * sy);
         if (obj.type === "text") obj.fontSize = Math.max(8, start.fontSize * Math.min(sx, sy));
       });
+    }
+
+    function cropObjectFromDrag(obj, start, handleName, dx, dy) {
+      const crop = normalizeCrop(start.crop);
+      const minSize = 28;
+      const visibleXPct = Math.max(1, 100 - crop.left - crop.right);
+      const visibleYPct = Math.max(1, 100 - crop.top - crop.bottom);
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+      let leftDelta = 0;
+      let rightDelta = 0;
+      let topDelta = 0;
+      let bottomDelta = 0;
+      if (handleName.includes("w")) {
+        leftDelta = clamp(
+          dx,
+          -crop.left / visibleXPct * start.width,
+          start.width - minSize
+        );
+        crop.left += leftDelta / Math.max(1, start.width) * visibleXPct;
+      }
+      if (handleName.includes("e")) {
+        rightDelta = clamp(
+          dx,
+          minSize - start.width,
+          crop.right / visibleXPct * start.width
+        );
+        crop.right -= rightDelta / Math.max(1, start.width) * visibleXPct;
+      }
+      if (handleName.includes("n")) {
+        topDelta = clamp(
+          dy,
+          -crop.top / visibleYPct * start.height,
+          start.height - minSize
+        );
+        crop.top += topDelta / Math.max(1, start.height) * visibleYPct;
+      }
+      if (handleName.includes("s")) {
+        bottomDelta = clamp(
+          dy,
+          minSize - start.height,
+          crop.bottom / visibleYPct * start.height
+        );
+        crop.bottom -= bottomDelta / Math.max(1, start.height) * visibleYPct;
+      }
+      obj.x = start.x + leftDelta;
+      obj.y = start.y + topDelta;
+      obj.width = Math.max(minSize, start.width + rightDelta - leftDelta);
+      obj.height = Math.max(minSize, start.height + bottomDelta - topDelta);
+      obj.crop = normalizeCrop(crop);
+      syncCropControls(obj);
+    }
+
+    function setCropSideWithoutStretch(obj, side, value) {
+      const crop = normalizeCrop(obj.crop);
+      const target = Math.max(0, Math.min(90, Number(value) || 0));
+      const visibleXPct = Math.max(1, 100 - crop.left - crop.right);
+      const visibleYPct = Math.max(1, 100 - crop.top - crop.bottom);
+      if (side === "left") {
+        const delta = (target - crop.left) / visibleXPct * obj.width;
+        obj.x += delta;
+        obj.width = Math.max(28, obj.width - delta);
+        crop.left = target;
+      }
+      if (side === "right") {
+        const delta = (target - crop.right) / visibleXPct * obj.width;
+        obj.width = Math.max(28, obj.width - delta);
+        crop.right = target;
+      }
+      if (side === "top") {
+        const delta = (target - crop.top) / visibleYPct * obj.height;
+        obj.y += delta;
+        obj.height = Math.max(28, obj.height - delta);
+        crop.top = target;
+      }
+      if (side === "bottom") {
+        const delta = (target - crop.bottom) / visibleYPct * obj.height;
+        obj.height = Math.max(28, obj.height - delta);
+        crop.bottom = target;
+      }
+      obj.crop = normalizeCrop(crop);
+    }
+
+    function shapePartForBoolean(obj, bounds) {
+      const part = JSON.parse(JSON.stringify(obj));
+      part.x = obj.x - bounds.x;
+      part.y = obj.y - bounds.y;
+      part.image = undefined;
+      return part;
+    }
+
+    function booleanShapeObjects(mode) {
+      const objects = selectedObjects().filter(obj => obj.type === "shape" || obj.type === "compoundShape");
+      if (objects.length < 2) return;
+      const bounds = selectionBounds(objects);
+      if (!bounds) return;
+      saveHistory();
+      const first = objects[0];
+      const parts = objects.flatMap(obj => {
+        if (obj.type === "compoundShape") {
+          return (obj.parts || []).map(part => ({
+            ...part,
+            x: obj.x + part.x - bounds.x,
+            y: obj.y + part.y - bounds.y
+          }));
+        }
+        return [shapePartForBoolean(obj, bounds)];
+      });
+      const compound = {
+        id: uid(),
+        type: "compoundShape",
+        name: mode === "union" ? "并集图形" : mode === "subtract" ? "相减图形" : mode === "intersect" ? "相交图形" : "异或图形",
+        x: bounds.x,
+        y: bounds.y,
+        width: Math.max(1, bounds.width),
+        height: Math.max(1, bounds.height),
+        rotation: 0,
+        opacity: 1,
+        fill: first.fill === "transparent" ? first.stroke || "#171411" : first.fill || "#171411",
+        stroke: first.stroke || "#171411",
+        strokeWidth: 0,
+        shadow: 0,
+        lockAspect: false,
+        booleanMode: mode,
+        parts
+      };
+      const ids = new Set(objects.map(obj => obj.id));
+      const insertAt = Math.min(...objects.map(obj => state.objects.indexOf(obj)).filter(index => index >= 0));
+      state.objects = state.objects.filter(obj => !ids.has(obj.id));
+      state.objects.splice(Math.max(0, insertAt), 0, compound);
+      setSelection([compound.id]);
+      renderAll();
+      syncUi();
+      persist();
     }
 
     function updateSelected(patch) {
@@ -5426,6 +5823,14 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
 
     function imageToolEls() {
       const ids = [
+        "toggleCropBtn",
+        "cropPanel",
+        "cropLeft",
+        "cropRight",
+        "cropTop",
+        "cropBottom",
+        "resetCropBtn",
+        "finishCropBtn",
         "removeBgBtn",
         "startMaskEditBtn",
         "restoreImageBtn",
@@ -5654,6 +6059,43 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       renderAll();
     }
 
+    function startCropEdit(obj = selected()) {
+      if (!obj || obj.type !== "image") return;
+      if (maskEditor.active) stopMaskEdit(false);
+      cropEditor.active = true;
+      cropEditor.objectId = obj.id;
+      obj.crop = normalizeCrop(obj.crop);
+      document.body.classList.add("crop-editing");
+      syncCropControls(obj);
+      renderAll();
+      syncUi(false);
+    }
+
+    function stopCropEdit(shouldPersist = true) {
+      cropEditor.active = false;
+      cropEditor.objectId = null;
+      document.body.classList.remove("crop-editing");
+      if (shouldPersist) persist();
+      syncCropControls();
+      renderAll();
+      syncUi(false);
+    }
+
+    function syncCropControls(obj = selected()) {
+      const els = imageToolEls();
+      const active = !!obj && obj.type === "image" && cropEditor.active && cropEditor.objectId === obj.id;
+      els.cropPanel.classList.toggle("hidden", !active);
+      els.toggleCropBtn.classList.toggle("active", active);
+      els.toggleCropBtn.disabled = !obj || obj.type !== "image";
+      if (!obj || obj.type !== "image") return;
+      const crop = normalizeCrop(obj.crop);
+      obj.crop = crop;
+      els.cropLeft.value = Math.round(crop.left);
+      els.cropRight.value = Math.round(crop.right);
+      els.cropTop.value = Math.round(crop.top);
+      els.cropBottom.value = Math.round(crop.bottom);
+    }
+
     function syncMaskControls() {
       const els = imageToolEls();
       const obj = selected();
@@ -5669,6 +6111,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       els.startMaskEditBtn.disabled = !isImage;
       els.restoreImageBtn.disabled = !isImage || !obj.originalSrc;
       els.finishMaskEditBtn.disabled = !maskEditor.active;
+      syncCropControls(obj);
     }
 
     function canvasPointToObject(point, obj) {
@@ -5929,8 +6372,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     wire("addRectBtn", "click", () => addObject(shape("rect", 160, 260, 380, 220, "#ff4d23", { radius: 24 })));
     wire("addCircleBtn", "click", () => addObject(shape("circle", 180, 280, 240, "#2563eb")));
     wire("addDividerBtn", "click", () => {
-      const obj = shape("rect", 120, 470, 520, 10, "#171411", { radius: 5, lockAspect: false });
-      obj.name = "分割线";
+      const obj = shape("line", 120, 470, 520, 24, "#171411", { stroke: "#171411", strokeWidth: 1, lockAspect: false });
       addObject(obj);
     });
     wire("addOverlayBtn", "click", () => {
@@ -5985,6 +6427,53 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       if (!setBackgroundColor(e.target.value)) syncBackgroundColorUi();
     });
 
+    wire("strokeDashToggle", "change", e => {
+      const objects = selectedObjects().filter(obj => obj.type === "shape" && obj.kind === "line");
+      if (!objects.length) return;
+      saveHistory();
+      objects.forEach(obj => { obj.strokeDash = e.target.checked; });
+      renderAll();
+      syncUi(false);
+      persist();
+    });
+
+    wire("toggleCropBtn", "click", () => {
+      const obj = selected();
+      if (!obj || obj.type !== "image") return;
+      if (cropEditor.active && cropEditor.objectId === obj.id) stopCropEdit();
+      else startCropEdit(obj);
+    });
+
+    ["cropLeft", "cropRight", "cropTop", "cropBottom"].forEach(id => {
+      wire(id, "input", e => {
+        const obj = selected();
+        if (!obj || obj.type !== "image") return;
+        saveHistory();
+        const key = id.replace("crop", "").toLowerCase();
+        setCropSideWithoutStretch(obj, key, e.target.value);
+        syncCropControls(obj);
+        renderAll();
+        syncTransformInputs(obj);
+        persist();
+      });
+    });
+
+    wire("resetCropBtn", "click", () => {
+      const obj = selected();
+      if (!obj || obj.type !== "image") return;
+      saveHistory();
+      obj.crop = { left: 0, right: 0, top: 0, bottom: 0 };
+      syncCropControls(obj);
+      renderAll();
+      persist();
+    });
+
+    wire("finishCropBtn", "click", () => stopCropEdit());
+    wire("booleanUnionBtn", "click", () => booleanShapeObjects("union"));
+    wire("booleanSubtractBtn", "click", () => booleanShapeObjects("subtract"));
+    wire("booleanIntersectBtn", "click", () => booleanShapeObjects("intersect"));
+    wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
+
     ["posX", "posY", "objWidth", "objHeight", "rotation", "textValue", "fontFamily", "fontSize", "fillColor", "strokeColor", "strokeWidth", "shapeRadius", "opacity", "shadow", "lockAspect"].forEach(id => {
       const handler = e => {
         const obj = selected();
@@ -6007,6 +6496,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
           lockAspect: "lockAspect"
         };
         let value = id === "lockAspect" ? e.target.checked : e.target.value;
+        if (obj.type === "shape" && obj.kind === "line" && id === "fillColor") return;
         if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "strokeWidth", "shapeRadius", "opacity", "shadow"].includes(id)) value = Number(value);
         if (id === "objWidth" || id === "objHeight") value = Math.max(1, value);
         if (id === "shapeRadius") value = Math.max(0, value);
@@ -6100,14 +6590,16 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       persist();
     }
 
-    function reorderLayer(draggedId, targetId) {
+    function reorderLayer(draggedId, targetId, after = false) {
       if (!draggedId || !targetId || draggedId === targetId) return;
       const visualIds = [...state.objects].reverse().map(obj => obj.id);
       const from = visualIds.indexOf(draggedId);
-      const to = visualIds.indexOf(targetId);
+      let to = visualIds.indexOf(targetId);
       if (from < 0 || to < 0) return;
       saveHistory();
       visualIds.splice(from, 1);
+      if (from < to) to -= 1;
+      if (after) to += 1;
       visualIds.splice(to, 0, draggedId);
       const byId = new Map(state.objects.map(obj => [obj.id, obj]));
       state.objects = visualIds.reverse().map(id => byId.get(id)).filter(Boolean);
@@ -6117,7 +6609,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       persist();
     }
 
-    wire("duplicateBtn", "click", () => {
+    function duplicateSelected() {
       const objects = selectedObjects();
       if (!objects.length) return;
       saveHistory();
@@ -6127,9 +6619,14 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       renderAll();
       syncUi();
       persist();
+    }
+
+    wire("selectAllBtn", "click", () => {
+      setSelection(state.objects.map(obj => obj.id));
+      renderAll();
+      syncUi();
     });
 
-    wire("deleteBtn", "click", deleteSelected);
     function deleteSelected() {
       const ids = new Set(selectedObjects().map(o => o.id));
       if (!ids.size) return;
@@ -6160,8 +6657,26 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
 
     document.addEventListener("keydown", e => {
       const tag = document.activeElement.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
+      if (e.code === "Space" && !e.repeat && !inlineEditing) {
+        e.preventDefault();
+        panState.spaceDown = true;
+        document.body.classList.add("space-panning");
+        return;
+      }
       if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setSelection(state.objects.map(obj => obj.id));
+        renderAll();
+        syncUi();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        duplicateSelected();
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") undo();
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "y") redo();
       const objects = selectedObjects();
@@ -6180,6 +6695,13 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         syncTransformInputs();
         persist();
       }
+    });
+
+    document.addEventListener("keyup", e => {
+      if (e.code !== "Space") return;
+      panState.spaceDown = false;
+      panState.active = false;
+      document.body.classList.remove("space-panning", "is-panning");
     });
 
     wire("zoomSelect", "change", () => {
@@ -6369,7 +6891,8 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         await document.fonts.ready;
         await normalizeAllImageSources();
         const scale = Number(document.getElementById("exportScale").value);
-        const type = document.getElementById("exportType").value;
+        const type = await chooseExportImageType();
+        if (!type) return;
         const out = document.createElement("canvas");
         out.width = state.width * scale;
         out.height = state.height * scale;
@@ -6697,19 +7220,25 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       if (!objects.length || !updateValues) return;
       const isText = obj.type === "text";
       const isShape = obj.type === "shape";
+      const isCompoundShape = obj.type === "compoundShape";
       const isImage = obj.type === "image";
       const isRect = isShape && obj.kind === "rect";
-      const hasAppearance = isText || isShape || isImage;
+      const isLine = isShape && obj.kind === "line";
+      const hasAppearance = isText || isShape || isCompoundShape || isImage;
       const allText = objects.every(item => item.type === "text");
+      const booleanReady = objects.length > 1 && objects.every(item => item.type === "shape" || item.type === "compoundShape");
       document.getElementById("textGroup").classList.toggle("hidden", multi ? !allText : !isText);
       document.getElementById("appearanceGroup").classList.toggle("hidden", multi || !hasAppearance);
+      document.getElementById("booleanGroup").classList.toggle("hidden", !booleanReady);
       document.getElementById("imageGroup").classList.toggle("hidden", multi || !isImage);
       document.getElementById("appearanceGrid").classList.toggle("hidden", isImage);
+      document.getElementById("fillColor").closest(".compact-field").classList.toggle("hidden", isLine);
       document.getElementById("strokeWidth").closest(".inline-control").classList.toggle("hidden", isImage);
+      document.getElementById("strokeDashControl").classList.toggle("hidden", !isLine);
       document.getElementById("shapeRadiusControl").classList.toggle("hidden", !isRect);
       document.getElementById("shapeRadiusPresets").classList.toggle("hidden", !isRect);
-      document.getElementById("fillColorLabel").textContent = isShape ? "填充颜色" : "文字颜色";
-      document.getElementById("strokeColorLabel").textContent = isShape ? "描边颜色" : "描边颜色";
+      document.getElementById("fillColorLabel").textContent = isShape || isCompoundShape ? "填充颜色" : "文字颜色";
+      document.getElementById("strokeColorLabel").textContent = isLine ? "线条颜色" : "描边颜色";
       syncTransformInputs(obj);
       if (multi) return;
       document.getElementById("textValue").value = obj.text || "";
@@ -6718,6 +7247,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       document.getElementById("fillColor").value = obj.fill || "#171411";
       document.getElementById("strokeColor").value = obj.stroke || "#171411";
       document.getElementById("strokeWidth").value = obj.strokeWidth || 0;
+      document.getElementById("strokeDashToggle").checked = !!obj.strokeDash;
       document.getElementById("shapeRadius").value = obj.radius || 0;
       document.getElementById("opacity").value = obj.opacity ?? 1;
       document.getElementById("shadow").value = obj.shadow || 0;
@@ -6780,7 +7310,8 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         btn.type = "button";
         btn.draggable = true;
         btn.dataset.layerId = obj.id;
-        btn.innerHTML = `<span class="layer-name">${obj.name}</span><span class="layer-type">${obj.type}</span>`;
+        const typeLabel = obj.type === "compoundShape" ? "shape" : obj.type;
+        btn.innerHTML = `<span class="layer-name">${obj.name}</span><span class="layer-type">${typeLabel}</span>`;
         btn.onclick = event => {
           if (event.shiftKey || event.metaKey || event.ctrlKey) toggleSelection(obj.id);
           else setSelection([obj.id]);
@@ -6794,21 +7325,24 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         });
         btn.addEventListener("dragend", () => {
           btn.classList.remove("dragging");
-          document.querySelectorAll(".layer.drop-before").forEach(item => item.classList.remove("drop-before"));
+          document.querySelectorAll(".layer.drop-before, .layer.drop-after").forEach(item => item.classList.remove("drop-before", "drop-after"));
         });
         btn.addEventListener("dragover", event => {
           event.preventDefault();
           event.dataTransfer.dropEffect = "move";
           document.querySelectorAll(".layer.drop-before").forEach(item => item.classList.remove("drop-before"));
-          btn.classList.add("drop-before");
+          const rect = btn.getBoundingClientRect();
+          btn.classList.toggle("drop-after", event.clientY > rect.top + rect.height / 2);
+          btn.classList.toggle("drop-before", event.clientY <= rect.top + rect.height / 2);
         });
         btn.addEventListener("dragleave", () => {
-          btn.classList.remove("drop-before");
+          btn.classList.remove("drop-before", "drop-after");
         });
         btn.addEventListener("drop", event => {
           event.preventDefault();
-          btn.classList.remove("drop-before");
-          reorderLayer(event.dataTransfer.getData("text/plain"), obj.id);
+          const after = btn.classList.contains("drop-after");
+          btn.classList.remove("drop-before", "drop-after");
+          reorderLayer(event.dataTransfer.getData("text/plain"), obj.id, after);
         });
         box.appendChild(btn);
       });
