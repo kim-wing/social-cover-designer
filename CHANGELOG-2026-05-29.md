@@ -130,8 +130,7 @@ YOUDESIGN-1.0.9-mac-arm64.app.tar.gz.sig: sha256:92f18a1408ca998974eb6a5a151ee00
 
 Status:
 
-- Packaged for macOS Intel and Apple Silicon.
-- Ready for GitHub release upload.
+- Packaged and uploaded for macOS Intel and Apple Silicon.
 - Windows installer was not uploaded because local NSIS packaging is still unavailable.
 
 Release:
@@ -170,7 +169,7 @@ Build results:
 - `local-update-test/server/YOUDESIGN-1.0.10-mac-arm64.app.tar.gz`
 - `local-update-test/server/YOUDESIGN-1.0.10-mac-arm64.app.tar.gz.sig`
 
-Local SHA256:
+GitHub asset digests:
 
 ```text
 latest.json: sha256:fe80a564fc35906845fc1cb42d559dbb25b5883f1074005e399ac462db0e3da8
