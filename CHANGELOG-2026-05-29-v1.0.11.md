@@ -47,7 +47,7 @@ inline script syntax check: passed
 cargo check: passed
 mac x64 build: passed
 mac arm64 build: passed
-win x64 build: failed, blocked by missing x86_64-w64-mingw32-windres
+win x64 build: passed through GitHub Actions Windows runner
 local update manifest: passed
 ```
 
@@ -58,19 +58,89 @@ Build results:
 - `local-update-test/server/YOUDESIGN-1.0.11-mac-x64.app.tar.gz.sig`
 - `local-update-test/server/YOUDESIGN-1.0.11-mac-arm64.app.tar.gz`
 - `local-update-test/server/YOUDESIGN-1.0.11-mac-arm64.app.tar.gz.sig`
+- `local-update-test/server/YOUDESIGN-1.0.11-win-x64-setup.exe`
+- `local-update-test/server/YOUDESIGN-1.0.11-win-x64-setup.exe.sig`
 
 Local SHA256:
 
 ```text
-latest.json: sha256:31151b5b48e8d2b9c388c80d01d2e80b1c11f517cbffe25d2c64959dee249a66
+latest.json: sha256:afb00615b7ac9fc6ea62f988a28de6df62f03abd502ec321c4850f2dba2a4c41
 YOUDESIGN-1.0.11-mac-x64.app.tar.gz: sha256:28cf48293a04f80eab063846ba43c9e6082c283126cecff27bc5e049c3ddbe9c
 YOUDESIGN-1.0.11-mac-x64.app.tar.gz.sig: sha256:cd536540063a36b48b0dda42e832899a95a08c65defa7bfad187a9c40e7521a2
 YOUDESIGN-1.0.11-mac-arm64.app.tar.gz: sha256:151adba615403418cd0d48f0d0c4bc595a8181e50b4fced1239c37028ae4ae71
 YOUDESIGN-1.0.11-mac-arm64.app.tar.gz.sig: sha256:b8d60ad07b83760aba7a4720253515951b675796e62a877687b3177d883a3160
+YOUDESIGN-1.0.11-win-x64-setup.exe: sha256:d365be56c01d88f2cbdd4d98e083c553339e0de430c863e54e3694e4a5ada2fa
+YOUDESIGN-1.0.11-win-x64-setup.exe.sig: sha256:295fb74a0c4713683dab342116cbcec4dc7a6b76d32c7c466c8a25c560be3bfc
 ```
 
 ## Notes
 
 - macOS notarization is still skipped because Apple notarization environment variables are not configured.
-- Windows x64 packaging was attempted with `x86_64-pc-windows-gnullvm`, but the local machine does not have `x86_64-w64-mingw32-windres`.
-- Installing `mingw-w64` through Homebrew is currently blocked by local `/usr/local` permissions and sudo password input, so no Windows installer was uploaded for v1.0.11.
+- Windows x64 packaging was completed through GitHub Actions on `windows-latest`.
+- Local macOS cross-compilation can build `youdesign.exe` after adding `llvm-mingw`, but local NSIS packaging still needs `makensis.exe`.
+- A GitHub Actions workflow was added at `.github/workflows/windows-build.yml` so Windows packaging does not depend on this macOS machine's Homebrew/NSIS setup.
+
+## Windows Packaging Method
+
+Preferred method: GitHub Actions Windows runner.
+
+1. Make sure the updater signing private key exists as a GitHub secret:
+
+```bash
+gh secret set TAURI_SIGNING_PRIVATE_KEY < /Users/youxiake/.tauri/youdesign-updater.key
+```
+
+2. Push the commit that contains `.github/workflows/windows-build.yml`.
+
+3. Trigger the workflow:
+
+```bash
+gh workflow run windows-build.yml -f version=1.0.11 --ref main
+```
+
+4. Watch the run:
+
+```bash
+gh run list --workflow "Windows build"
+gh run watch <run-id>
+```
+
+5. Download the artifact:
+
+```bash
+gh run download <run-id> -n YOUDESIGN-1.0.11-win-x64 -D /private/tmp/youdesign-win-1.0.11
+```
+
+6. Copy the generated files into `local-update-test/server` with release-friendly names:
+
+```bash
+cp /private/tmp/youdesign-win-1.0.11/*.exe local-update-test/server/YOUDESIGN-1.0.11-win-x64-setup.exe
+cp /private/tmp/youdesign-win-1.0.11/*.sig local-update-test/server/YOUDESIGN-1.0.11-win-x64-setup.exe.sig
+```
+
+7. Regenerate `latest.json` so the Windows platform is included:
+
+```bash
+npm run tauri:local-update-manifest
+```
+
+Local fallback method on macOS:
+
+1. Download a prebuilt `llvm-mingw` toolchain:
+
+```bash
+mkdir -p /private/tmp/llvm-mingw-youdesign
+curl -L https://github.com/mstorsjo/llvm-mingw/releases/download/20260519/llvm-mingw-20260519-ucrt-macos-universal.tar.xz -o /private/tmp/llvm-mingw-youdesign/llvm-mingw.tar.xz
+tar -xf /private/tmp/llvm-mingw-youdesign/llvm-mingw.tar.xz -C /private/tmp/llvm-mingw-youdesign
+```
+
+2. Build with the temporary toolchain on `PATH`:
+
+```bash
+TAURI_SIGNING_PRIVATE_KEY="$(cat /Users/youxiake/.tauri/youdesign-updater.key)" \
+TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" \
+PATH=/private/tmp/llvm-mingw-youdesign/llvm-mingw-20260519-ucrt-macos-universal/bin:/Users/youxiake/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin \
+npm run tauri -- build --target x86_64-pc-windows-gnullvm --bundles nsis
+```
+
+This local fallback compiles `youdesign.exe`, but it still needs NSIS `makensis.exe` to create the installer. On this machine, Homebrew NSIS installation is blocked because the installed Homebrew does not recognize the current macOS version (`unknown or unsupported macOS version: :dunno`). The v1.0.11 Windows installer was produced with the GitHub Actions method.
