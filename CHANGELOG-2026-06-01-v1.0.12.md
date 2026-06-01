@@ -31,9 +31,14 @@ https://github.com/kim-wing/social-cover-designer/releases/tag/v1.0.12
 
 ```text
 inline script syntax check: passed
+cargo check: passed
+mac x64 build: passed
+mac arm64 build: passed
+win x64 build: passed through GitHub Actions Windows runner
+local update manifest: passed
 ```
 
-Build results will be filled after packaging:
+Build results:
 
 - `local-update-test/server/latest.json`
 - `local-update-test/server/YOUDESIGN-1.0.12-mac-x64.app.tar.gz`
@@ -42,6 +47,18 @@ Build results will be filled after packaging:
 - `local-update-test/server/YOUDESIGN-1.0.12-mac-arm64.app.tar.gz.sig`
 - `local-update-test/server/YOUDESIGN-1.0.12-win-x64-setup.exe`
 - `local-update-test/server/YOUDESIGN-1.0.12-win-x64-setup.exe.sig`
+
+Local SHA256:
+
+```text
+latest.json: sha256:2d6527708d8443cde38a44004a691ede5c353c0278dcd55b4bada9f2d94550a3
+YOUDESIGN-1.0.12-mac-x64.app.tar.gz: sha256:200563eef46e2a4255625ce7ef651ea39d065c0ef4291a30d60aac017f7b851b
+YOUDESIGN-1.0.12-mac-x64.app.tar.gz.sig: sha256:a7fe2c5cc67beeab72187b8ae128de320f9e6e7b1c885cc844bffcbf8d88d404
+YOUDESIGN-1.0.12-mac-arm64.app.tar.gz: sha256:a0b8edba6be37936967c03a6f41672b10dc7c0842d3f5c666cb3377e30672fd4
+YOUDESIGN-1.0.12-mac-arm64.app.tar.gz.sig: sha256:b65d9904b8e31ed77f11fb7b12f994f012a9237fb2b0368779f350214c9f62b3
+YOUDESIGN-1.0.12-win-x64-setup.exe: sha256:67dd3f523b84f643739008b421fe5ccfa51cb9903d67809d8eec7600cf50dc12
+YOUDESIGN-1.0.12-win-x64-setup.exe.sig: sha256:df9d8ac0d017900202689c95797d4dc26e1c749e771763349ac95f07d16665e0
+```
 
 ## Notes
 
