@@ -145,15 +145,28 @@
       padding: 0;
     }
 
-    .ri {
+    .ri,
+    .bsc-icon {
       width: 18px;
       height: 18px;
       display: block;
-      fill: currentColor;
       flex: 0 0 auto;
     }
 
-    .icon-btn .ri {
+    .bsc-icon {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .bsc-icon * {
+      vector-effect: non-scaling-stroke;
+    }
+
+    .icon-btn .ri,
+    .icon-btn .bsc-icon {
       width: 17px;
       height: 17px;
     }
@@ -1089,6 +1102,14 @@
       pointer-events: none;
     }
 
+    .swipe-select-box {
+      position: absolute;
+      border: 1px solid rgba(37, 99, 235, .82);
+      background: rgba(37, 99, 235, .1);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, .74), inset 0 0 0 1px rgba(37, 99, 235, .18);
+      pointer-events: none;
+    }
+
     .selection-handle {
       position: absolute;
       width: 14px;
@@ -1154,15 +1175,20 @@
       min-width: 44px;
       min-height: 34px;
       padding: 0;
-      border: 2px solid var(--accent);
-      border-radius: 8px;
+      border: 0;
+      border-radius: 0;
       outline: none;
-      background: rgba(255, 255, 255, .88);
+      background: transparent;
       color: inherit;
-      box-shadow: 0 10px 30px rgba(15, 23, 42, .16), 0 0 0 1px rgba(255, 255, 255, .86);
+      box-shadow: none;
+      caret-color: var(--figma-blue, #0d99ff);
       resize: none;
-      overflow: hidden;
-      backdrop-filter: blur(14px) saturate(1.15);
+      overflow: auto;
+      text-decoration: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+      -webkit-text-fill-color: currentColor;
+      appearance: none;
     }
 
     .inline-text-editor.is-active {
@@ -2971,6 +2997,7 @@
 
     .search,
     .control,
+    .field,
     .compact-field input,
     .compact-field select,
     .compact-field textarea,
@@ -2983,6 +3010,7 @@
       box-shadow: none;
       font-size: 12px;
       font-weight: 560;
+      outline: 0;
     }
 
     .compact-field label,
@@ -2998,6 +3026,7 @@
 
     .search:focus,
     .control:focus,
+    .field:focus,
     select:focus,
     .compact-field input:focus,
     .compact-field select:focus,
@@ -3986,7 +4015,7 @@
     const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
     const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
     const RMBG_MODEL_ID = "briaai/RMBG-1.4";
-    const APP_VERSION = "1.0.11";
+    const APP_VERSION = "1.0.12";
 
     const iconPaths = {
       add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -4021,8 +4050,105 @@
       layerUp: "M12 2L22 8L12 14L2 8L12 2ZM12 4.332L5.887 8L12 11.668L18.113 8L12 4.332ZM2 12L4 10.8L12 15.6L20 10.8L22 12L12 18L2 12ZM2 16L4 14.8L12 19.6L20 14.8L22 16L12 22L2 16Z"
     };
 
+    const basiconNames = {
+      add: "plus",
+      image: "image",
+      text: "text",
+      mascot: "face",
+      shape: "triangle",
+      logo: "diamond",
+      tools: "search",
+      ruler: "ruler",
+      undo: "undo",
+      redo: "redo",
+      copy: "copy",
+      delete: "trash",
+      selectAll: "select-all",
+      export: "download",
+      refresh: "refresh",
+      upload: "upload",
+      rect: "square",
+      circle: "circle",
+      line: "minus",
+      overlay: "layers",
+      alignLeft: "align-left",
+      alignCenter: "align-center",
+      alignRight: "align-right",
+      objectAlignLeft: "align-left",
+      objectAlignCenter: "align-center",
+      objectAlignRight: "align-right",
+      textAlignLeft: "text-align-left",
+      textAlignCenter: "text-align-center",
+      textAlignRight: "text-align-right",
+      layerUp: "layers",
+      badge: "tag",
+      number: "hash",
+      crop: "crop",
+      boolean: "intersect"
+    };
+
+    const iconPathAliases = {
+      badge: "rect",
+      number: "text",
+      verticalText: "text",
+      cornerBadge: "rect",
+      topBadge: "selectAll",
+      crop: "image",
+      boolean: "shape"
+    };
+
+    const basiconSvg = {
+      add: '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
+      image: '<rect x="3.5" y="5" width="17" height="14" rx="2"></rect><circle cx="8.2" cy="9.2" r="1.4"></circle><path d="m4.5 17 5-5 3.5 3.5 2.5-2.5 4 4"></path>',
+      text: '<path d="M5 5h14"></path><path d="M12 5v14"></path><path d="M8.5 19h7"></path>',
+      mascot: '<rect x="5" y="4" width="14" height="16" rx="5"></rect><path d="M9 14h.01"></path><path d="M15 14h.01"></path><path d="M9 9h6"></path>',
+      shape: '<path d="M12 4 21 20H3L12 4Z"></path>',
+      logo: '<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"></path><path d="M12 7v10"></path><path d="m8 9.5 4 2.5 4-2.5"></path>',
+      tools: '<circle cx="10.5" cy="10.5" r="5.5"></circle><path d="m15 15 5 5"></path>',
+      ruler: '<rect x="3.5" y="6" width="17" height="12" rx="2"></rect><path d="M7 6v4"></path><path d="M11 6v3"></path><path d="M15 6v4"></path>',
+      undo: '<path d="M8 7 4 11l4 4"></path><path d="M4 11h10a6 6 0 0 1 6 6v1"></path>',
+      redo: '<path d="m16 7 4 4-4 4"></path><path d="M20 11H10a6 6 0 0 0-6 6v1"></path>',
+      copy: '<rect x="8" y="8" width="11" height="11" rx="2"></rect><path d="M5 15.5V6.8A1.8 1.8 0 0 1 6.8 5h8.7"></path>',
+      delete: '<path d="M4 7h16"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M6.5 7 7.5 20h9L17.5 7"></path><path d="M9 7V4.8A1.8 1.8 0 0 1 10.8 3h2.4A1.8 1.8 0 0 1 15 4.8V7"></path>',
+      selectAll: '<path d="M4 8V4h4"></path><path d="M16 4h4v4"></path><path d="M20 16v4h-4"></path><path d="M8 20H4v-4"></path><rect x="8" y="8" width="8" height="8" rx="1.5"></rect>',
+      export: '<path d="M12 4v10"></path><path d="m8 10 4 4 4-4"></path><path d="M5 17v2h14v-2"></path>',
+      refresh: '<path d="M20 12a8 8 0 0 1-14.5 4.6"></path><path d="M4 12A8 8 0 0 1 18.5 7.4"></path><path d="M18.5 3.5v4h-4"></path><path d="M5.5 20.5v-4h4"></path>',
+      upload: '<path d="M12 16V5"></path><path d="m8 9 4-4 4 4"></path><path d="M5 17v2h14v-2"></path>',
+      rect: '<rect x="4" y="6" width="16" height="12" rx="2"></rect>',
+      circle: '<circle cx="12" cy="12" r="8"></circle>',
+      line: '<path d="M5 12h14"></path>',
+      overlay: '<rect x="5" y="5" width="14" height="14" rx="2"></rect><rect x="8" y="8" width="8" height="8" rx="1.5"></rect>',
+      alignLeft: '<path d="M5 4v16"></path><path d="M9 7h10"></path><path d="M9 12h7"></path><path d="M9 17h10"></path>',
+      alignCenter: '<path d="M12 4v16"></path><path d="M6 7h12"></path><path d="M8.5 12h7"></path><path d="M6 17h12"></path>',
+      alignRight: '<path d="M19 4v16"></path><path d="M5 7h10"></path><path d="M8 12h7"></path><path d="M5 17h10"></path>',
+      objectAlignLeft: '<path d="M5 4v16"></path><rect x="9" y="7" width="10" height="10" rx="2"></rect>',
+      objectAlignCenter: '<path d="M12 4v16"></path><rect x="6" y="7" width="12" height="10" rx="2"></rect>',
+      objectAlignRight: '<path d="M19 4v16"></path><rect x="5" y="7" width="10" height="10" rx="2"></rect>',
+      textAlignLeft: '<path d="M5 6h14"></path><path d="M5 10h10"></path><path d="M5 14h14"></path><path d="M5 18h8"></path>',
+      textAlignCenter: '<path d="M5 6h14"></path><path d="M8 10h8"></path><path d="M5 14h14"></path><path d="M9 18h6"></path>',
+      textAlignRight: '<path d="M5 6h14"></path><path d="M9 10h10"></path><path d="M5 14h14"></path><path d="M11 18h8"></path>',
+      layerUp: '<path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z"></path><path d="m4 12 8 4.5 8-4.5"></path><path d="m4 16 8 4.5 8-4.5"></path>',
+      badge: '<path d="M6.5 6h7l4 4v8h-11V6Z"></path><path d="M13.5 6v4h4"></path>',
+      number: '<path d="M9.5 4 7.5 20"></path><path d="M16.5 4l-2 16"></path><path d="M5 9h14"></path><path d="M4 15h14"></path>',
+      verticalText: '<path d="M12 5v14"></path><path d="M8 5h8"></path><path d="M9 19h6"></path>',
+      cornerBadge: '<path d="M6 6h12v12"></path><path d="M18 6 6 18"></path>',
+      topBadge: '<rect x="5" y="5" width="14" height="14" rx="2"></rect><path d="M8 9h8"></path><path d="M10 13h4"></path>',
+      crop: '<path d="M7 3v14h14"></path><path d="M3 7h14v14"></path>',
+      boolean: '<circle cx="9" cy="12" r="5"></circle><circle cx="15" cy="12" r="5"></circle>'
+    };
+
+    function basiconsIcon(name) {
+      const pathName = iconPathAliases[name] || name;
+      const basiconName = basiconNames[name] || basiconNames[pathName] || name;
+      const svg = basiconSvg[name] || basiconSvg[pathName];
+      if (svg) {
+        return `<svg class="bsc-icon ri bsc-${basiconName}" data-basicon="${basiconName}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${svg}</svg>`;
+      }
+      return `<svg class="ri" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="${iconPaths[pathName] || iconPaths.add}"></path></svg>`;
+    }
+
     function icon(name) {
-      return `<svg class="ri" viewBox="0 0 24 24" aria-hidden="true"><path d="${iconPaths[name] || iconPaths.add}"></path></svg>`;
+      return basiconsIcon(name);
     }
 
     function applyIconSystem() {
@@ -4053,6 +4179,14 @@
         exportProjectBtn: "export",
         exportBtn: "export",
         imageUploadBtn: "upload",
+        addTitleBtn: "text",
+        addTextBtn: "text",
+        addSubtitleBtn: "text",
+        addBigNumberBtn: "number",
+        addVerticalTextBtn: "verticalText",
+        addPillTagBtn: "badge",
+        addCornerBadgeBtn: "cornerBadge",
+        addTopBadgeBtn: "topBadge",
         addRectBtn: "rect",
         addCircleBtn: "circle",
         addDividerBtn: "line",
@@ -4069,13 +4203,13 @@
         sendBackwardBtn: "layerUp",
         bringFrontBtn: "layerUp",
         sendBackBtn: "layerUp",
-        toggleCropBtn: "image",
+        toggleCropBtn: "crop",
         resetCropBtn: "refresh",
         finishCropBtn: "selectAll",
-        booleanUnionBtn: "shape",
-        booleanSubtractBtn: "shape",
-        booleanIntersectBtn: "shape",
-        booleanExcludeBtn: "shape"
+        booleanUnionBtn: "boolean",
+        booleanSubtractBtn: "boolean",
+        booleanIntersectBtn: "boolean",
+        booleanExcludeBtn: "boolean"
       };
       Object.entries(idIcons).forEach(([id, name]) => {
         const el = document.getElementById(id);
@@ -4217,6 +4351,7 @@
     };
     const cropEditor = { active: false, objectId: null };
     const panState = { spaceDown: false, active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 };
+    const swipeSelect = { active: false, ids: new Set(), started: false, start: null, current: null };
 
     function uid() {
       return Math.random().toString(36).slice(2, 10);
@@ -4502,6 +4637,7 @@
           confirmBtn.onclick = null;
           cancelBtn.onclick = null;
           layer.onclick = null;
+          document.getElementById("exportSvgChoiceBtn")?.remove();
           if (previousFocus && typeof previousFocus.focus === "function") previousFocus.focus();
           resolve(value);
         };
@@ -4512,11 +4648,18 @@
         card.classList.remove("is-danger");
         confirmBtn.classList.remove("is-danger");
         title.textContent = "导出格式";
-        message.textContent = "选择本次导出图片的文件格式。PNG 适合透明和高清图，JPG 适合普通封面。";
+        message.textContent = "选择本次导出的文件格式。PNG/JPG 适合位图封面，SVG 适合继续编辑矢量文字和图形。";
         mark.innerHTML = icon("export");
         cancelBtn.textContent = "JPG";
         confirmBtn.textContent = "PNG";
         cancelBtn.classList.remove("hidden");
+        const svgBtn = document.createElement("button");
+        svgBtn.className = "btn";
+        svgBtn.id = "exportSvgChoiceBtn";
+        svgBtn.type = "button";
+        svgBtn.textContent = "SVG";
+        svgBtn.onclick = () => close("image/svg+xml");
+        confirmBtn.parentNode.insertBefore(svgBtn, confirmBtn);
         layer.classList.remove("hidden");
         document.addEventListener("keydown", onKeyDown);
         confirmBtn.onclick = () => close("image/png");
@@ -4601,7 +4744,10 @@
       targetCtx.fillStyle = state.background;
       targetCtx.fillRect(0, 0, state.width, state.height);
       drawSafeZones(targetCtx, exporting);
-      for (const obj of state.objects) drawObject(targetCtx, obj);
+      for (const obj of state.objects) {
+        if (!exporting && inlineEditing && obj.id === inlineEditing.id) continue;
+        drawObject(targetCtx, obj);
+      }
       if (!exporting) drawMaskEditorOverlay(targetCtx);
       if (!exporting) drawMaskBrushPreview(targetCtx);
       if (!exporting) drawCropEditorOverlay(targetCtx);
@@ -4615,21 +4761,42 @@
       inlineTextEditor.value = "";
       inlineTextEditor.onblur = null;
       inlineTextEditor.onkeydown = null;
+      inlineTextEditor.oninput = null;
+      inlineTextEditor.style.height = "";
+      inlineTextEditor.style.transform = "";
     }
 
     function finishInlineTextEdit(commit = true) {
       if (!inlineEditing) return;
       const obj = state.objects.find(item => item.id === inlineEditing.id);
       const nextText = inlineTextEditor.value;
+      let changed = false;
       if (commit && obj && obj.type === "text" && nextText !== inlineEditing.original) {
         saveHistory();
         obj.text = nextText || " ";
         obj.name = obj.text.split("\n")[0].slice(0, 10) || "文字";
-        renderAll();
+        changed = true;
+      }
+      hideInlineTextEditor();
+      renderAll();
+      if (changed) {
         syncUi();
         persist();
       }
-      hideInlineTextEditor();
+    }
+
+    function resizeInlineTextEditor() {
+      if (!inlineEditing) return;
+      const scale = canvas.getBoundingClientRect().width / state.width;
+      const lineHeight = inlineEditing.lineHeight || 34;
+      const minHeight = Math.max(34, lineHeight);
+      inlineTextEditor.style.height = `${minHeight}px`;
+      inlineTextEditor.style.height = `${Math.max(minHeight, inlineTextEditor.scrollHeight + 4)}px`;
+      const obj = state.objects.find(item => item.id === inlineEditing.id);
+      if (!obj) return;
+      inlineTextEditor.style.left = `${obj.x * scale}px`;
+      inlineTextEditor.style.top = `${obj.y * scale}px`;
+      inlineTextEditor.style.width = `${Math.max(44, obj.width * scale)}px`;
     }
 
     function startInlineTextEdit(obj) {
@@ -4640,7 +4807,7 @@
       syncUi();
       const scale = canvas.getBoundingClientRect().width / state.width;
       const lineHeight = obj.fontSize * 1.14 * scale;
-      inlineEditing = { id: obj.id, original: obj.text || "" };
+      inlineEditing = { id: obj.id, original: obj.text || "", lineHeight };
       inlineTextEditor.value = obj.text || "";
       inlineTextEditor.style.left = `${obj.x * scale}px`;
       inlineTextEditor.style.top = `${obj.y * scale}px`;
@@ -4650,12 +4817,17 @@
       inlineTextEditor.style.lineHeight = `${lineHeight}px`;
       inlineTextEditor.style.color = obj.fill || "#171411";
       inlineTextEditor.style.textAlign = obj.align || "left";
+      inlineTextEditor.style.letterSpacing = "0";
+      inlineTextEditor.style.textDecoration = "none";
       inlineTextEditor.style.opacity = String(obj.opacity ?? 1);
       inlineTextEditor.style.transformOrigin = "50% 50%";
       inlineTextEditor.style.transform = `rotate(${obj.rotation || 0}deg)`;
       inlineTextEditor.classList.add("is-active");
       inlineTextEditor.focus();
       inlineTextEditor.select();
+      resizeInlineTextEditor();
+      inlineTextEditor.oninput = resizeInlineTextEditor;
+      renderAll();
       inlineTextEditor.onblur = () => finishInlineTextEdit(true);
       inlineTextEditor.onkeydown = event => {
         if (event.key === "Escape") {
@@ -4814,6 +4986,106 @@
         next.bottom *= scale;
       }
       return next;
+    }
+
+    function svgEscape(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function svgNum(value) {
+      const number = Number(value || 0);
+      return Number.isInteger(number) ? String(number) : String(Math.round(number * 1000) / 1000);
+    }
+
+    function svgTransform(obj) {
+      const cx = obj.x + obj.width / 2;
+      const cy = obj.y + obj.height / 2;
+      return `translate(${svgNum(obj.x)} ${svgNum(obj.y)}) rotate(${svgNum(obj.rotation || 0)} ${svgNum(obj.width / 2)} ${svgNum(obj.height / 2)})`;
+    }
+
+    function svgObjectStyle(obj) {
+      return `opacity="${svgNum(obj.opacity ?? 1)}"${obj.shadow ? ` filter="url(#shadow-${obj.id})"` : ""}`;
+    }
+
+    function svgRoundRectPath(w, h, r = 0) {
+      const radius = Math.min(Number(r || 0), w / 2, h / 2);
+      if (!radius) return `M0 0H${svgNum(w)}V${svgNum(h)}H0Z`;
+      return `M${svgNum(radius)} 0H${svgNum(w - radius)}Q${svgNum(w)} 0 ${svgNum(w)} ${svgNum(radius)}V${svgNum(h - radius)}Q${svgNum(w)} ${svgNum(h)} ${svgNum(w - radius)} ${svgNum(h)}H${svgNum(radius)}Q0 ${svgNum(h)} 0 ${svgNum(h - radius)}V${svgNum(radius)}Q0 0 ${svgNum(radius)} 0Z`;
+    }
+
+    function svgTextObject(obj) {
+      const measure = document.createElement("canvas").getContext("2d");
+      measure.font = `${obj.fontWeight || 800} ${obj.fontSize}px "${obj.fontFamily}", sans-serif`;
+      const lines = wrapText(measure, obj.text, obj.width, obj.fontSize * 1.12);
+      const lineHeight = obj.fontSize * 1.14;
+      const anchor = obj.align === "center" ? "middle" : obj.align === "right" ? "end" : "start";
+      const x = obj.align === "center" ? obj.width / 2 : obj.align === "right" ? obj.width : 0;
+      const stroke = obj.strokeWidth > 0
+        ? ` stroke="${svgEscape(obj.stroke)}" stroke-width="${svgNum(obj.strokeWidth)}" paint-order="stroke fill" stroke-linejoin="round"`
+        : "";
+      const tspans = lines.map((line, index) => `<tspan x="${svgNum(x)}" y="${svgNum(index * lineHeight)}">${svgEscape(line)}</tspan>`).join("");
+      return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><text x="${svgNum(x)}" y="0" dominant-baseline="text-before-edge" font-family="${svgEscape(obj.fontFamily)}, sans-serif" font-size="${svgNum(obj.fontSize)}" font-weight="${svgEscape(obj.fontWeight || 800)}" fill="${svgEscape(obj.fill)}" text-anchor="${anchor}"${stroke}>${tspans}</text></g>`;
+    }
+
+    function svgShapeObject(obj) {
+      const common = `fill="${svgEscape(obj.kind === "line" ? "none" : obj.fill || "transparent")}" stroke="${svgEscape(obj.kind === "line" ? obj.stroke || "#171411" : obj.stroke || obj.fill || "none")}" stroke-width="${svgNum(obj.kind === "line" ? Math.max(1, obj.strokeWidth || 1) : obj.strokeWidth || 0)}"${obj.strokeDash ? ' stroke-dasharray="12 8"' : ""}`;
+      let node = "";
+      if (obj.kind === "line") {
+        node = `<line x1="0" y1="${svgNum(obj.height / 2)}" x2="${svgNum(obj.width)}" y2="${svgNum(obj.height / 2)}" stroke-linecap="butt" ${common}></line>`;
+      } else if (obj.kind === "circle") {
+        node = `<ellipse cx="${svgNum(obj.width / 2)}" cy="${svgNum(obj.height / 2)}" rx="${svgNum(obj.width / 2)}" ry="${svgNum(obj.height / 2)}" ${common}></ellipse>`;
+      } else {
+        node = `<path d="${svgRoundRectPath(obj.width, obj.height, obj.radius)}" ${common}></path>`;
+      }
+      return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}>${node}</g>`;
+    }
+
+    function svgImageObject(obj, index) {
+      const clipId = `image-clip-${index}`;
+      const crop = normalizeCrop(obj.crop);
+      const visibleW = Math.max(1, 100 - crop.left - crop.right);
+      const visibleH = Math.max(1, 100 - crop.top - crop.bottom);
+      const imageX = -crop.left / visibleW * obj.width;
+      const imageY = -crop.top / visibleH * obj.height;
+      const imageW = obj.width * 100 / visibleW;
+      const imageH = obj.height * 100 / visibleH;
+      const clipPath = svgRoundRectPath(obj.width, obj.height, obj.radius || 0);
+      return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><clipPath id="${clipId}"><path d="${clipPath}"></path></clipPath><image href="${svgEscape(obj.src)}" x="${svgNum(imageX)}" y="${svgNum(imageY)}" width="${svgNum(imageW)}" height="${svgNum(imageH)}" preserveAspectRatio="none" clip-path="url(#${clipId})"></image></g>`;
+    }
+
+    function objectToPngDataUrl(obj) {
+      const out = document.createElement("canvas");
+      out.width = Math.max(1, Math.ceil(obj.width));
+      out.height = Math.max(1, Math.ceil(obj.height));
+      const outCtx = out.getContext("2d");
+      const copy = { ...obj, x: 0, y: 0, rotation: 0, opacity: 1, shadow: 0 };
+      drawObject(outCtx, copy);
+      return out.toDataURL("image/png");
+    }
+
+    function svgRasterFallbackObject(obj, index) {
+      const dataUrl = objectToPngDataUrl(obj);
+      return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><image href="${dataUrl}" x="0" y="0" width="${svgNum(obj.width)}" height="${svgNum(obj.height)}" preserveAspectRatio="none"></image></g>`;
+    }
+
+    function exportSvgText() {
+      const defs = [];
+      const body = [`<rect width="100%" height="100%" fill="${svgEscape(state.background)}"></rect>`];
+      state.objects.forEach((obj, index) => {
+        if (obj.shadow) {
+          defs.push(`<filter id="shadow-${obj.id}" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="${svgNum(obj.shadow / 3)}" dy="${svgNum(obj.shadow / 3)}" stdDeviation="${svgNum(obj.shadow / 2)}" flood-color="#000000" flood-opacity=".22"></feDropShadow></filter>`);
+        }
+        if (obj.type === "text") body.push(svgTextObject(obj));
+        else if (obj.type === "shape") body.push(svgShapeObject(obj));
+        else if (obj.type === "image") body.push(svgImageObject(obj, index));
+        else if (obj.type === "compoundShape") body.push(svgRasterFallbackObject(obj, index));
+      });
+      const defsText = defs.length ? `<defs>${defs.join("")}</defs>` : "";
+      return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${svgNum(state.width)}" height="${svgNum(state.height)}" viewBox="0 0 ${svgNum(state.width)} ${svgNum(state.height)}">${defsText}${body.join("")}</svg>\n`;
     }
 
     function drawCropEditorOverlay(c) {
@@ -4982,6 +5254,18 @@
         selectionOverlay.appendChild(box);
       };
       objects.forEach(obj => makeBox(obj));
+      if (swipeSelect.active && swipeSelect.start && swipeSelect.current) {
+        const left = Math.min(swipeSelect.start.x, swipeSelect.current.x);
+        const top = Math.min(swipeSelect.start.y, swipeSelect.current.y);
+        const right = Math.max(swipeSelect.start.x, swipeSelect.current.x);
+        const bottom = Math.max(swipeSelect.start.y, swipeSelect.current.y);
+        makeBox({
+          x: left,
+          y: top,
+          width: Math.max(1, right - left),
+          height: Math.max(1, bottom - top)
+        }, "swipe-select-box");
+      }
       const bounds = selectionBounds(objects);
       if (!bounds) return;
       const handlePoints = [
@@ -5037,6 +5321,14 @@
         if (point.x >= obj.x && point.x <= obj.x + obj.width && point.y >= obj.y && point.y <= obj.y + obj.height) return obj;
       }
       return null;
+    }
+
+    function addSwipeSelectionAt(point) {
+      const target = hitTest(point);
+      if (!target || swipeSelect.ids.has(target.id)) return false;
+      swipeSelect.ids.add(target.id);
+      setSelection([...swipeSelect.ids]);
+      return true;
     }
 
     function hitHandle(point, obj) {
@@ -5095,8 +5387,12 @@
         return;
       }
       const target = hitTest(p);
+      const currentSelection = state.selectedIds || [];
+      const targetAlreadySelected = !!target && currentSelection.includes(target.id);
       if (target && (e.shiftKey || e.metaKey || e.ctrlKey)) {
         toggleSelection(target.id);
+      } else if (targetAlreadySelected && currentSelection.length > 1) {
+        setSelection(currentSelection);
       } else {
         setSelection(target ? [target.id] : []);
       }
@@ -5104,10 +5400,23 @@
         const objects = selectedObjects();
         state.dragging = { mode: "move", start: p, obj: { ...target }, objects: objects.map(o => ({ ...o })), saved: false };
         canvas.setPointerCapture(e.pointerId);
+      } else {
+        swipeSelect.active = true;
+        swipeSelect.started = false;
+        swipeSelect.start = p;
+        swipeSelect.current = p;
+        swipeSelect.ids = new Set(e.shiftKey || e.metaKey || e.ctrlKey ? state.selectedIds : []);
+        canvas.setPointerCapture(e.pointerId);
       }
       renderAll();
       syncUi();
     });
+
+    document.addEventListener("pointerdown", e => {
+      if (!inlineEditing || e.target === inlineTextEditor) return;
+      if (inlineTextEditor.contains(e.target)) return;
+      finishInlineTextEdit(true);
+    }, true);
 
     canvas.addEventListener("dblclick", e => {
       const target = hitTest(toLocalPoint(e));
@@ -5134,6 +5443,15 @@
       if (maskEditor.active && maskEditor.painting) {
         e.preventDefault();
         await paintMaskAt(e);
+        return;
+      }
+      if (swipeSelect.active) {
+        const p = toLocalPoint(e);
+        swipeSelect.current = p;
+        const changed = addSwipeSelectionAt(p);
+        swipeSelect.started = true;
+        renderAll();
+        if (changed) syncUi();
         return;
       }
       const objects = selectedObjects();
@@ -5195,6 +5513,15 @@
         const changed = state.dragging.saved;
         state.dragging = null;
         if (changed) persist();
+        renderAll();
+        syncUi();
+      }
+      if (swipeSelect.active) {
+        swipeSelect.active = false;
+        swipeSelect.started = false;
+        swipeSelect.start = null;
+        swipeSelect.current = null;
+        swipeSelect.ids = new Set();
         renderAll();
         syncUi();
       }
@@ -6893,6 +7220,16 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         const scale = Number(document.getElementById("exportScale").value);
         const type = await chooseExportImageType();
         if (!type) return;
+        if (type === "image/svg+xml") {
+          const filename = `${state.platform}-${state.label}-${state.width}x${state.height}.svg`.replace(/[\\/:\s]+/g, "-");
+          const savedPath = await saveExportFile({
+            filename,
+            text: exportSvgText(),
+            type: "image/svg+xml"
+          });
+          if (savedPath) appAlert(`已导出到：${savedPath}`, "导出完成");
+          return;
+        }
         const out = document.createElement("canvas");
         out.width = state.width * scale;
         out.height = state.height * scale;
