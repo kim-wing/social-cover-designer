@@ -75,6 +75,9 @@ YOUDESIGN-1.0.13-win-x64-setup.exe.sig: sha256:85b461dae56a2d57554206ccea8abc246
 - Use the updater signing key from `/Users/youxiake/.tauri/youdesign-updater.key` for macOS and Windows builds.
 - macOS notarization is still skipped unless Apple notarization environment variables are configured.
 - Windows x64 packaging should use the existing GitHub Actions `Windows build` workflow.
+- Every future public release must be auto-update capable for macOS and Windows. Do not finish or upload a release unless `latest.json`, all platform packages, and all signatures are present and verified on GitHub Release.
+- An installed app only detects a newer release when the published version is greater than the installed version, so update testing must use an older installed build.
+- GitHub Release is the current updater source. If users cannot reach GitHub or `release-assets.githubusercontent.com`, mirror the same assets to a reliable CDN and add it as an updater endpoint.
 
 ## Follow-up Optimization Notes
 

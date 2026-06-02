@@ -3893,6 +3893,16 @@
                   <input id="shapeRadius" type="range" min="0" max="160" step="1">
                   <output id="shapeRadiusValue">0</output>
                 </div>
+                <div class="inline-control hidden" id="shapeSidesControl">
+                  <label for="shapeSides">边数</label>
+                  <input id="shapeSides" type="range" min="3" max="16" step="1">
+                  <output id="shapeSidesValue">6</output>
+                </div>
+                <div class="inline-control hidden" id="shapeStarPointsControl">
+                  <label for="shapeStarPoints">星角</label>
+                  <input id="shapeStarPoints" type="range" min="3" max="16" step="1">
+                  <output id="shapeStarPointsValue">5</output>
+                </div>
                 <div class="button-row two hidden" id="shapeRadiusPresets">
                   <button class="mini-btn" id="radiusStraightBtn" type="button">直角</button>
                   <button class="mini-btn" id="radiusRoundBtn" type="button">圆角</button>
@@ -5083,6 +5093,41 @@
       c.closePath();
     }
 
+    function roundedPolygonPath(c, points, radius = 0) {
+      const numericRadius = Number(radius || 0);
+      if (!numericRadius || points.length < 3) {
+        polygonPath(c, points);
+        return;
+      }
+      const rounded = points.map((point, index) => {
+        const prev = points[(index - 1 + points.length) % points.length];
+        const next = points[(index + 1) % points.length];
+        const prevLen = Math.hypot(prev.x - point.x, prev.y - point.y);
+        const nextLen = Math.hypot(next.x - point.x, next.y - point.y);
+        const r = Math.min(numericRadius, prevLen * .45, nextLen * .45);
+        const inPoint = {
+          x: point.x + (prev.x - point.x) / Math.max(1, prevLen) * r,
+          y: point.y + (prev.y - point.y) / Math.max(1, prevLen) * r
+        };
+        const outPoint = {
+          x: point.x + (next.x - point.x) / Math.max(1, nextLen) * r,
+          y: point.y + (next.y - point.y) / Math.max(1, nextLen) * r
+        };
+        return { point, inPoint, outPoint };
+      });
+      c.beginPath();
+      c.moveTo(rounded[0].outPoint.x, rounded[0].outPoint.y);
+      for (let index = 1; index < rounded.length; index += 1) {
+        const item = rounded[index];
+        c.lineTo(item.inPoint.x, item.inPoint.y);
+        c.quadraticCurveTo(item.point.x, item.point.y, item.outPoint.x, item.outPoint.y);
+      }
+      const first = rounded[0];
+      c.lineTo(first.inPoint.x, first.inPoint.y);
+      c.quadraticCurveTo(first.point.x, first.point.y, first.outPoint.x, first.outPoint.y);
+      c.closePath();
+    }
+
     function shapePoints(obj) {
       if (obj.kind === "triangle") return regularPolygonPoints(obj.width, obj.height, 3);
       if (obj.kind === "star") return starPoints(obj.width, obj.height, obj.points || 5);
@@ -5110,7 +5155,7 @@
         c.beginPath();
         c.ellipse(obj.width / 2, obj.height / 2, obj.width / 2, obj.height / 2, 0, 0, Math.PI * 2);
       } else if (["triangle", "star", "polygon"].includes(obj.kind)) {
-        polygonPath(c, shapePoints(obj));
+        roundedPolygonPath(c, shapePoints(obj), obj.kind === "star" || obj.kind === "polygon" ? obj.radius : 0);
       } else {
         roundRect(c, 0, 0, obj.width, obj.height, obj.radius);
       }
@@ -5206,6 +5251,39 @@
       return points.map((point, index) => `${index ? "L" : "M"}${svgNum(point.x)} ${svgNum(point.y)}`).join("") + "Z";
     }
 
+    function svgRoundedPointsPath(points, radius = 0) {
+      const numericRadius = Number(radius || 0);
+      if (!numericRadius || points.length < 3) return svgPointsPath(points);
+      const rounded = points.map((point, index) => {
+        const prev = points[(index - 1 + points.length) % points.length];
+        const next = points[(index + 1) % points.length];
+        const prevLen = Math.hypot(prev.x - point.x, prev.y - point.y);
+        const nextLen = Math.hypot(next.x - point.x, next.y - point.y);
+        const r = Math.min(numericRadius, prevLen * .45, nextLen * .45);
+        return {
+          point,
+          inPoint: {
+            x: point.x + (prev.x - point.x) / Math.max(1, prevLen) * r,
+            y: point.y + (prev.y - point.y) / Math.max(1, prevLen) * r
+          },
+          outPoint: {
+            x: point.x + (next.x - point.x) / Math.max(1, nextLen) * r,
+            y: point.y + (next.y - point.y) / Math.max(1, nextLen) * r
+          }
+        };
+      });
+      const commands = [`M${svgNum(rounded[0].outPoint.x)} ${svgNum(rounded[0].outPoint.y)}`];
+      for (let index = 1; index < rounded.length; index += 1) {
+        const item = rounded[index];
+        commands.push(`L${svgNum(item.inPoint.x)} ${svgNum(item.inPoint.y)}`);
+        commands.push(`Q${svgNum(item.point.x)} ${svgNum(item.point.y)} ${svgNum(item.outPoint.x)} ${svgNum(item.outPoint.y)}`);
+      }
+      const first = rounded[0];
+      commands.push(`L${svgNum(first.inPoint.x)} ${svgNum(first.inPoint.y)}`);
+      commands.push(`Q${svgNum(first.point.x)} ${svgNum(first.point.y)} ${svgNum(first.outPoint.x)} ${svgNum(first.outPoint.y)}Z`);
+      return commands.join("");
+    }
+
     function svgTextObject(obj) {
       const measure = document.createElement("canvas").getContext("2d");
       measure.font = `${obj.fontWeight || 800} ${obj.fontSize}px "${obj.fontFamily}", sans-serif`;
@@ -5228,7 +5306,7 @@
       } else if (obj.kind === "circle") {
         node = `<ellipse cx="${svgNum(obj.width / 2)}" cy="${svgNum(obj.height / 2)}" rx="${svgNum(obj.width / 2)}" ry="${svgNum(obj.height / 2)}" ${common}></ellipse>`;
       } else if (["triangle", "star", "polygon"].includes(obj.kind)) {
-        node = `<path d="${svgPointsPath(shapePoints(obj))}" ${common}></path>`;
+        node = `<path d="${svgRoundedPointsPath(shapePoints(obj), obj.kind === "star" || obj.kind === "polygon" ? obj.radius : 0)}" ${common}></path>`;
       } else {
         node = `<path d="${svgRoundRectPath(obj.width, obj.height, obj.radius)}" ${common}></path>`;
       }
@@ -5329,7 +5407,7 @@
         c.beginPath();
         c.rect(0, obj.height / 2 - c.lineWidth / 2, obj.width, c.lineWidth);
       } else if (["triangle", "star", "polygon"].includes(obj.kind)) {
-        polygonPath(c, shapePoints(obj));
+        roundedPolygonPath(c, shapePoints(obj), obj.kind === "star" || obj.kind === "polygon" ? obj.radius : 0);
       } else {
         roundRect(c, 0, 0, obj.width, obj.height, obj.radius || 0);
       }
@@ -7438,7 +7516,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     wire("booleanIntersectBtn", "click", () => booleanShapeObjects("intersect"));
     wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
 
-    ["posX", "posY", "objWidth", "objHeight", "rotation", "textValue", "fontFamily", "fontSize", "fillColor", "strokeColor", "strokeWidth", "shapeRadius", "opacity", "shadow", "lockAspect"].forEach(id => {
+    ["posX", "posY", "objWidth", "objHeight", "rotation", "textValue", "fontFamily", "fontSize", "fillColor", "strokeColor", "strokeWidth", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow", "lockAspect"].forEach(id => {
       const handler = e => {
         const obj = selected();
         if (!obj) return;
@@ -7455,15 +7533,19 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
           strokeColor: "stroke",
           strokeWidth: "strokeWidth",
           shapeRadius: "radius",
+          shapeSides: "sides",
+          shapeStarPoints: "points",
           opacity: "opacity",
           shadow: "shadow",
           lockAspect: "lockAspect"
         };
         let value = id === "lockAspect" ? e.target.checked : e.target.value;
         if (obj.type === "shape" && obj.kind === "line" && id === "fillColor") return;
-        if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "strokeWidth", "shapeRadius", "opacity", "shadow"].includes(id)) value = Number(value);
+        if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "strokeWidth", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow"].includes(id)) value = Number(value);
         if (id === "objWidth" || id === "objHeight") value = Math.max(1, value);
         if (id === "shapeRadius") value = Math.max(0, value);
+        if (id === "shapeSides") value = Math.min(16, Math.max(3, Math.round(value)));
+        if (id === "shapeStarPoints") value = Math.min(16, Math.max(3, Math.round(value)));
         saveHistory();
         const patch = { [keyMap[id]]: value };
         if ((id === "objWidth" || id === "objHeight") && defaultLockAspect(obj)) {
@@ -8246,6 +8328,8 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       if (!obj) return;
       document.getElementById("strokeWidthValue").textContent = String(obj.strokeWidth || 0);
       document.getElementById("shapeRadiusValue").textContent = String(Math.round(obj.radius || 0));
+      document.getElementById("shapeSidesValue").textContent = String(Math.round(obj.sides || 6));
+      document.getElementById("shapeStarPointsValue").textContent = String(Math.round(obj.points || 5));
       document.getElementById("opacityValue").textContent = `${Math.round((obj.opacity ?? 1) * 100)}%`;
       document.getElementById("shadowValue").textContent = String(obj.shadow || 0);
     }
@@ -8283,6 +8367,8 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       const isGroup = obj.type === "group";
       const isRect = isShape && obj.kind === "rect";
       const isLine = isShape && obj.kind === "line";
+      const isPolygon = isShape && obj.kind === "polygon";
+      const isStar = isShape && obj.kind === "star";
       const hasAppearance = isText || isShape || isCompoundShape || isImage || isGroup;
       const allText = objects.every(item => item.type === "text");
       const booleanReady = objects.length > 1 && objects.every(item => item.type === "shape" || item.type === "compoundShape");
@@ -8294,7 +8380,9 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       document.getElementById("fillColor").closest(".compact-field").classList.toggle("hidden", isLine || isGroup);
       document.getElementById("strokeWidth").closest(".inline-control").classList.toggle("hidden", isImage || isGroup);
       document.getElementById("strokeDashControl").classList.toggle("hidden", !isLine);
-      document.getElementById("shapeRadiusControl").classList.toggle("hidden", !isRect);
+      document.getElementById("shapeRadiusControl").classList.toggle("hidden", !(isRect || isPolygon || isStar));
+      document.getElementById("shapeSidesControl").classList.toggle("hidden", !isPolygon);
+      document.getElementById("shapeStarPointsControl").classList.toggle("hidden", !isStar);
       document.getElementById("shapeRadiusPresets").classList.toggle("hidden", !isRect);
       document.getElementById("fillColorLabel").textContent = isShape || isCompoundShape ? "填充颜色" : "文字颜色";
       document.getElementById("strokeColorLabel").textContent = isLine ? "线条颜色" : "描边颜色";
@@ -8308,6 +8396,8 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       document.getElementById("strokeWidth").value = obj.strokeWidth || 0;
       document.getElementById("strokeDashToggle").checked = !!obj.strokeDash;
       document.getElementById("shapeRadius").value = obj.radius || 0;
+      document.getElementById("shapeSides").value = obj.sides || 6;
+      document.getElementById("shapeStarPoints").value = obj.points || 5;
       document.getElementById("opacity").value = obj.opacity ?? 1;
       document.getElementById("shadow").value = obj.shadow || 0;
       syncInspectorOutputs(obj);
@@ -8464,8 +8554,14 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       } else if (status === "dev-mode") {
         statusEl.textContent = "开发模式";
       } else if (status === "error") {
-        statusEl.textContent = "更新检查失败";
+        const message = payload.message || payload.error || "";
+        statusEl.textContent = message ? `更新失败：${message}` : "更新检查失败";
+        statusEl.title = message;
       }
+    }
+
+    function setUpdateError(error) {
+      setUpdateUi("error", { message: error?.message || String(error || "未知错误") });
     }
 
     function setupUpdateUi() {
@@ -8480,13 +8576,13 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         return;
       }
 
-      checkBtn.addEventListener("click", () => window.youdesignDesktop.checkForUpdates());
-      installBtn.addEventListener("click", () => window.youdesignDesktop.installUpdate());
+      checkBtn.addEventListener("click", () => window.youdesignDesktop.checkForUpdates().catch(setUpdateError));
+      installBtn.addEventListener("click", () => window.youdesignDesktop.installUpdate().catch(setUpdateError));
       window.youdesignDesktop.onUpdateStatus(payload => setUpdateUi(payload.status, payload));
       window.youdesignDesktop.onCheckUpdate(() => window.youdesignDesktop.checkForUpdates());
       setUpdateUi("idle");
       if (window.youdesignDesktop.platform === "tauri") {
-        setTimeout(() => window.youdesignDesktop.checkForUpdates().catch(() => {}), 1800);
+        setTimeout(() => window.youdesignDesktop.checkForUpdates().catch(setUpdateError), 1800);
       }
     }
 

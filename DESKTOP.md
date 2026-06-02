@@ -66,6 +66,39 @@ The Electron fallback still uses `desktop/main.js` and `desktop/preload.js`, but
 
 The Tauri app uses signed updater artifacts. Keep the updater private key safe; installed apps can only update to packages signed with the matching key.
 
+## Auto-Update Release Rule
+
+Every public release must support automatic updates for both macOS and Windows. A release is not complete until the updater can detect the new version and install the matching package.
+
+Hard requirements for every release:
+
+- Increment the app version before building. Tauri only reports an update when the release version is greater than the installed app version.
+- Clear the canvas before packaging. Do not build a release while the app is showing test layers, sample images, or temporary design drafts.
+- Build signed updater artifacts with the same updater private key:
+  - mac x64: `darwin-x86_64`
+  - mac Apple Silicon: `darwin-aarch64`
+  - Windows x64: `windows-x86_64`
+- Generate `latest.json` after all macOS and Windows artifacts exist.
+- Upload all required assets to the GitHub Release:
+  - `latest.json`
+  - mac x64 `.app.tar.gz` and `.sig`
+  - mac arm64 `.app.tar.gz` and `.sig`
+  - Windows x64 installer `.exe` and `.sig`
+- Verify `latest.json` contains all three platform keys and points to the GitHub Release download URLs.
+- Verify the GitHub Release is marked as `Latest`.
+- Verify the uploaded asset digests match local SHA256 values.
+- Verify an older installed app can check the GitHub endpoint and see the newer version.
+
+Do not treat a release as finished if any platform package, signature, or `latest.json` entry is missing. If Windows packaging is delayed, hold the release instead of publishing a macOS-only update.
+
+The updater endpoint is:
+
+```text
+https://github.com/kim-wing/social-cover-designer/releases/latest/download/latest.json
+```
+
+GitHub Release is the current update source. If users cannot reach GitHub or `release-assets.githubusercontent.com`, the updater may fail even when the package is correct; in that case, mirror the same `latest.json` and assets to a more reliable CDN and add it as another updater endpoint.
+
 For local update testing:
 
 ```bash
