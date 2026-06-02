@@ -1,6 +1,6 @@
 [package]
 name = "youdesign"
-version = "1.0.12"
+version = "1.0.13"
 description = "YOUDESIGN social cover designer desktop app."
 authors = ["YOUXIAKE"]
 license = ""

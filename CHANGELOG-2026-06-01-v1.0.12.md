@@ -8,6 +8,12 @@ https://github.com/kim-wing/social-cover-designer/releases/tag/v1.0.12
 
 ## Changes
 
+- Local changes prepared for the next release:
+  - Added a Photoshop-style clone stamp tool for image layers.
+  - Interaction matches the familiar clone stamp flow: hold `Alt/Option` and click an image area to sample, then drag with the left mouse button to paint from the sampled source.
+  - The canvas now shows the stamp brush size and sampled source point while editing.
+  - Stamp editing supports brush size, hardness, single-stroke undo, and explicit finish.
+  - Added image crop, grouping, multi-layer shortcuts, internal object copy/paste, and extra shape tools in the current local working tree.
 - Improved direct text editing on the canvas.
   - Fixed the multiline inline editor getting stuck after entering multiple lines.
   - Matched the inline editor with the canvas text style.

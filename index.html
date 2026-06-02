@@ -744,9 +744,28 @@
     }
 
     .mask-mode-row .mini-btn.active {
-      border-color: var(--accent);
-      background: var(--accent-soft);
-      color: var(--accent);
+      border-color: rgba(18, 185, 129, .8);
+      background: linear-gradient(180deg, rgba(18, 185, 129, .18), rgba(18, 185, 129, .1));
+      color: #047857;
+      box-shadow: inset 0 0 0 1px rgba(18, 185, 129, .18), 0 8px 18px rgba(18, 185, 129, .12);
+    }
+
+    .mask-mode-row #maskEraseBtn.active {
+      border-color: rgba(239, 68, 68, .82);
+      background: linear-gradient(180deg, rgba(239, 68, 68, .17), rgba(239, 68, 68, .09));
+      color: #b42318;
+      box-shadow: inset 0 0 0 1px rgba(239, 68, 68, .18), 0 8px 18px rgba(239, 68, 68, .12);
+    }
+
+    .mask-mode-row .mini-btn.active::after {
+      content: "已选";
+      margin-left: auto;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .72);
+      color: currentColor;
+      font-size: 10px;
+      font-weight: 850;
     }
 
     .mask-edit-card {
@@ -3534,7 +3553,7 @@
           <button class="tool-chip" type="button" data-panel="promptSection"><strong>词</strong><span>Prompt</span></button>
           <button class="tool-chip" type="button" data-panel="imageTools" data-action="upload"><strong>▧</strong><span>图片</span></button>
           <button class="tool-chip" type="button" data-panel="textTools"><strong>T</strong><span>文字</span></button>
-          <button class="tool-chip" type="button" data-panel="shapeTools"><strong>△</strong><span>组件</span></button>
+          <button class="tool-chip" type="button" data-panel="shapeTools"><strong>△</strong><span>形状</span></button>
           <button class="tool-chip" type="button" data-panel="mascotPanel"><strong>侠</strong><span>素材</span></button>
           <button class="tool-chip" type="button" data-panel="logoSection"><strong>◆</strong><span>Logo</span></button>
         </nav>
@@ -3745,10 +3764,13 @@
             </div>
           </div>
           <div class="element-group add-subpanel" id="shapeTools">
-            <p class="element-title">图形</p>
+            <p class="element-title">形状</p>
             <div class="element-grid">
               <button class="element-card" id="addRectBtn" type="button"><span class="element-icon">▭</span><span><strong>矩形</strong><span>色块/底板</span></span></button>
               <button class="element-card" id="addCircleBtn" type="button"><span class="element-icon">○</span><span><strong>圆形</strong><span>装饰重点</span></span></button>
+              <button class="element-card" id="addTriangleBtn" type="button"><span class="element-icon">△</span><span><strong>三角形</strong><span>指示/强调</span></span></button>
+              <button class="element-card" id="addStarBtn" type="button"><span class="element-icon">★</span><span><strong>星形</strong><span>亮点/推荐</span></span></button>
+              <button class="element-card" id="addPolygonBtn" type="button"><span class="element-icon">⬡</span><span><strong>多边形</strong><span>徽章/装饰</span></span></button>
               <button class="element-card" id="addDividerBtn" type="button"><span class="element-icon">—</span><span><strong>分割线</strong><span>标题下划线</span></span></button>
               <button class="element-card" id="addOverlayBtn" type="button"><span class="element-icon">▣</span><span><strong>遮罩</strong><span>压暗背景</span></span></button>
             </div>
@@ -3908,6 +3930,7 @@
                     <button class="mini-btn" id="toggleCropBtn" type="button">裁剪</button>
                     <button class="mini-btn active" id="removeBgBtn" type="button">智能抠图</button>
                     <button class="mini-btn" id="startMaskEditBtn" type="button">修边</button>
+                    <button class="mini-btn" id="startStampEditBtn" type="button">仿制图章</button>
                     <button class="mini-btn" id="restoreImageBtn" type="button">恢复原图</button>
                   </div>
                   <div class="mask-edit-card hidden" id="cropPanel">
@@ -3943,6 +3966,23 @@
                       <button class="mini-btn active" id="finishMaskEditBtn" type="button">完成修边</button>
                     </div>
                   </div>
+                  <div class="mask-edit-card hidden" id="stampEditPanel">
+                    <div class="mask-status" id="stampStatus">按住 Alt/Option 点击图片取样，然后拖动画笔盖印。</div>
+                    <div class="inline-control">
+                      <label for="stampBrushSize">画笔</label>
+                      <input id="stampBrushSize" type="range" min="6" max="180" step="2" value="46">
+                      <output id="stampBrushSizeValue">46</output>
+                    </div>
+                    <div class="inline-control">
+                      <label for="stampBrushHardness">硬度</label>
+                      <input id="stampBrushHardness" type="range" min="0.2" max="1" step="0.05" value="0.82">
+                      <output id="stampBrushHardnessValue">82%</output>
+                    </div>
+                    <div class="image-ai-actions">
+                      <button class="mini-btn" id="stampUndoBtn" type="button">撤销图章</button>
+                      <button class="mini-btn active" id="finishStampEditBtn" type="button">完成图章</button>
+                    </div>
+                  </div>
                   <div class="mask-status" id="maskStatus">首次使用会下载 RMBG-1.4 模型，之后在本机处理图片。</div>
                 </div>
               </div>
@@ -3976,6 +4016,10 @@
           <div class="inspector-group">
             <div class="inspector-group-title"><span>图层</span></div>
             <div class="inspector-content">
+              <div class="button-row">
+                <button class="mini-btn" id="groupLayersBtn" type="button">编组</button>
+                <button class="mini-btn" id="ungroupLayersBtn" type="button">取消编组</button>
+              </div>
               <div class="button-row">
                 <button class="mini-btn" id="bringForwardBtn">上移</button>
                 <button class="mini-btn" id="sendBackwardBtn">下移</button>
@@ -4116,6 +4160,9 @@
       upload: '<path d="M12 16V5"></path><path d="m8 9 4-4 4 4"></path><path d="M5 17v2h14v-2"></path>',
       rect: '<rect x="4" y="6" width="16" height="12" rx="2"></rect>',
       circle: '<circle cx="12" cy="12" r="8"></circle>',
+      triangle: '<path d="M12 4 21 20H3L12 4Z"></path>',
+      star: '<path d="m12 3 2.65 5.37 5.93.86-4.29 4.18 1.01 5.9L12 16.52 6.7 19.31l1.01-5.9-4.29-4.18 5.93-.86L12 3Z"></path>',
+      polygon: '<path d="m12 3 7.8 4.5v9L12 21l-7.8-4.5v-9L12 3Z"></path>',
       line: '<path d="M5 12h14"></path>',
       overlay: '<rect x="5" y="5" width="14" height="14" rx="2"></rect><rect x="8" y="8" width="8" height="8" rx="1.5"></rect>',
       alignLeft: '<path d="M5 4v16"></path><path d="M9 7h10"></path><path d="M9 12h7"></path><path d="M9 17h10"></path>',
@@ -4189,6 +4236,9 @@
         addTopBadgeBtn: "topBadge",
         addRectBtn: "rect",
         addCircleBtn: "circle",
+        addTriangleBtn: "triangle",
+        addStarBtn: "star",
+        addPolygonBtn: "polygon",
         addDividerBtn: "line",
         addOverlayBtn: "overlay",
         copyGeneratedBtn: "copy",
@@ -4209,7 +4259,9 @@
         booleanUnionBtn: "boolean",
         booleanSubtractBtn: "boolean",
         booleanIntersectBtn: "boolean",
-        booleanExcludeBtn: "boolean"
+        booleanExcludeBtn: "boolean",
+        groupLayersBtn: "layerUp",
+        ungroupLayersBtn: "layerUp"
       };
       Object.entries(idIcons).forEach(([id, name]) => {
         const el = document.getElementById(id);
@@ -4336,6 +4388,7 @@
       dragging: null
     };
     let inlineEditing = null;
+    let objectClipboard = [];
     let rmbgPipelinePromise = null;
     const maskEditor = {
       active: false,
@@ -4347,9 +4400,25 @@
       painting: false,
       lastPoint: null,
       hoverPoint: null,
-      history: []
+      history: [],
+      renderQueued: false,
+      dirty: false
     };
     const cropEditor = { active: false, objectId: null };
+    const stampEditor = {
+      active: false,
+      objectId: null,
+      brushSize: 46,
+      hardness: .82,
+      painting: false,
+      samplePoint: null,
+      hoverPoint: null,
+      sourceOffset: null,
+      sourceSnapshot: null,
+      history: [],
+      renderQueued: false,
+      dirty: false
+    };
     const panState = { spaceDown: false, active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 };
     const swipeSelect = { active: false, ids: new Set(), started: false, start: null, current: null };
 
@@ -4383,14 +4452,16 @@
     function shape(kind, x, y, width, heightOrFill, fillOrExtra, maybeExtra = {}) {
       const isCircle = kind === "circle";
       const isLine = kind === "line";
+      const isSymbol = ["triangle", "star", "polygon"].includes(kind);
       const height = isCircle ? width : isLine ? Math.max(12, heightOrFill || 24) : heightOrFill;
       const fill = isCircle || isLine ? heightOrFill : fillOrExtra;
       const extra = isCircle ? fillOrExtra || {} : maybeExtra;
+      const names = { circle: "圆形", line: "分割线", triangle: "三角形", star: "星形", polygon: "多边形", rect: "矩形" };
       return {
         id: uid(),
         type: "shape",
         kind,
-        name: kind === "circle" ? "圆形" : kind === "line" ? "分割线" : "矩形",
+        name: names[kind] || "形状",
         x, y,
         width,
         height,
@@ -4402,7 +4473,9 @@
         strokeDash: extra.strokeDash || false,
         radius: extra.radius || 0,
         shadow: extra.shadow || 0,
-        lockAspect: extra.lockAspect ?? kind === "circle"
+        sides: extra.sides || (kind === "polygon" ? 6 : undefined),
+        points: extra.points || (kind === "star" ? 5 : undefined),
+        lockAspect: extra.lockAspect ?? (kind === "circle" || isSymbol)
       };
     }
 
@@ -4437,6 +4510,58 @@
       return name.replace(/\.[^.]+$/, "");
     }
 
+    function serializableObject(o) {
+      return {
+        ...o,
+        image: undefined,
+        originalImage: undefined,
+        cloneCanvas: undefined,
+        maskImage: undefined,
+        maskCanvas: undefined,
+        children: o.children ? o.children.map(serializableObject) : undefined
+      };
+    }
+
+    async function hydrateObject(o) {
+      if (o.type === "image" && o.src) {
+        o.image = await loadImage(o.src);
+        if (o.originalSrc) o.originalImage = await loadImage(o.originalSrc);
+        if (o.maskSrc) o.maskImage = await loadImage(o.maskSrc);
+      }
+      if (o.type === "group" && Array.isArray(o.children)) {
+        o.children = await Promise.all(o.children.map(hydrateObject));
+      }
+      return o;
+    }
+
+    function cloneObject(obj, options = {}) {
+      const copy = {
+        ...obj,
+        id: options.keepIds ? obj.id : uid(),
+        name: options.name || obj.name,
+        image: obj.image,
+        originalImage: obj.originalImage,
+        maskImage: obj.maskImage,
+        maskCanvas: obj.maskCanvas
+      };
+      if (obj.children) copy.children = obj.children.map(child => cloneObject(child, options));
+      return copy;
+    }
+
+    function scaleObjectFromStart(obj, start, sx, sy) {
+      obj.x = start.x * sx;
+      obj.y = start.y * sy;
+      obj.width = Math.max(1, start.width * sx);
+      obj.height = Math.max(1, start.height * sy);
+      if (obj.type === "text") obj.fontSize = Math.max(8, start.fontSize * Math.min(sx, sy));
+      if (obj.type === "group" && obj.children && start.children) {
+        obj.children.forEach(child => {
+          const startChild = start.children.find(item => item.id === child.id);
+          if (startChild) scaleObjectFromStart(child, startChild, sx, sy);
+        });
+      }
+    }
+
     function saveHistory() {
       state.history.push(snapshot());
       if (state.history.length > 60) state.history.shift();
@@ -4444,12 +4569,6 @@
     }
 
     function snapshot() {
-      const serializableObject = o => ({
-        ...o,
-        image: undefined,
-        maskImage: undefined,
-        maskCanvas: undefined
-      });
       return JSON.stringify({
         width: state.width,
         height: state.height,
@@ -4467,13 +4586,7 @@
         throw new Error("工程文件格式不正确");
       }
       Object.assign(state, data);
-      state.objects = await Promise.all(data.objects.map(async o => {
-        if (o.type === "image" && o.src) {
-          o.image = await loadImage(o.src);
-          if (o.maskSrc) o.maskImage = await loadImage(o.maskSrc);
-        }
-        return o;
-      }));
+      state.objects = await Promise.all(data.objects.map(hydrateObject));
       stopMaskEdit(false);
       setSelection([]);
       resizeCanvas();
@@ -4719,6 +4832,7 @@
       state.selectedId = state.selectedIds[state.selectedIds.length - 1] || null;
       if (maskEditor.active && !state.selectedIds.includes(maskEditor.objectId)) stopMaskEdit(false);
       if (cropEditor.active && !state.selectedIds.includes(cropEditor.objectId)) stopCropEdit(false);
+      if (stampEditor.active && !state.selectedIds.includes(stampEditor.objectId)) stopStampEdit(false);
     }
 
     function toggleSelection(id) {
@@ -4750,6 +4864,7 @@
       }
       if (!exporting) drawMaskEditorOverlay(targetCtx);
       if (!exporting) drawMaskBrushPreview(targetCtx);
+      if (!exporting) drawStampBrushPreview(targetCtx);
       if (!exporting) drawCropEditorOverlay(targetCtx);
       targetCtx.restore();
       if (!exporting) renderSelectionOverlay();
@@ -4872,7 +4987,12 @@
       if (obj.type === "shape") drawShape(c, obj);
       if (obj.type === "compoundShape") drawCompoundShape(c, obj);
       if (obj.type === "image" && obj.image) drawImage(c, obj);
+      if (obj.type === "group") drawGroup(c, obj);
       c.restore();
+    }
+
+    function drawGroup(c, obj) {
+      (obj.children || []).forEach(child => drawObject(c, child));
     }
 
     function drawText(c, obj) {
@@ -4926,6 +5046,50 @@
       c.closePath();
     }
 
+    function regularPolygonPoints(width, height, sides = 3, rotation = -Math.PI / 2) {
+      const cx = width / 2;
+      const cy = height / 2;
+      const rx = width / 2;
+      const ry = height / 2;
+      return Array.from({ length: sides }, (_, index) => {
+        const angle = rotation + index * Math.PI * 2 / sides;
+        return { x: cx + Math.cos(angle) * rx, y: cy + Math.sin(angle) * ry };
+      });
+    }
+
+    function starPoints(width, height, points = 5) {
+      const cx = width / 2;
+      const cy = height / 2;
+      const outerX = width / 2;
+      const outerY = height / 2;
+      const innerX = outerX * .45;
+      const innerY = outerY * .45;
+      return Array.from({ length: points * 2 }, (_, index) => {
+        const outer = index % 2 === 0;
+        const angle = -Math.PI / 2 + index * Math.PI / points;
+        return {
+          x: cx + Math.cos(angle) * (outer ? outerX : innerX),
+          y: cy + Math.sin(angle) * (outer ? outerY : innerY)
+        };
+      });
+    }
+
+    function polygonPath(c, points) {
+      c.beginPath();
+      points.forEach((point, index) => {
+        if (index === 0) c.moveTo(point.x, point.y);
+        else c.lineTo(point.x, point.y);
+      });
+      c.closePath();
+    }
+
+    function shapePoints(obj) {
+      if (obj.kind === "triangle") return regularPolygonPoints(obj.width, obj.height, 3);
+      if (obj.kind === "star") return starPoints(obj.width, obj.height, obj.points || 5);
+      if (obj.kind === "polygon") return regularPolygonPoints(obj.width, obj.height, obj.sides || 6);
+      return [];
+    }
+
     function drawShape(c, obj) {
       if (obj.kind === "line") {
         c.strokeStyle = obj.stroke || "#171411";
@@ -4945,6 +5109,8 @@
       if (obj.kind === "circle") {
         c.beginPath();
         c.ellipse(obj.width / 2, obj.height / 2, obj.width / 2, obj.height / 2, 0, 0, Math.PI * 2);
+      } else if (["triangle", "star", "polygon"].includes(obj.kind)) {
+        polygonPath(c, shapePoints(obj));
       } else {
         roundRect(c, 0, 0, obj.width, obj.height, obj.radius);
       }
@@ -4956,13 +5122,32 @@
       roundRect(c, 0, 0, obj.width, obj.height, obj.radius || 0);
       c.clip();
       const crop = normalizeCrop(obj.crop);
-      const naturalW = obj.image.naturalWidth || obj.image.width;
-      const naturalH = obj.image.naturalHeight || obj.image.height;
-      const sx = naturalW * crop.left / 100;
-      const sy = naturalH * crop.top / 100;
-      const sw = Math.max(1, naturalW * (100 - crop.left - crop.right) / 100);
-      const sh = Math.max(1, naturalH * (100 - crop.top - crop.bottom) / 100);
-      c.drawImage(obj.image, sx, sy, sw, sh, 0, 0, obj.width, obj.height);
+      const maskSource = obj.maskCanvas || obj.maskImage;
+      const image = obj.cloneCanvas || (maskSource && obj.originalImage ? obj.originalImage : obj.image);
+      const { sx, sy, sw, sh } = imageSourceRectForBox(image, crop);
+      if (maskSource) {
+        const buffer = document.createElement("canvas");
+        buffer.width = Math.max(1, Math.round(obj.width));
+        buffer.height = Math.max(1, Math.round(obj.height));
+        const bctx = buffer.getContext("2d");
+        bctx.drawImage(image, sx, sy, sw, sh, 0, 0, buffer.width, buffer.height);
+        bctx.globalCompositeOperation = "destination-in";
+        bctx.drawImage(maskSource, 0, 0, buffer.width, buffer.height);
+        c.drawImage(buffer, 0, 0, obj.width, obj.height);
+        return;
+      }
+      c.drawImage(image, sx, sy, sw, sh, 0, 0, obj.width, obj.height);
+    }
+
+    function imageSourceRectForBox(image, crop) {
+      const naturalW = image.naturalWidth || image.width;
+      const naturalH = image.naturalHeight || image.height;
+      return {
+        sx: naturalW * crop.left / 100,
+        sy: naturalH * crop.top / 100,
+        sw: Math.max(1, naturalW * (100 - crop.left - crop.right) / 100),
+        sh: Math.max(1, naturalH * (100 - crop.top - crop.bottom) / 100)
+      };
     }
 
     function normalizeCrop(crop = {}) {
@@ -5017,6 +5202,10 @@
       return `M${svgNum(radius)} 0H${svgNum(w - radius)}Q${svgNum(w)} 0 ${svgNum(w)} ${svgNum(radius)}V${svgNum(h - radius)}Q${svgNum(w)} ${svgNum(h)} ${svgNum(w - radius)} ${svgNum(h)}H${svgNum(radius)}Q0 ${svgNum(h)} 0 ${svgNum(h - radius)}V${svgNum(radius)}Q0 0 ${svgNum(radius)} 0Z`;
     }
 
+    function svgPointsPath(points) {
+      return points.map((point, index) => `${index ? "L" : "M"}${svgNum(point.x)} ${svgNum(point.y)}`).join("") + "Z";
+    }
+
     function svgTextObject(obj) {
       const measure = document.createElement("canvas").getContext("2d");
       measure.font = `${obj.fontWeight || 800} ${obj.fontSize}px "${obj.fontFamily}", sans-serif`;
@@ -5038,6 +5227,8 @@
         node = `<line x1="0" y1="${svgNum(obj.height / 2)}" x2="${svgNum(obj.width)}" y2="${svgNum(obj.height / 2)}" stroke-linecap="butt" ${common}></line>`;
       } else if (obj.kind === "circle") {
         node = `<ellipse cx="${svgNum(obj.width / 2)}" cy="${svgNum(obj.height / 2)}" rx="${svgNum(obj.width / 2)}" ry="${svgNum(obj.height / 2)}" ${common}></ellipse>`;
+      } else if (["triangle", "star", "polygon"].includes(obj.kind)) {
+        node = `<path d="${svgPointsPath(shapePoints(obj))}" ${common}></path>`;
       } else {
         node = `<path d="${svgRoundRectPath(obj.width, obj.height, obj.radius)}" ${common}></path>`;
       }
@@ -5047,12 +5238,14 @@
     function svgImageObject(obj, index) {
       const clipId = `image-clip-${index}`;
       const crop = normalizeCrop(obj.crop);
-      const visibleW = Math.max(1, 100 - crop.left - crop.right);
-      const visibleH = Math.max(1, 100 - crop.top - crop.bottom);
-      const imageX = -crop.left / visibleW * obj.width;
-      const imageY = -crop.top / visibleH * obj.height;
-      const imageW = obj.width * 100 / visibleW;
-      const imageH = obj.height * 100 / visibleH;
+      const image = obj.maskCanvas && obj.originalImage ? obj.originalImage : obj.image;
+      const naturalW = image?.naturalWidth || image?.width || obj.width;
+      const naturalH = image?.naturalHeight || image?.height || obj.height;
+      const rect = imageSourceRectForBox({ width: naturalW, height: naturalH }, crop);
+      const imageX = -rect.sx / rect.sw * obj.width;
+      const imageY = -rect.sy / rect.sh * obj.height;
+      const imageW = naturalW / rect.sw * obj.width;
+      const imageH = naturalH / rect.sh * obj.height;
       const clipPath = svgRoundRectPath(obj.width, obj.height, obj.radius || 0);
       return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><clipPath id="${clipId}"><path d="${clipPath}"></path></clipPath><image href="${svgEscape(obj.src)}" x="${svgNum(imageX)}" y="${svgNum(imageY)}" width="${svgNum(imageW)}" height="${svgNum(imageH)}" preserveAspectRatio="none" clip-path="url(#${clipId})"></image></g>`;
     }
@@ -5072,6 +5265,18 @@
       return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><image href="${dataUrl}" x="0" y="0" width="${svgNum(obj.width)}" height="${svgNum(obj.height)}" preserveAspectRatio="none"></image></g>`;
     }
 
+    function svgObject(obj, index) {
+      if (obj.type === "text") return svgTextObject(obj);
+      if (obj.type === "shape") return svgShapeObject(obj);
+      if (obj.type === "image") return svgImageObject(obj, index);
+      if (obj.type === "compoundShape") return svgRasterFallbackObject(obj, index);
+      if (obj.type === "group") {
+        const children = (obj.children || []).map((child, childIndex) => svgObject(child, `${index}-${childIndex}`)).join("");
+        return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}>${children}</g>`;
+      }
+      return "";
+    }
+
     function exportSvgText() {
       const defs = [];
       const body = [`<rect width="100%" height="100%" fill="${svgEscape(state.background)}"></rect>`];
@@ -5079,10 +5284,7 @@
         if (obj.shadow) {
           defs.push(`<filter id="shadow-${obj.id}" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="${svgNum(obj.shadow / 3)}" dy="${svgNum(obj.shadow / 3)}" stdDeviation="${svgNum(obj.shadow / 2)}" flood-color="#000000" flood-opacity=".22"></feDropShadow></filter>`);
         }
-        if (obj.type === "text") body.push(svgTextObject(obj));
-        else if (obj.type === "shape") body.push(svgShapeObject(obj));
-        else if (obj.type === "image") body.push(svgImageObject(obj, index));
-        else if (obj.type === "compoundShape") body.push(svgRasterFallbackObject(obj, index));
+        body.push(svgObject(obj, index));
       });
       const defsText = defs.length ? `<defs>${defs.join("")}</defs>` : "";
       return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${svgNum(state.width)}" height="${svgNum(state.height)}" viewBox="0 0 ${svgNum(state.width)} ${svgNum(state.height)}">${defsText}${body.join("")}</svg>\n`;
@@ -5126,6 +5328,8 @@
         c.lineWidth = Math.max(1, obj.strokeWidth || 1);
         c.beginPath();
         c.rect(0, obj.height / 2 - c.lineWidth / 2, obj.width, c.lineWidth);
+      } else if (["triangle", "star", "polygon"].includes(obj.kind)) {
+        polygonPath(c, shapePoints(obj));
       } else {
         roundRect(c, 0, 0, obj.width, obj.height, obj.radius || 0);
       }
@@ -5158,7 +5362,7 @@
     function drawMaskEditorOverlay(c) {
       if (!maskEditor.active || !maskEditor.showOverlay) return;
       const obj = state.objects.find(item => item.id === maskEditor.objectId);
-      if (!obj || obj.type !== "image" || !obj.maskImage) return;
+      if (!obj || obj.type !== "image" || !obj.maskCanvas && !obj.maskImage) return;
       c.save();
       c.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
       c.rotate((obj.rotation || 0) * Math.PI / 180);
@@ -5170,7 +5374,7 @@
       octx.fillStyle = "#0071e3";
       octx.fillRect(0, 0, overlay.width, overlay.height);
       octx.globalCompositeOperation = "destination-in";
-      octx.drawImage(obj.maskImage, 0, 0, overlay.width, overlay.height);
+      octx.drawImage(obj.maskCanvas || obj.maskImage, 0, 0, overlay.width, overlay.height);
       c.globalAlpha = .28;
       c.drawImage(overlay, 0, 0, obj.width, obj.height);
       c.globalAlpha = 1;
@@ -5211,6 +5415,34 @@
       c.setLineDash([]);
       c.globalAlpha = .82;
       c.stroke();
+      c.restore();
+    }
+
+    function drawStampBrushPreview(c) {
+      if (!stampEditor.active || !stampEditor.hoverPoint) return;
+      const obj = state.objects.find(item => item.id === stampEditor.objectId);
+      if (!obj || obj.type !== "image") return;
+      const point = stampEditor.hoverPoint;
+      c.save();
+      c.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+      c.rotate((obj.rotation || 0) * Math.PI / 180);
+      c.translate(-obj.width / 2, -obj.height / 2);
+      c.beginPath();
+      c.arc(point.x, point.y, stampEditor.brushSize / 2, 0, Math.PI * 2);
+      c.fillStyle = stampEditor.samplePoint ? "rgba(255, 176, 0, .12)" : "rgba(239, 68, 68, .1)";
+      c.strokeStyle = stampEditor.samplePoint ? "rgba(255, 176, 0, .96)" : "rgba(239, 68, 68, .92)";
+      c.lineWidth = Math.max(2, 2 / Math.max(.25, state.zoomScale || 1));
+      c.setLineDash(stampEditor.samplePoint ? [] : [7, 5]);
+      c.fill();
+      c.stroke();
+      if (stampEditor.samplePoint) {
+        const sample = imagePixelToObjectPoint(stampEditor.samplePoint, obj);
+        c.beginPath();
+        c.arc(sample.x, sample.y, Math.max(5, stampEditor.brushSize * .16), 0, Math.PI * 2);
+        c.setLineDash([5, 4]);
+        c.strokeStyle = "rgba(255, 176, 0, .88)";
+        c.stroke();
+      }
       c.restore();
     }
 
@@ -5374,6 +5606,33 @@
         await paintMaskAt(e);
         return;
       }
+      if (stampEditor.active) {
+        e.preventDefault();
+        const hit = stampPointFromEvent(e);
+        if (!hit) return;
+        await ensureObjectCloneCanvas(hit.obj);
+        if (e.altKey) {
+          stampEditor.samplePoint = objectPointToImagePixel(hit.point, hit.obj);
+          stampEditor.sourceOffset = null;
+          setStampStatus("已设置采样点。松开 Alt/Option 后拖动画笔盖印。");
+          renderAll();
+          syncStampControls();
+          return;
+        }
+        if (!stampEditor.samplePoint) {
+          setStampStatus("请先按住 Alt/Option 点击图片设置采样点。", "error");
+          renderAll();
+          return;
+        }
+        saveHistory();
+        pushStampHistory(hit.obj);
+        stampEditor.painting = true;
+        stampEditor.sourceOffset = null;
+        stampEditor.sourceSnapshot = cloneCanvas(stampEditorCanvas(hit.obj));
+        canvas.setPointerCapture(e.pointerId);
+        await paintStampAt(e);
+        return;
+      }
       if (panState.spaceDown) return;
       const p = toLocalPoint(e);
       const obj = selected();
@@ -5445,6 +5704,16 @@
         await paintMaskAt(e);
         return;
       }
+      if (stampEditor.active) {
+        const hit = stampPointFromEvent(e);
+        stampEditor.hoverPoint = hit ? hit.point : null;
+        scheduleStampRender();
+      }
+      if (stampEditor.active && stampEditor.painting) {
+        e.preventDefault();
+        await paintStampAt(e);
+        return;
+      }
       if (swipeSelect.active) {
         const p = toLocalPoint(e);
         swipeSelect.current = p;
@@ -5495,15 +5764,35 @@
     canvas.addEventListener("pointermove", handlePointerMove);
     selectionOverlay.addEventListener("pointermove", handlePointerMove);
     canvas.addEventListener("pointerleave", () => {
-      if (!maskEditor.active) return;
-      maskEditor.hoverPoint = null;
-      renderAll();
+      let changed = false;
+      if (maskEditor.active) {
+        maskEditor.hoverPoint = null;
+        changed = true;
+      }
+      if (stampEditor.active) {
+        stampEditor.hoverPoint = null;
+        changed = true;
+      }
+      if (changed) renderAll();
     });
 
-    function handlePointerUp() {
+    async function handlePointerUp() {
       if (maskEditor.painting) {
+        const obj = state.objects.find(item => item.id === maskEditor.objectId);
         maskEditor.painting = false;
         maskEditor.lastPoint = null;
+        if (maskEditor.dirty && obj) await commitMaskCanvas(obj);
+        persist();
+        syncUi(false);
+        renderAll();
+        return;
+      }
+      if (stampEditor.painting) {
+        const obj = state.objects.find(item => item.id === stampEditor.objectId);
+        stampEditor.painting = false;
+        stampEditor.sourceOffset = null;
+        stampEditor.sourceSnapshot = null;
+        if (stampEditor.dirty && obj) await commitStampCanvas(obj);
         persist();
         syncUi(false);
         renderAll();
@@ -5531,7 +5820,7 @@
     selectionOverlay.addEventListener("pointerup", handlePointerUp);
 
     stage.addEventListener("pointerdown", event => {
-      if (!panState.spaceDown || maskEditor.active) return;
+      if (!panState.spaceDown || maskEditor.active || stampEditor.active) return;
       event.preventDefault();
       event.stopPropagation();
       panState.active = true;
@@ -5586,6 +5875,14 @@
       }
       obj.width = nextW;
       obj.height = nextH;
+      if (obj.type === "group" && obj.children && start.children) {
+        const sx = obj.width / Math.max(1, start.width);
+        const sy = obj.height / Math.max(1, start.height);
+        obj.children.forEach(child => {
+          const startChild = start.children.find(item => item.id === child.id);
+          if (startChild) scaleObjectFromStart(child, startChild, sx, sy);
+        });
+      }
       if (obj.kind === "circle" && locked) {
         const size = Math.max(nextW, nextH);
         obj.width = size;
@@ -5612,6 +5909,12 @@
         obj.width = Math.max(1, start.width * sx);
         obj.height = Math.max(1, start.height * sy);
         if (obj.type === "text") obj.fontSize = Math.max(8, start.fontSize * Math.min(sx, sy));
+        if (obj.type === "group" && obj.children && start.children) {
+          obj.children.forEach(child => {
+            const startChild = start.children.find(item => item.id === child.id);
+            if (startChild) scaleObjectFromStart(child, startChild, sx, sy);
+          });
+        }
       });
     }
 
@@ -5748,10 +6051,96 @@
       persist();
     }
 
+    function groupSelectedLayers() {
+      const objects = selectedObjects();
+      if (objects.length < 2) return;
+      const bounds = selectionBounds(objects);
+      if (!bounds) return;
+      saveHistory();
+      const ids = new Set(objects.map(obj => obj.id));
+      const insertAt = Math.min(...objects.map(obj => state.objects.indexOf(obj)).filter(index => index >= 0));
+      const children = state.objects
+        .filter(obj => ids.has(obj.id))
+        .map(obj => {
+          const child = cloneObject(obj, { keepIds: true });
+          child.x -= bounds.x;
+          child.y -= bounds.y;
+          return child;
+        });
+      const group = {
+        id: uid(),
+        type: "group",
+        name: `编组 ${children.length}`,
+        x: bounds.x,
+        y: bounds.y,
+        width: Math.max(1, bounds.width),
+        height: Math.max(1, bounds.height),
+        rotation: 0,
+        opacity: 1,
+        shadow: 0,
+        lockAspect: false,
+        children
+      };
+      state.objects = state.objects.filter(obj => !ids.has(obj.id));
+      state.objects.splice(Math.max(0, insertAt), 0, group);
+      setSelection([group.id]);
+      renderAll();
+      syncUi();
+      persist();
+    }
+
+    function ungroupObject(group) {
+      const angle = (group.rotation || 0) * Math.PI / 180;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const centerX = group.width / 2;
+      const centerY = group.height / 2;
+      return (group.children || []).map(child => {
+        const next = cloneObject(child, { keepIds: true });
+        const childCenterX = child.x + child.width / 2;
+        const childCenterY = child.y + child.height / 2;
+        const dx = childCenterX - centerX;
+        const dy = childCenterY - centerY;
+        const rotatedX = dx * cos - dy * sin + centerX;
+        const rotatedY = dx * sin + dy * cos + centerY;
+        next.x = group.x + rotatedX - child.width / 2;
+        next.y = group.y + rotatedY - child.height / 2;
+        next.rotation = (next.rotation || 0) + (group.rotation || 0);
+        return next;
+      });
+    }
+
+    function ungroupSelectedLayers() {
+      const groups = selectedObjects().filter(obj => obj.type === "group");
+      if (!groups.length) return;
+      saveHistory();
+      const selectedIds = [];
+      groups.forEach(group => {
+        const index = state.objects.indexOf(group);
+        if (index < 0) return;
+        const children = ungroupObject(group);
+        state.objects.splice(index, 1, ...children);
+        selectedIds.push(...children.map(child => child.id));
+      });
+      setSelection(selectedIds);
+      renderAll();
+      syncUi();
+      persist();
+    }
+
     function updateSelected(patch) {
       const obj = selected();
       if (!obj) return;
+      const start = obj.type === "group" ? cloneObject(obj, { keepIds: true }) : null;
       Object.assign(obj, patch);
+      if (start && (patch.width != null || patch.height != null)) {
+        const sx = obj.width / Math.max(1, start.width);
+        const sy = obj.height / Math.max(1, start.height);
+        obj.children.forEach(child => {
+          const startChild = start.children.find(item => item.id === child.id);
+          if (startChild) scaleObjectFromStart(child, startChild, sx, sy);
+        });
+      }
       renderAll();
       syncUi(false);
       syncTransformInputs(obj);
@@ -6161,6 +6550,15 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         "removeBgBtn",
         "startMaskEditBtn",
         "restoreImageBtn",
+        "startStampEditBtn",
+        "stampEditPanel",
+        "stampStatus",
+        "stampBrushSize",
+        "stampBrushSizeValue",
+        "stampBrushHardness",
+        "stampBrushHardnessValue",
+        "stampUndoBtn",
+        "finishStampEditBtn",
         "maskEditPanel",
         "maskKeepBtn",
         "maskEraseBtn",
@@ -6178,6 +6576,14 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
 
     function setMaskStatus(message, mode = "idle") {
       const status = document.getElementById("maskStatus");
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle("is-loading", mode === "loading");
+      status.classList.toggle("is-error", mode === "error");
+    }
+
+    function setStampStatus(message, mode = "idle") {
+      const status = document.getElementById("stampStatus");
       if (!status) return;
       status.textContent = message;
       status.classList.toggle("is-loading", mode === "loading");
@@ -6264,6 +6670,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     }
 
     async function ensureObjectMaskCanvas(obj) {
+      if (obj.originalSrc && !obj.originalImage) obj.originalImage = await loadImage(obj.originalSrc);
       if (!obj.maskCanvas) {
         if (obj.maskSrc) {
           const maskImage = obj.maskImage || await loadImage(obj.maskSrc);
@@ -6275,6 +6682,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
           obj.maskCanvas = canvasEl;
         } else {
           const baseImage = await loadImage(obj.originalSrc || obj.src);
+          obj.originalImage = obj.originalSrc ? baseImage : obj.originalImage;
           const canvasEl = document.createElement("canvas");
           canvasEl.width = baseImage.naturalWidth || baseImage.width;
           canvasEl.height = baseImage.naturalHeight || baseImage.height;
@@ -6289,7 +6697,8 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
 
     async function composeMaskedImage(obj, maskCanvas) {
       const source = obj.originalSrc || obj.src;
-      const original = await loadImage(source);
+      const original = obj.originalImage || await loadImage(source);
+      obj.originalImage = original;
       const width = original.naturalWidth || original.width;
       const height = original.naturalHeight || original.height;
       const out = document.createElement("canvas");
@@ -6306,6 +6715,23 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       obj.maskImage = await loadImage(obj.maskSrc);
       obj.maskCanvas = maskCanvas;
       obj.rmbgEdited = true;
+    }
+
+    async function commitMaskCanvas(obj) {
+      if (!obj || !obj.maskCanvas) return;
+      obj.maskSrc = obj.maskCanvas.toDataURL("image/png");
+      obj.maskImage = await loadImage(obj.maskSrc);
+      obj.rmbgEdited = true;
+      maskEditor.dirty = false;
+    }
+
+    function scheduleMaskRender() {
+      if (maskEditor.renderQueued) return;
+      maskEditor.renderQueued = true;
+      requestAnimationFrame(() => {
+        maskEditor.renderQueued = false;
+        renderAll();
+      });
     }
 
     async function removeBackgroundFromSelected() {
@@ -6345,12 +6771,14 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
 
     function startMaskEdit(obj = selected()) {
       if (!obj || obj.type !== "image") return;
+      if (stampEditor.active) stopStampEdit(false);
       maskEditor.active = true;
       maskEditor.objectId = obj.id;
       maskEditor.painting = false;
       maskEditor.lastPoint = null;
       maskEditor.hoverPoint = null;
       maskEditor.history = [];
+      maskEditor.dirty = false;
       document.body.classList.add("mask-editing");
       syncMaskControls();
       renderAll();
@@ -6376,19 +6804,71 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     }
 
     function stopMaskEdit(shouldPersist = true) {
+      const obj = state.objects.find(item => item.id === maskEditor.objectId);
+      if (shouldPersist && maskEditor.dirty && obj?.maskCanvas) {
+        obj.maskSrc = obj.maskCanvas.toDataURL("image/png");
+        obj.rmbgEdited = true;
+      }
       maskEditor.active = false;
       maskEditor.painting = false;
       maskEditor.lastPoint = null;
       maskEditor.history = [];
+      maskEditor.dirty = false;
       document.body.classList.remove("mask-editing");
       if (shouldPersist) persist();
       syncMaskControls();
       renderAll();
     }
 
+    async function startStampEdit(obj = selected()) {
+      if (!obj || obj.type !== "image") return;
+      if (maskEditor.active) stopMaskEdit(false);
+      if (cropEditor.active) stopCropEdit(false);
+      if ((obj.maskCanvas || obj.maskImage) && obj.originalImage) {
+        await composeMaskedImage(obj, obj.maskCanvas || cloneCanvas(obj.maskImage));
+        obj.originalSrc = undefined;
+        obj.originalImage = undefined;
+        obj.maskSrc = undefined;
+        obj.maskImage = undefined;
+        obj.maskCanvas = undefined;
+      }
+      await ensureObjectCloneCanvas(obj);
+      stampEditor.active = true;
+      stampEditor.objectId = obj.id;
+      stampEditor.painting = false;
+      stampEditor.samplePoint = null;
+      stampEditor.hoverPoint = null;
+      stampEditor.sourceOffset = null;
+      stampEditor.sourceSnapshot = null;
+      stampEditor.history = [];
+      stampEditor.dirty = false;
+      setStampStatus("按住 Alt/Option 点击图片取样，然后拖动画笔盖印。");
+      syncStampControls();
+      renderAll();
+    }
+
+    function stopStampEdit(shouldPersist = true) {
+      stampEditor.active = false;
+      stampEditor.painting = false;
+      stampEditor.samplePoint = null;
+      stampEditor.hoverPoint = null;
+      stampEditor.sourceOffset = null;
+      stampEditor.sourceSnapshot = null;
+      stampEditor.history = [];
+      stampEditor.dirty = false;
+      if (shouldPersist) persist();
+      syncStampControls();
+      renderAll();
+    }
+
+    function syncStampControls() {
+      syncMaskControls();
+    }
+
     function startCropEdit(obj = selected()) {
       if (!obj || obj.type !== "image") return;
       if (maskEditor.active) stopMaskEdit(false);
+      if (stampEditor.active) stopStampEdit(false);
       cropEditor.active = true;
       cropEditor.objectId = obj.id;
       obj.crop = normalizeCrop(obj.crop);
@@ -6428,6 +6908,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       const obj = selected();
       const isImage = obj?.type === "image";
       els.maskEditPanel.classList.toggle("hidden", !isImage || !maskEditor.active || maskEditor.objectId !== obj.id);
+      els.stampEditPanel.classList.toggle("hidden", !isImage || !stampEditor.active || stampEditor.objectId !== obj.id);
       els.maskKeepBtn.classList.toggle("active", maskEditor.mode === "keep");
       els.maskEraseBtn.classList.toggle("active", maskEditor.mode === "erase");
       els.maskBrushSize.value = String(maskEditor.brushSize);
@@ -6436,8 +6917,17 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       els.maskBrushHardnessValue.textContent = `${Math.round(maskEditor.hardness * 100)}%`;
       els.maskShowOverlay.checked = maskEditor.showOverlay;
       els.startMaskEditBtn.disabled = !isImage;
+      els.startStampEditBtn.disabled = !isImage;
+      els.startStampEditBtn.classList.toggle("active", isImage && stampEditor.active && stampEditor.objectId === obj.id);
+      els.stampBrushSize.value = String(stampEditor.brushSize);
+      els.stampBrushSizeValue.textContent = String(stampEditor.brushSize);
+      els.stampBrushHardness.value = String(stampEditor.hardness);
+      els.stampBrushHardnessValue.textContent = `${Math.round(stampEditor.hardness * 100)}%`;
       els.restoreImageBtn.disabled = !isImage || !obj.originalSrc;
       els.finishMaskEditBtn.disabled = !maskEditor.active;
+      els.finishStampEditBtn.disabled = !stampEditor.active;
+      els.maskUndoBtn.disabled = !maskEditor.active || !maskEditor.history.length;
+      els.stampUndoBtn.disabled = !stampEditor.active || !stampEditor.history.length;
       syncCropControls(obj);
     }
 
@@ -6466,6 +6956,51 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       const point = canvasPointToObject(toLocalPoint(event), obj);
       if (point.x < 0 || point.y < 0 || point.x > obj.width || point.y > obj.height) return null;
       return { obj, point };
+    }
+
+    function stampPointFromEvent(event) {
+      const obj = state.objects.find(item => item.id === stampEditor.objectId);
+      if (!obj) return null;
+      const point = canvasPointToObject(toLocalPoint(event), obj);
+      if (point.x < 0 || point.y < 0 || point.x > obj.width || point.y > obj.height) return null;
+      return { obj, point };
+    }
+
+    function stampEditorCanvas(obj) {
+      return obj.cloneCanvas || obj.image;
+    }
+
+    function cloneCanvas(source) {
+      const canvasEl = document.createElement("canvas");
+      canvasEl.width = source.naturalWidth || source.width;
+      canvasEl.height = source.naturalHeight || source.height;
+      canvasEl.getContext("2d").drawImage(source, 0, 0, canvasEl.width, canvasEl.height);
+      return canvasEl;
+    }
+
+    async function ensureObjectCloneCanvas(obj) {
+      if (!obj.cloneCanvas) obj.cloneCanvas = cloneCanvas(obj.image);
+      return obj.cloneCanvas;
+    }
+
+    function objectPointToImagePixel(point, obj) {
+      const image = stampEditorCanvas(obj);
+      const crop = normalizeCrop(obj.crop);
+      const rect = imageSourceRectForBox(image, crop);
+      return {
+        x: rect.sx + point.x / Math.max(1, obj.width) * rect.sw,
+        y: rect.sy + point.y / Math.max(1, obj.height) * rect.sh
+      };
+    }
+
+    function imagePixelToObjectPoint(pixel, obj) {
+      const image = stampEditorCanvas(obj);
+      const crop = normalizeCrop(obj.crop);
+      const rect = imageSourceRectForBox(image, crop);
+      return {
+        x: (pixel.x - rect.sx) / Math.max(1, rect.sw) * obj.width,
+        y: (pixel.y - rect.sy) / Math.max(1, rect.sh) * obj.height
+      };
     }
 
     function pushMaskHistory(obj) {
@@ -6506,7 +7041,85 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       const point = objectPointToMask(hit.point, hit.obj, maskCanvas);
       drawMaskStroke(maskCanvas, maskEditor.lastPoint, point);
       maskEditor.lastPoint = point;
-      await composeMaskedImage(hit.obj, maskCanvas);
+      maskEditor.dirty = true;
+      hit.obj.maskCanvas = maskCanvas;
+      scheduleMaskRender();
+    }
+
+    function pushStampHistory(obj) {
+      if (!obj.cloneCanvas) return;
+      stampEditor.history.push(obj.cloneCanvas.toDataURL("image/png"));
+      if (stampEditor.history.length > 20) stampEditor.history.shift();
+    }
+
+    function scheduleStampRender() {
+      if (stampEditor.renderQueued) return;
+      stampEditor.renderQueued = true;
+      requestAnimationFrame(() => {
+        stampEditor.renderQueued = false;
+        renderAll();
+      });
+    }
+
+    function drawStampBrush(editCanvas, sourceCanvas, sourcePoint, destPoint, obj) {
+      const scaleX = editCanvas.width / Math.max(1, obj.width);
+      const scaleY = editCanvas.height / Math.max(1, obj.height);
+      const radius = Math.max(1, stampEditor.brushSize / 2 * (scaleX + scaleY) / 2);
+      const size = Math.max(2, Math.ceil(radius * 2));
+      const temp = document.createElement("canvas");
+      temp.width = size;
+      temp.height = size;
+      const tctx = temp.getContext("2d");
+      tctx.drawImage(sourceCanvas, sourcePoint.x - radius, sourcePoint.y - radius, radius * 2, radius * 2, 0, 0, size, size);
+      const gradient = tctx.createRadialGradient(size / 2, size / 2, radius * stampEditor.hardness, size / 2, size / 2, radius);
+      gradient.addColorStop(0, "rgba(255,255,255,1)");
+      gradient.addColorStop(1, "rgba(255,255,255,0)");
+      tctx.globalCompositeOperation = "destination-in";
+      tctx.fillStyle = gradient;
+      tctx.fillRect(0, 0, size, size);
+      editCanvas.getContext("2d").drawImage(temp, destPoint.x - radius, destPoint.y - radius, radius * 2, radius * 2);
+    }
+
+    async function paintStampAt(event) {
+      const hit = stampPointFromEvent(event);
+      if (!hit || !stampEditor.samplePoint) return;
+      const editCanvas = await ensureObjectCloneCanvas(hit.obj);
+      const destPoint = objectPointToImagePixel(hit.point, hit.obj);
+      if (!stampEditor.sourceOffset) {
+        stampEditor.sourceOffset = {
+          x: stampEditor.samplePoint.x - destPoint.x,
+          y: stampEditor.samplePoint.y - destPoint.y
+        };
+      }
+      const sourcePoint = {
+        x: destPoint.x + stampEditor.sourceOffset.x,
+        y: destPoint.y + stampEditor.sourceOffset.y
+      };
+      drawStampBrush(editCanvas, stampEditor.sourceSnapshot || editCanvas, sourcePoint, destPoint, hit.obj);
+      hit.obj.cloneCanvas = editCanvas;
+      stampEditor.dirty = true;
+      scheduleStampRender();
+    }
+
+    async function commitStampCanvas(obj) {
+      if (!obj?.cloneCanvas) return;
+      const dataUrl = obj.cloneCanvas.toDataURL("image/png");
+      obj.src = dataUrl;
+      obj.image = await loadImage(dataUrl);
+      obj.cloneCanvas = undefined;
+      obj.rmbgEdited = false;
+      stampEditor.dirty = false;
+    }
+
+    async function undoStampStroke() {
+      const obj = state.objects.find(item => item.id === stampEditor.objectId);
+      const previous = stampEditor.history.pop();
+      if (!obj || !previous) return;
+      const image = await loadImage(previous);
+      obj.cloneCanvas = cloneCanvas(image);
+      stampEditor.dirty = true;
+      setStampStatus("已撤销上一笔图章。");
+      syncStampControls();
       renderAll();
     }
 
@@ -6533,11 +7146,14 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       obj.src = obj.originalSrc;
       obj.image = await loadImage(obj.src);
       obj.originalSrc = undefined;
+      obj.originalImage = undefined;
       obj.maskSrc = undefined;
       obj.maskImage = undefined;
       obj.maskCanvas = undefined;
+      obj.cloneCanvas = undefined;
       obj.rmbgEdited = false;
       stopMaskEdit(false);
+      stopStampEdit(false);
       setMaskStatus("已恢复原图。");
       renderAll();
       syncUi();
@@ -6571,6 +7187,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       const els = imageToolEls();
       els.removeBgBtn.addEventListener("click", removeBackgroundFromSelected);
       els.startMaskEditBtn.addEventListener("click", startMaskEditFromSelected);
+      els.startStampEditBtn.addEventListener("click", () => startStampEdit(selected()));
       els.restoreImageBtn.addEventListener("click", restoreSelectedImage);
       els.maskKeepBtn.addEventListener("click", () => {
         maskEditor.mode = "keep";
@@ -6596,6 +7213,23 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       els.finishMaskEditBtn.addEventListener("click", () => {
         stopMaskEdit(true);
         setMaskStatus("修边完成。");
+      });
+      els.stampBrushSize.addEventListener("input", event => {
+        stampEditor.brushSize = Number(event.target.value);
+        syncStampControls();
+        renderAll();
+      });
+      els.stampBrushHardness.addEventListener("input", event => {
+        stampEditor.hardness = Number(event.target.value);
+        syncStampControls();
+      });
+      els.stampUndoBtn.addEventListener("click", undoStampStroke);
+      els.finishStampEditBtn.addEventListener("click", async () => {
+        const obj = state.objects.find(item => item.id === stampEditor.objectId);
+        if (stampEditor.dirty && obj) await commitStampCanvas(obj);
+        stopStampEdit(true);
+        setStampStatus("图章编辑完成。");
+        persist();
       });
       syncMaskControls();
     }
@@ -6698,6 +7332,9 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     });
     wire("addRectBtn", "click", () => addObject(shape("rect", 160, 260, 380, 220, "#ff4d23", { radius: 24 })));
     wire("addCircleBtn", "click", () => addObject(shape("circle", 180, 280, 240, "#2563eb")));
+    wire("addTriangleBtn", "click", () => addObject(shape("triangle", 180, 280, 260, 260, "#ffb000", { lockAspect: true })));
+    wire("addStarBtn", "click", () => addObject(shape("star", 190, 280, 240, 240, "#fff100", { stroke: "#171411", strokeWidth: 3, lockAspect: true })));
+    wire("addPolygonBtn", "click", () => addObject(shape("polygon", 180, 280, 260, 260, "#12b981", { sides: 6, lockAspect: true })));
     wire("addDividerBtn", "click", () => {
       const obj = shape("line", 120, 470, 520, 24, "#171411", { stroke: "#171411", strokeWidth: 1, lockAspect: false });
       addObject(obj);
@@ -6904,6 +7541,8 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     wire("sendBackwardBtn", "click", () => moveLayer(-1));
     wire("bringFrontBtn", "click", () => moveLayer(99));
     wire("sendBackBtn", "click", () => moveLayer(-99));
+    wire("groupLayersBtn", "click", groupSelectedLayers);
+    wire("ungroupLayersBtn", "click", ungroupSelectedLayers);
 
     function moveLayer(delta) {
       const index = state.objects.findIndex(o => o.id === state.selectedId);
@@ -6940,12 +7579,39 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       const objects = selectedObjects();
       if (!objects.length) return;
       saveHistory();
-      const clones = objects.map(obj => ({ ...obj, id: uid(), name: obj.name + " 副本", x: obj.x + 28, y: obj.y + 28 }));
+      const clones = cloneObjectsForPaste(objects);
       state.objects.push(...clones);
       setSelection(clones.map(obj => obj.id));
       renderAll();
       syncUi();
       persist();
+    }
+
+    function cloneObjectsForPaste(objects) {
+      return objects.map(obj => {
+        const clone = cloneObject(obj, { name: `${obj.name} 副本` });
+        clone.x += 28;
+        clone.y += 28;
+        return clone;
+      });
+    }
+
+    function copySelectedObjects() {
+      const objects = selectedObjects();
+      if (!objects.length) return;
+      objectClipboard = objects.map(obj => cloneObject(obj, { keepIds: true }));
+    }
+
+    function pasteCopiedObjects() {
+      if (!objectClipboard.length) return false;
+      saveHistory();
+      const clones = cloneObjectsForPaste(objectClipboard);
+      state.objects.push(...clones);
+      setSelection(clones.map(obj => obj.id));
+      renderAll();
+      syncUi();
+      persist();
+      return true;
     }
 
     wire("selectAllBtn", "click", () => {
@@ -6984,32 +7650,79 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
 
     document.addEventListener("keydown", e => {
       const tag = document.activeElement.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
+      const editingField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || inlineEditing;
+      const mod = e.metaKey || e.ctrlKey;
+      if (editingField) return;
       if (e.code === "Space" && !e.repeat && !inlineEditing) {
         e.preventDefault();
         panState.spaceDown = true;
         document.body.classList.add("space-panning");
         return;
       }
-      if (e.key === "Delete" || e.key === "Backspace") deleteSelected();
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault();
+        deleteSelected();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "a") {
         e.preventDefault();
         setSelection(state.objects.map(obj => obj.id));
         renderAll();
         syncUi();
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "d") {
+      if (mod && e.key.toLowerCase() === "d") {
         e.preventDefault();
         duplicateSelected();
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") undo();
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "y") redo();
+      if (mod && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        copySelectedObjects();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "v" && objectClipboard.length) {
+        e.preventDefault();
+        pasteCopiedObjects();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        if (e.shiftKey) ungroupSelectedLayers();
+        else groupSelectedLayers();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "e" && e.shiftKey) {
+        e.preventDefault();
+        document.getElementById("exportBtn").click();
+        return;
+      }
+      if (mod && e.key === "]") {
+        e.preventDefault();
+        moveLayer(e.shiftKey ? 99 : 1);
+        return;
+      }
+      if (mod && e.key === "[") {
+        e.preventDefault();
+        moveLayer(e.shiftKey ? -99 : -1);
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
       const objects = selectedObjects();
       if (!objects.length) return;
       const step = e.shiftKey ? 10 : 1;
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+        e.preventDefault();
         saveHistory();
         objects.forEach(obj => {
           if (e.key === "ArrowUp") obj.y -= step;
@@ -7105,7 +7818,10 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || inlineEditing) return;
       const items = [...(event.clipboardData?.items || [])];
       const imageItem = items.find(item => item.kind === "file" && item.type.startsWith("image/"));
-      if (!imageItem) return;
+      if (!imageItem) {
+        if (pasteCopiedObjects()) event.preventDefault();
+        return;
+      }
       const file = imageItem.getAsFile();
       if (!file) return;
       event.preventDefault();
@@ -7364,6 +8080,10 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     }
 
     async function normalizeObjectImageSource(obj) {
+      if (obj?.type === "group" && Array.isArray(obj.children)) {
+        for (const child of obj.children) await normalizeObjectImageSource(child);
+        return;
+      }
       if (!obj || obj.type !== "image" || !obj.src || obj.src.startsWith("data:")) return;
       const dataUrl = await assetSourceToDataUrl(obj.src);
       if (dataUrl === obj.src) return;
@@ -7401,8 +8121,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         const sx = state.width / oldW;
         const sy = state.height / oldH;
         state.objects.forEach(o => {
-          o.x *= sx; o.y *= sy; o.width *= sx; o.height *= sy;
-          if (o.type === "text") o.fontSize *= Math.min(sx, sy);
+          scaleObjectFromStart(o, cloneObject(o, { keepIds: true }), sx, sy);
         });
       } else {
         state.objects = [];
@@ -7554,23 +8273,26 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       document.getElementById("propsPanel").classList.toggle("hidden", !objects.length);
       document.getElementById("selectionLabel").textContent = multi ? `${objects.length} 个图层` : obj ? obj.name : "未选中";
       syncBackgroundColorUi();
+      document.getElementById("groupLayersBtn").disabled = objects.length < 2;
+      document.getElementById("ungroupLayersBtn").disabled = !objects.some(item => item.type === "group");
       if (!objects.length || !updateValues) return;
       const isText = obj.type === "text";
       const isShape = obj.type === "shape";
       const isCompoundShape = obj.type === "compoundShape";
       const isImage = obj.type === "image";
+      const isGroup = obj.type === "group";
       const isRect = isShape && obj.kind === "rect";
       const isLine = isShape && obj.kind === "line";
-      const hasAppearance = isText || isShape || isCompoundShape || isImage;
+      const hasAppearance = isText || isShape || isCompoundShape || isImage || isGroup;
       const allText = objects.every(item => item.type === "text");
       const booleanReady = objects.length > 1 && objects.every(item => item.type === "shape" || item.type === "compoundShape");
       document.getElementById("textGroup").classList.toggle("hidden", multi ? !allText : !isText);
       document.getElementById("appearanceGroup").classList.toggle("hidden", multi || !hasAppearance);
       document.getElementById("booleanGroup").classList.toggle("hidden", !booleanReady);
       document.getElementById("imageGroup").classList.toggle("hidden", multi || !isImage);
-      document.getElementById("appearanceGrid").classList.toggle("hidden", isImage);
-      document.getElementById("fillColor").closest(".compact-field").classList.toggle("hidden", isLine);
-      document.getElementById("strokeWidth").closest(".inline-control").classList.toggle("hidden", isImage);
+      document.getElementById("appearanceGrid").classList.toggle("hidden", isImage || isGroup);
+      document.getElementById("fillColor").closest(".compact-field").classList.toggle("hidden", isLine || isGroup);
+      document.getElementById("strokeWidth").closest(".inline-control").classList.toggle("hidden", isImage || isGroup);
       document.getElementById("strokeDashControl").classList.toggle("hidden", !isLine);
       document.getElementById("shapeRadiusControl").classList.toggle("hidden", !isRect);
       document.getElementById("shapeRadiusPresets").classList.toggle("hidden", !isRect);
@@ -7647,7 +8369,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         btn.type = "button";
         btn.draggable = true;
         btn.dataset.layerId = obj.id;
-        const typeLabel = obj.type === "compoundShape" ? "shape" : obj.type;
+        const typeLabel = obj.type === "compoundShape" ? "shape" : obj.type === "group" ? `group · ${(obj.children || []).length}` : obj.type;
         btn.innerHTML = `<span class="layer-name">${obj.name}</span><span class="layer-type">${typeLabel}</span>`;
         btn.onclick = event => {
           if (event.shiftKey || event.metaKey || event.ctrlKey) toggleSelection(obj.id);
