@@ -5155,7 +5155,7 @@
         c.beginPath();
         c.ellipse(obj.width / 2, obj.height / 2, obj.width / 2, obj.height / 2, 0, 0, Math.PI * 2);
       } else if (["triangle", "star", "polygon"].includes(obj.kind)) {
-        roundedPolygonPath(c, shapePoints(obj), obj.kind === "star" || obj.kind === "polygon" ? obj.radius : 0);
+        roundedPolygonPath(c, shapePoints(obj), obj.radius || 0);
       } else {
         roundRect(c, 0, 0, obj.width, obj.height, obj.radius);
       }
@@ -5306,7 +5306,7 @@
       } else if (obj.kind === "circle") {
         node = `<ellipse cx="${svgNum(obj.width / 2)}" cy="${svgNum(obj.height / 2)}" rx="${svgNum(obj.width / 2)}" ry="${svgNum(obj.height / 2)}" ${common}></ellipse>`;
       } else if (["triangle", "star", "polygon"].includes(obj.kind)) {
-        node = `<path d="${svgRoundedPointsPath(shapePoints(obj), obj.kind === "star" || obj.kind === "polygon" ? obj.radius : 0)}" ${common}></path>`;
+        node = `<path d="${svgRoundedPointsPath(shapePoints(obj), obj.radius || 0)}" ${common}></path>`;
       } else {
         node = `<path d="${svgRoundRectPath(obj.width, obj.height, obj.radius)}" ${common}></path>`;
       }
@@ -5407,7 +5407,7 @@
         c.beginPath();
         c.rect(0, obj.height / 2 - c.lineWidth / 2, obj.width, c.lineWidth);
       } else if (["triangle", "star", "polygon"].includes(obj.kind)) {
-        roundedPolygonPath(c, shapePoints(obj), obj.kind === "star" || obj.kind === "polygon" ? obj.radius : 0);
+        roundedPolygonPath(c, shapePoints(obj), obj.radius || 0);
       } else {
         roundRect(c, 0, 0, obj.width, obj.height, obj.radius || 0);
       }
@@ -5661,8 +5661,8 @@
         mode: handle.dataset.mode,
         name: handle.dataset.name,
         start: p,
-        obj: selected() ? { ...selected() } : null,
-        objects: objects.map(o => ({ ...o })),
+        obj: selected() ? cloneObject(selected(), { keepIds: true }) : null,
+        objects: objects.map(o => cloneObject(o, { keepIds: true })),
         bounds: selectionBounds(objects),
         saved: false
       };
@@ -5717,7 +5717,7 @@
       const handle = hitHandle(p, obj);
       if (handle) {
         const objects = selectedObjects();
-        state.dragging = { mode: handle.mode, start: p, obj: { ...obj }, objects: objects.map(o => ({ ...o })), bounds: selectionBounds(objects), saved: false };
+        state.dragging = { mode: handle.mode, start: p, obj: cloneObject(obj, { keepIds: true }), objects: objects.map(o => cloneObject(o, { keepIds: true })), bounds: selectionBounds(objects), saved: false };
         canvas.setPointerCapture(e.pointerId);
         renderAll();
         syncUi();
@@ -5735,7 +5735,7 @@
       }
       if (target) {
         const objects = selectedObjects();
-        state.dragging = { mode: "move", start: p, obj: { ...target }, objects: objects.map(o => ({ ...o })), saved: false };
+        state.dragging = { mode: "move", start: p, obj: cloneObject(target, { keepIds: true }), objects: objects.map(o => cloneObject(o, { keepIds: true })), saved: false };
         canvas.setPointerCapture(e.pointerId);
       } else {
         swipeSelect.active = true;
@@ -7411,7 +7411,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
     wire("addRectBtn", "click", () => addObject(shape("rect", 160, 260, 380, 220, "#ff4d23", { radius: 24 })));
     wire("addCircleBtn", "click", () => addObject(shape("circle", 180, 280, 240, "#2563eb")));
     wire("addTriangleBtn", "click", () => addObject(shape("triangle", 180, 280, 260, 260, "#ffb000", { lockAspect: true })));
-    wire("addStarBtn", "click", () => addObject(shape("star", 190, 280, 240, 240, "#fff100", { stroke: "#171411", strokeWidth: 3, lockAspect: true })));
+    wire("addStarBtn", "click", () => addObject(shape("star", 190, 280, 240, 240, "#fff100", { strokeWidth: 0, lockAspect: true })));
     wire("addPolygonBtn", "click", () => addObject(shape("polygon", 180, 280, 260, 260, "#12b981", { sides: 6, lockAspect: true })));
     wire("addDividerBtn", "click", () => {
       const obj = shape("line", 120, 470, 520, 24, "#171411", { stroke: "#171411", strokeWidth: 1, lockAspect: false });
@@ -8367,6 +8367,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       const isGroup = obj.type === "group";
       const isRect = isShape && obj.kind === "rect";
       const isLine = isShape && obj.kind === "line";
+      const isTriangle = isShape && obj.kind === "triangle";
       const isPolygon = isShape && obj.kind === "polygon";
       const isStar = isShape && obj.kind === "star";
       const hasAppearance = isText || isShape || isCompoundShape || isImage || isGroup;
@@ -8380,7 +8381,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       document.getElementById("fillColor").closest(".compact-field").classList.toggle("hidden", isLine || isGroup);
       document.getElementById("strokeWidth").closest(".inline-control").classList.toggle("hidden", isImage || isGroup);
       document.getElementById("strokeDashControl").classList.toggle("hidden", !isLine);
-      document.getElementById("shapeRadiusControl").classList.toggle("hidden", !(isRect || isPolygon || isStar));
+      document.getElementById("shapeRadiusControl").classList.toggle("hidden", !(isRect || isTriangle || isPolygon || isStar));
       document.getElementById("shapeSidesControl").classList.toggle("hidden", !isPolygon);
       document.getElementById("shapeStarPointsControl").classList.toggle("hidden", !isStar);
       document.getElementById("shapeRadiusPresets").classList.toggle("hidden", !isRect);
