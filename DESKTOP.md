@@ -87,6 +87,12 @@ Hard requirements for every release:
 - Verify `latest.json` contains all three platform keys and points to the GitHub Release download URLs.
 - Verify the GitHub Release is marked as `Latest`.
 - Verify the uploaded asset digests match local SHA256 values.
+- Verify the updater endpoint can be fetched with redirects from the same network users are likely to use:
+  - `https://github.com/kim-wing/social-cover-designer/releases/latest/download/latest.json`
+  - the redirected `https://github.com/.../releases/download/v<version>/latest.json`
+  - the final `https://release-assets.githubusercontent.com/...` asset URL
+- Treat `error sending request for url` as a network/update-source reachability issue first, not as a package-signature issue. GitHub Release downloads depend on both `github.com` and `release-assets.githubusercontent.com`.
+- If users cannot reliably reach GitHub Release assets, mirror the same `latest.json` and all updater packages to a reliable CDN before shipping the next release, then add that CDN as an additional updater endpoint in `src-tauri/tauri.conf.json`.
 - Verify an older installed app can check the GitHub endpoint and see the newer version.
 
 Do not treat a release as finished if any platform package, signature, or `latest.json` entry is missing. If Windows packaging is delayed, hold the release instead of publishing a macOS-only update.
@@ -97,7 +103,7 @@ The updater endpoint is:
 https://github.com/kim-wing/social-cover-designer/releases/latest/download/latest.json
 ```
 
-GitHub Release is the current update source. If users cannot reach GitHub or `release-assets.githubusercontent.com`, the updater may fail even when the package is correct; in that case, mirror the same `latest.json` and assets to a more reliable CDN and add it as another updater endpoint.
+GitHub Release is the current update source. If users cannot reach GitHub or `release-assets.githubusercontent.com`, the updater may fail even when the package is correct. In that case, a previously shipped build cannot be fixed remotely if its only endpoint is GitHub; users must install the newer build manually once. Future builds should include a mirrored CDN endpoint so automatic updates can fall back when GitHub Release redirects are blocked.
 
 For local update testing:
 

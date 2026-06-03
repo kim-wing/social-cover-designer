@@ -66,3 +66,5 @@ YOUDESIGN-1.0.15-win-x64-setup.exe.sig: sha256:e62884c28ddfdcb96facfc61c0842801a
 - GitHub Actions run: `26870513123`.
 - The first bulk `gh release create` upload stalled after creating a draft release and uploading small assets. Missing large assets were uploaded individually with `gh release upload`, then the draft was published as `latest`.
 - The macOS build must run with `/usr/bin` before Python Framework paths in `PATH`; otherwise Tauri may pick `/Library/Frameworks/Python.framework/Versions/3.10/bin/xattr` and fail bundling.
+- Auto-update issue observed from v1.0.14: `error sending request for url (https://github.com/kim-wing/social-cover-designer/releases/latest/download/latest.json)` indicates the installed app could not reach the update source. The GitHub updater URL redirects through `github.com` and then `release-assets.githubusercontent.com`; both domains must be reachable by the desktop app, not only by the browser.
+- Future releases must explicitly check updater reachability and should add a mirrored CDN endpoint if GitHub Release assets are not reliable for users.
