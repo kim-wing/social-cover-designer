@@ -578,6 +578,193 @@
       line-height: 1.35;
     }
 
+    .stock-panel {
+      display: grid;
+      gap: 12px;
+      padding-top: 8px;
+    }
+
+    .stock-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .stock-head strong {
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .stock-head span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .stock-key-guide {
+      border: 1px solid rgba(0, 113, 227, .16);
+      border-radius: 14px;
+      background: rgba(0, 113, 227, .05);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .stock-key-guide summary {
+      cursor: pointer;
+      color: #1d1d1f;
+      font-size: 12px;
+      font-weight: 800;
+      outline: none;
+      min-height: 24px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      list-style: none;
+    }
+
+    .stock-key-guide summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .stock-key-guide summary::before {
+      content: "";
+      width: 0;
+      height: 0;
+      border-top: 4px solid transparent;
+      border-bottom: 4px solid transparent;
+      border-left: 6px solid var(--accent);
+      flex: 0 0 auto;
+      transform: translateY(.5px);
+    }
+
+    .stock-key-guide[open] summary::before {
+      transform: rotate(90deg) translateX(.5px);
+    }
+
+    .stock-key-guide ol {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .stock-key-guide li {
+      margin: 2px 0;
+    }
+
+    .stock-search-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 76px;
+      gap: 8px;
+    }
+
+    .stock-search-row .compact-field {
+      display: grid;
+      grid-template-rows: 16px 40px;
+      gap: 4px;
+    }
+
+    .stock-search-row .mini-btn {
+      height: 40px;
+      min-height: 40px;
+      margin-bottom: 0;
+      align-self: end;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    .stock-search-row input {
+      height: 40px;
+      min-height: 40px;
+    }
+
+    .stock-results {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      min-height: 96px;
+    }
+
+    .stock-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .86);
+      overflow: hidden;
+      color: var(--ink);
+      box-shadow: var(--inner-shadow);
+    }
+
+    .stock-card:hover {
+      border-color: rgba(0, 113, 227, .38);
+      background: #fff;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, .08);
+    }
+
+    .stock-photo-btn {
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      display: block;
+      cursor: pointer;
+    }
+
+    .stock-card img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      display: block;
+      object-fit: cover;
+      background: #eceef2;
+    }
+
+    .stock-meta {
+      display: grid;
+      gap: 3px;
+      padding: 8px;
+      min-width: 0;
+    }
+
+    .stock-meta strong,
+    .stock-meta span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .stock-meta strong {
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .stock-meta span {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .stock-meta a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .stock-meta a:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    .stock-status {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      min-height: 18px;
+    }
+
+    .stock-status.is-error {
+      color: #ef4444;
+    }
+
     .upload-icon .ri,
     .element-icon .ri,
     .tool-chip strong .ri {
@@ -3551,7 +3738,7 @@
         <nav class="quick-tools" id="quickTools" aria-label="编辑工具栏">
           <button class="tool-chip active" type="button" data-panel="sizeSection"><strong>▣</strong><span>尺寸</span></button>
           <button class="tool-chip" type="button" data-panel="promptSection"><strong>词</strong><span>Prompt</span></button>
-          <button class="tool-chip" type="button" data-panel="imageTools" data-action="upload"><strong>▧</strong><span>图片</span></button>
+          <button class="tool-chip" type="button" data-panel="imageTools"><strong>▧</strong><span>图片</span></button>
           <button class="tool-chip" type="button" data-panel="textTools"><strong>T</strong><span>文字</span></button>
           <button class="tool-chip" type="button" data-panel="shapeTools"><strong>△</strong><span>形状</span></button>
           <button class="tool-chip" type="button" data-panel="mascotPanel"><strong>侠</strong><span>素材</span></button>
@@ -3730,6 +3917,42 @@
               </span>
             </button>
             <input class="file-input" id="imageInput" type="file" accept="image/*">
+            <div class="stock-panel" id="unsplashPanel">
+              <div class="stock-head">
+                <div>
+                  <strong>免费图库</strong>
+                  <span>Unsplash</span>
+                </div>
+                <button class="mini-btn" id="unsplashKeyHelpBtn" type="button">申请 Key</button>
+              </div>
+              <details class="stock-key-guide">
+                <summary>第一次使用怎么拿到 Key</summary>
+                <ol>
+                  <li>点击“申请 Key”，打开 Unsplash Developers。</li>
+                  <li>登录后进入 Your applications，选择 New Application。</li>
+                  <li>勾选 API 条款后填写应用名称，例如 YOUDESIGN。</li>
+                  <li>创建后复制 Access Key，粘贴到下面输入框。</li>
+                </ol>
+              </details>
+              <div class="compact-field">
+                <label for="unsplashAccessKey">Unsplash Access Key</label>
+                <input id="unsplashAccessKey" type="password" placeholder="填写自己的 Unsplash Access Key">
+              </div>
+              <div class="stock-search-row">
+                <div class="compact-field">
+                  <label for="unsplashQuery">搜索关键词</label>
+                  <input id="unsplashQuery" type="search" placeholder="例如：mountain, beach, city">
+                </div>
+                <button class="mini-btn active" id="unsplashSearchBtn" type="button">搜索</button>
+              </div>
+              <div class="stock-results" id="unsplashResults">
+                <div class="empty">填写 Key 后搜索 Unsplash 免费图片。</div>
+              </div>
+              <div class="button-row two">
+                <button class="mini-btn" id="unsplashLoadMoreBtn" type="button" disabled>加载更多</button>
+              </div>
+              <div class="stock-status" id="unsplashStatus">图片免费使用；API 集成会显示摄影师署名并记录下载。</div>
+            </div>
           </div>
           <div class="element-group add-subpanel" id="textTools">
             <p class="element-title">文字</p>
@@ -4066,6 +4289,9 @@
     const inlineTextEditor = document.getElementById("inlineTextEditor");
     const STORAGE_KEY = "social-cover-designer-v3";
     const IMAGE_API_KEY_STORAGE = "youdesign-openai-image-api-key";
+    const UNSPLASH_ACCESS_KEY_STORAGE = "youdesign-unsplash-access-key";
+    const UNSPLASH_API_BASE = "https://api.unsplash.com";
+    const UNSPLASH_KEY_HELP_URL = "https://unsplash.com/developers";
     const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
     const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
     const RMBG_MODEL_ID = "briaai/RMBG-1.4";
@@ -4431,6 +4657,7 @@
     };
     const panState = { spaceDown: false, active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 };
     const swipeSelect = { active: false, ids: new Set(), started: false, start: null, current: null };
+    const unsplashState = { query: "", page: 1, totalPages: 0, results: [], loading: false };
 
     function uid() {
       return Math.random().toString(36).slice(2, 10);
@@ -6526,6 +6753,182 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       return payload;
     }
 
+    function openExternalLink(url) {
+      const opener = window.__TAURI__?.opener;
+      if (opener?.openUrl) {
+        opener.openUrl(url).catch(() => window.open(url, "_blank", "noopener"));
+        return;
+      }
+      window.open(url, "_blank", "noopener");
+    }
+
+    function unsplashEls() {
+      return {
+        accessKey: document.getElementById("unsplashAccessKey"),
+        query: document.getElementById("unsplashQuery"),
+        searchBtn: document.getElementById("unsplashSearchBtn"),
+        loadMoreBtn: document.getElementById("unsplashLoadMoreBtn"),
+        keyHelpBtn: document.getElementById("unsplashKeyHelpBtn"),
+        results: document.getElementById("unsplashResults"),
+        status: document.getElementById("unsplashStatus")
+      };
+    }
+
+    function setUnsplashStatus(message, type = "") {
+      const status = document.getElementById("unsplashStatus");
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle("is-error", type === "error");
+    }
+
+    async function requestUnsplashJson(path, apiKey, params = {}) {
+      const url = new URL(/^https?:\/\//i.test(path) ? path : `${UNSPLASH_API_BASE}${path}`);
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
+      });
+      return requestJson(url.toString(), {
+        headers: {
+          "Authorization": `Client-ID ${apiKey}`,
+          "Accept": "application/json"
+        }
+      });
+    }
+
+    function renderUnsplashResults() {
+      const els = unsplashEls();
+      els.results.innerHTML = "";
+      if (!unsplashState.results.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent = unsplashState.loading ? "正在搜索 Unsplash..." : "暂无结果，换个关键词试试。";
+        els.results.appendChild(empty);
+        els.loadMoreBtn.disabled = true;
+        return;
+      }
+      unsplashState.results.forEach(photo => {
+        const card = document.createElement("div");
+        card.className = "stock-card";
+        const photoButton = document.createElement("button");
+        photoButton.className = "stock-photo-btn";
+        photoButton.type = "button";
+        photoButton.title = "加入画布";
+
+        const img = document.createElement("img");
+        img.src = photo.urls?.small || photo.urls?.thumb || "";
+        img.alt = photo.alt_description || photo.description || "Unsplash photo";
+        img.loading = "lazy";
+
+        const meta = document.createElement("span");
+        meta.className = "stock-meta";
+        const title = document.createElement("strong");
+        title.textContent = photo.alt_description || photo.description || "Unsplash 图片";
+        const credit = document.createElement("span");
+        credit.append("Photo by ");
+        const userLink = document.createElement("a");
+        userLink.href = photo.user?.links?.html || "https://unsplash.com";
+        userLink.target = "_blank";
+        userLink.rel = "noopener noreferrer";
+        userLink.textContent = photo.user?.name || "Unsplash";
+        const unsplashLink = document.createElement("a");
+        unsplashLink.href = "https://unsplash.com";
+        unsplashLink.target = "_blank";
+        unsplashLink.rel = "noopener noreferrer";
+        unsplashLink.textContent = "Unsplash";
+        credit.append(userLink, " on ", unsplashLink);
+        meta.append(title, credit);
+        photoButton.appendChild(img);
+        photoButton.addEventListener("click", () => addUnsplashPhotoToCanvas(photo));
+        card.append(photoButton, meta);
+        els.results.appendChild(card);
+      });
+      els.loadMoreBtn.disabled = unsplashState.loading || unsplashState.page >= unsplashState.totalPages;
+    }
+
+    async function searchUnsplashPhotos({ reset = true } = {}) {
+      const els = unsplashEls();
+      const apiKey = els.accessKey.value.trim();
+      const query = els.query.value.trim();
+      if (!apiKey) {
+        setUnsplashStatus("请先填写自己的 Unsplash Access Key。", "error");
+        els.accessKey.focus();
+        return;
+      }
+      if (!query) {
+        setUnsplashStatus("请输入搜索关键词。", "error");
+        els.query.focus();
+        return;
+      }
+      localStorage.setItem(UNSPLASH_ACCESS_KEY_STORAGE, apiKey);
+      if (reset) {
+        unsplashState.query = query;
+        unsplashState.page = 1;
+        unsplashState.totalPages = 0;
+        unsplashState.results = [];
+      } else {
+        unsplashState.page += 1;
+      }
+      unsplashState.loading = true;
+      els.searchBtn.disabled = true;
+      els.loadMoreBtn.disabled = true;
+      renderUnsplashResults();
+      setUnsplashStatus("正在搜索 Unsplash...", "loading");
+      try {
+        const payload = await requestUnsplashJson("/search/photos", apiKey, {
+          query: unsplashState.query,
+          page: unsplashState.page,
+          per_page: 12,
+          content_filter: "high"
+        });
+        unsplashState.totalPages = payload.total_pages || 0;
+        const results = Array.isArray(payload.results) ? payload.results : [];
+        unsplashState.results = reset ? results : [...unsplashState.results, ...results];
+        setUnsplashStatus(results.length ? `已加载 ${unsplashState.results.length} 张图片。点击图片加入画布。` : "没有找到图片，换个关键词试试。");
+      } catch (error) {
+        const message = error?.message || "Unsplash 搜索失败，请检查 Key、额度或网络。";
+        setUnsplashStatus(`搜索失败：${message}`, "error");
+      } finally {
+        unsplashState.loading = false;
+        els.searchBtn.disabled = false;
+        renderUnsplashResults();
+      }
+    }
+
+    async function trackUnsplashDownload(photo, apiKey) {
+      const location = photo?.links?.download_location;
+      if (!location) return;
+      try {
+        await requestUnsplashJson(location, apiKey);
+      } catch (error) {
+        console.warn("Unsplash download tracking failed", error);
+      }
+    }
+
+    async function addUnsplashPhotoToCanvas(photo) {
+      const els = unsplashEls();
+      const apiKey = els.accessKey.value.trim();
+      if (!apiKey) {
+        setUnsplashStatus("请先填写自己的 Unsplash Access Key。", "error");
+        return;
+      }
+      const src = photo.urls?.regular || photo.urls?.full || photo.urls?.small;
+      if (!src) {
+        setUnsplashStatus("这张图片缺少可用地址。", "error");
+        return;
+      }
+      setUnsplashStatus("正在下载图片并加入画布...", "loading");
+      try {
+        await trackUnsplashDownload(photo, apiKey);
+        const stableSrc = await assetSourceToDataUrl(src);
+        await addImageSourceToCanvas(stableSrc, {
+          name: `Unsplash - ${photo.user?.name || "photo"}`
+        });
+        setUnsplashStatus(`已加入画布：Photo by ${photo.user?.name || "Unsplash"} on Unsplash`);
+      } catch (error) {
+        const message = error?.message || "图片加入失败，请检查网络。";
+        setUnsplashStatus(`加入失败：${message}`, "error");
+      }
+    }
+
     function extractImageSourceFromContent(content) {
       if (!content) return "";
       if (typeof content !== "string") {
@@ -7261,6 +7664,27 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       generateTourismPrompt();
     }
 
+    function setupUnsplashLibrary() {
+      const els = unsplashEls();
+      if (!els.accessKey || !els.query || !els.searchBtn) return;
+      const savedKey = localStorage.getItem(UNSPLASH_ACCESS_KEY_STORAGE);
+      if (savedKey) {
+        els.accessKey.value = savedKey;
+        setUnsplashStatus("已读取本地保存的 Unsplash Access Key。输入关键词即可搜索。");
+      }
+      els.accessKey.addEventListener("input", event => {
+        localStorage.setItem(UNSPLASH_ACCESS_KEY_STORAGE, event.target.value.trim());
+      });
+      els.searchBtn.addEventListener("click", () => searchUnsplashPhotos({ reset: true }));
+      els.loadMoreBtn.addEventListener("click", () => searchUnsplashPhotos({ reset: false }));
+      els.keyHelpBtn.addEventListener("click", () => openExternalLink(UNSPLASH_KEY_HELP_URL));
+      els.query.addEventListener("keydown", event => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        searchUnsplashPhotos({ reset: true });
+      });
+    }
+
     function setupMaskTools() {
       const els = imageToolEls();
       els.removeBgBtn.addEventListener("click", removeBackgroundFromSelected);
@@ -7347,9 +7771,6 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
         button.addEventListener("focus", open);
         button.addEventListener("click", e => {
           open();
-          if (button.dataset.action === "upload") {
-            document.getElementById("imageInput").click();
-          }
         });
       });
       left.addEventListener("mouseenter", () => window.clearTimeout(window.__toolPanelTimer));
@@ -8642,6 +9063,7 @@ ${routeLines ? `${routeLines}\n` : ""}风格方向：${style}。
       setupInspectorInteractions();
       setupTauriDesktopBridge();
       setupPromptGenerator();
+      setupUnsplashLibrary();
       setupMaskTools();
       setupToolPanelHover();
       setupUpdateUi();
