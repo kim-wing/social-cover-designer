@@ -91,4 +91,35 @@ cargo check --manifest-path src-tauri/Cargo.toml: passed
 npm run build: passed during local app checks
 ```
 
-Signed updater assets and GitHub release upload are being regenerated for the v1.0.17 overwrite.
+## Release Overwrite Build Results
+
+Commit:
+
+```text
+bbc1fd7 Improve AI image prompt and edit flow
+```
+
+Windows workflow:
+
+```text
+https://github.com/kim-wing/social-cover-designer/actions/runs/26938593465
+Artifact ID: 7406098758
+```
+
+Generated release assets:
+
+```text
+latest.json: sha256:45c5e79668b97d16d40b2342503b6989b59161f77662b81a5d4e62dcd4c985f1
+YOUDESIGN-1.0.17-mac-x64.app.tar.gz: sha256:d3b679e52fde34c5e2efe49f2d9018e5db6c9044804e007672a379c265d2a29b
+YOUDESIGN-1.0.17-mac-x64.app.tar.gz.sig: sha256:10a22443cd748f18d9f67aacf03fdd53c490878524290be796a10ac984ce39db
+YOUDESIGN-1.0.17-mac-arm64.app.tar.gz: sha256:8720bbb327d765ebe2c5d19916cc93f7abe65b8d4c2c1484c95f951b78946b91
+YOUDESIGN-1.0.17-mac-arm64.app.tar.gz.sig: sha256:9bdfe29806af4037b812aefeaa6c1d1f40a461edbfb543e598a10c09756666d2
+YOUDESIGN-1.0.17-win-x64-setup.exe: sha256:0bf4a0ba108b494a2f000d67fd97fa2d900c837985bafbe1fc8a790c1f76263d
+YOUDESIGN-1.0.17-win-x64-setup.exe.sig: sha256:7dfd51923846cc0dea0005ef6500c2fefc6e59d579e2508726b4fdfeeafed7fc
+```
+
+GitHub release upload target:
+
+```text
+https://github.com/kim-wing/social-cover-designer/releases/tag/v1.0.17
+```
