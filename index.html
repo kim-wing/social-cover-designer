@@ -46,7 +46,7 @@
       <aside class="left">
         <nav class="quick-tools" id="quickTools" aria-label="编辑工具栏">
           <button class="tool-chip active" type="button" data-panel="sizeSection"><strong>▣</strong><span>尺寸</span></button>
-          <button class="tool-chip" type="button" data-panel="promptSection"><strong>词</strong><span>Prompt</span></button>
+          <button class="tool-chip" type="button" data-panel="promptSection"><strong>AI</strong><span>AI生图</span></button>
           <button class="tool-chip" type="button" data-panel="imageTools"><strong>▧</strong><span>图片</span></button>
           <button class="tool-chip" type="button" data-panel="textTools"><strong>T</strong><span>文字</span></button>
           <button class="tool-chip" type="button" data-panel="shapeTools"><strong>△</strong><span>形状</span></button>
@@ -78,129 +78,169 @@
         </section>
 
         <section class="section" id="promptSection">
-          <h2>关键词 <small>旅游 Prompt</small></h2>
-          <div class="prompt-generator" aria-label="旅游 Prompt 生成器">
-            <div class="field-grid">
-              <div class="compact-field">
-                <label for="genTitle">线路 / 目的地</label>
-                <input id="genTitle" type="text" placeholder="杭州周边两日游">
-              </div>
-              <div class="compact-field">
-                <label for="genUseCase">宣发场景</label>
-                <select id="genUseCase">
-                  <option>线路主海报</option>
-                  <option>行程卡片</option>
-                  <option>地图路线图</option>
-                  <option>节假日活动海报</option>
-                  <option>目的地专题封面</option>
-                  <option>社媒封面图</option>
-                </select>
-              </div>
-              <div class="compact-field">
-                <label for="genAudience">目标客群</label>
-                <select id="genAudience">
-                  <option>年轻女性</option>
-                  <option>亲子家庭</option>
-                  <option>朋友结伴出游</option>
-                  <option>徒步爱好者</option>
-                  <option>摄影爱好者</option>
-                  <option>银发客群</option>
-                  <option>企业团建</option>
-                </select>
-              </div>
-              <div class="compact-field">
-                <label for="genAspect">画幅比例</label>
-                <select id="genAspect">
-                  <option>9:16 竖版</option>
-                  <option>4:5 社媒竖版</option>
-                  <option>3:4 海报</option>
-                  <option>1:1 方图</option>
-                  <option>16:9 横版</option>
-                </select>
-              </div>
-              <div class="compact-field">
-                <label for="genStyle">风格方向</label>
-                <select id="genStyle">
-                  <option>极简平面海报风</option>
-                  <option>旅游杂志编辑风</option>
-                  <option>地图信息图风</option>
-                  <option>拼贴纪实旅行风</option>
-                  <option>国潮文旅海报风</option>
-                  <option>双重曝光城市海报风</option>
-                  <option>3D 迪士尼风格</option>
-                  <option>扁平插画风</option>
-                  <option>轻奢品牌广告风</option>
-                  <option>旅行手账拼贴风</option>
-                </select>
-              </div>
-              <div class="compact-field">
-                <label for="genDensity">文字密度</label>
-                <select id="genDensity">
-                  <option>少字，留白充足</option>
-                  <option>中等信息量</option>
-                  <option>信息丰富但清晰</option>
-                </select>
+          <h2>AI生图 <small>生成 / 二次编辑</small></h2>
+          <div class="prompt-generator" aria-label="AI 生图工具">
+            <div class="ai-block ai-account-block">
+              <div class="ai-block-head">
+                <strong>账号</strong>
+                <button class="mini-btn" id="quickRouterKeyHelpBtn" type="button">申请 API Key</button>
               </div>
               <div class="compact-field full">
-                <label for="genSelling">核心卖点</label>
-                <input id="genSelling" type="text" placeholder="山水、民宿、轻徒步、美食">
+                <label for="imageApiKey">QuickRouter API Key</label>
+                <input id="imageApiKey" type="password" autocomplete="off" placeholder="填入自己的 QuickRouter API Key">
+                <input id="imageApiBase" type="hidden" value="https://api.quickrouter.ai/v1">
               </div>
-              <div class="compact-field">
-                <label for="genDeparture">出发地</label>
-                <input id="genDeparture" type="text" placeholder="上海 / 杭州 / 北京">
+              <label class="compact-check">
+                <input id="rememberImageApiKey" type="checkbox">
+                <span>保存 API Key 到本机</span>
+              </label>
+            </div>
+
+            <div class="ai-block">
+              <div class="ai-block-head">
+                <strong>生成新图</strong>
+                <span id="imagePromptModeHint">填写业务信息后自动整理 Prompt</span>
               </div>
-              <div class="compact-field">
-                <label for="genDestination">目的地</label>
-                <input id="genDestination" type="text" placeholder="千岛湖 / 西安 / 三亚">
+              <div class="prompt-mode-row" role="group" aria-label="Prompt 模式">
+                <button class="mini-btn active" id="businessPromptModeBtn" type="button" data-prompt-mode="business">业务 Prompt</button>
+                <button class="mini-btn" id="customPromptModeBtn" type="button" data-prompt-mode="custom">自定义 Prompt</button>
               </div>
-              <div class="compact-field">
-                <label for="genDays">天数</label>
-                <input id="genDays" type="text" placeholder="2日 / 3天2晚">
+              <div class="field-grid">
+                <div class="compact-field business-prompt-field">
+                  <label for="genTitle">线路 / 目的地</label>
+                  <input id="genTitle" type="text" placeholder="杭州周边两日游">
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genUseCase">宣发场景</label>
+                  <select id="genUseCase">
+                    <option>线路主海报</option>
+                    <option>行程卡片</option>
+                    <option>地图路线图</option>
+                    <option>节假日活动海报</option>
+                    <option>目的地专题封面</option>
+                    <option>社媒封面图</option>
+                  </select>
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genAudience">目标客群</label>
+                  <select id="genAudience">
+                    <option>年轻女性</option>
+                    <option>亲子家庭</option>
+                    <option>朋友结伴出游</option>
+                    <option>徒步爱好者</option>
+                    <option>摄影爱好者</option>
+                    <option>银发客群</option>
+                    <option>企业团建</option>
+                  </select>
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genAspect">画幅比例</label>
+                  <select id="genAspect">
+                    <option>9:16 竖版</option>
+                    <option>4:5 社媒竖版</option>
+                    <option>3:4 海报</option>
+                    <option>1:1 方图</option>
+                    <option>16:9 横版</option>
+                  </select>
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genStyle">风格方向</label>
+                  <select id="genStyle">
+                    <option>极简平面海报风</option>
+                    <option>旅游杂志编辑风</option>
+                    <option>地图信息图风</option>
+                    <option>拼贴纪实旅行风</option>
+                    <option>国潮文旅海报风</option>
+                    <option>双重曝光城市海报风</option>
+                    <option>3D 迪士尼风格</option>
+                    <option>扁平插画风</option>
+                    <option>轻奢品牌广告风</option>
+                    <option>旅行手账拼贴风</option>
+                  </select>
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genDensity">文字密度</label>
+                  <select id="genDensity">
+                    <option>少字，留白充足</option>
+                    <option>中等信息量</option>
+                    <option>信息丰富但清晰</option>
+                  </select>
+                </div>
+                <div class="compact-field full business-prompt-field">
+                  <label for="genSelling">核心卖点</label>
+                  <input id="genSelling" type="text" placeholder="山水、民宿、轻徒步、美食">
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genDeparture">出发地</label>
+                  <input id="genDeparture" type="text" placeholder="上海 / 杭州 / 北京">
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genDestination">目的地</label>
+                  <input id="genDestination" type="text" placeholder="千岛湖 / 西安 / 三亚">
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genDays">天数</label>
+                  <input id="genDays" type="text" placeholder="2日 / 3天2晚">
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genTime">出发时间</label>
+                  <input id="genTime" type="text" placeholder="周六发团 / 5月1日">
+                </div>
+                <div class="compact-field business-prompt-field">
+                  <label for="genPrice">价格</label>
+                  <input id="genPrice" type="text" placeholder="¥1299起">
+                </div>
+                <div class="compact-field full hidden business-prompt-field" id="genItineraryField">
+                  <label for="genItinerary">行程内容</label>
+                  <textarea id="genItinerary" placeholder="D1 西湖漫步 - 午餐 - 晚霞游船；D2 灵隐寺 - 龙井村 - 返回"></textarea>
+                </div>
+                <div class="compact-field full hidden business-prompt-field" id="genPointsField">
+                  <label for="genPoints">点位内容</label>
+                  <textarea id="genPoints" placeholder="西湖 - 雷峰塔 - 灵隐寺 - 龙井村 - 宋城"></textarea>
+                </div>
+                <div class="compact-field full business-prompt-field">
+                  <label for="genExtra">补充要求</label>
+                  <textarea id="genExtra" placeholder="预留顶部标题区和底部报名信息区，不要过度复杂"></textarea>
+                </div>
+                <div class="compact-field full custom-prompt-field hidden">
+                  <label for="customImagePrompt">自定义 Prompt</label>
+                  <textarea id="customImagePrompt" placeholder="直接输入完整生图 Prompt，例如：生成一张适合小红书封面的雪山徒步海报，画面干净，高级品牌广告质感，预留标题区"></textarea>
+                </div>
+                <div class="compact-field">
+                  <label for="imageModel">生图模型</label>
+                  <input id="imageModel" type="text" value="gpt-image-2">
+                </div>
+                <div class="compact-field">
+                  <label for="imageResolution">生成质量</label>
+                  <select id="imageResolution">
+                    <option value="low">快速</option>
+                    <option value="medium" selected>标准</option>
+                    <option value="high">高清</option>
+                  </select>
+                </div>
+                <div class="compact-field output full business-prompt-field">
+                  <label for="generatedPrompt">生成结果</label>
+                  <textarea id="generatedPrompt" readonly></textarea>
+                </div>
               </div>
-              <div class="compact-field">
-                <label for="genTime">出发时间</label>
-                <input id="genTime" type="text" placeholder="周六发团 / 5月1日">
-              </div>
-              <div class="compact-field">
-                <label for="genPrice">价格</label>
-                <input id="genPrice" type="text" placeholder="¥1299起">
-              </div>
-              <div class="compact-field full hidden" id="genItineraryField">
-                <label for="genItinerary">行程内容</label>
-                <textarea id="genItinerary" placeholder="D1 西湖漫步 - 午餐 - 晚霞游船；D2 灵隐寺 - 龙井村 - 返回"></textarea>
-              </div>
-              <div class="compact-field full hidden" id="genPointsField">
-                <label for="genPoints">点位内容</label>
-                <textarea id="genPoints" placeholder="西湖 - 雷峰塔 - 灵隐寺 - 龙井村 - 宋城"></textarea>
-              </div>
-              <div class="compact-field full">
-                <label for="genExtra">补充要求</label>
-                <textarea id="genExtra" placeholder="预留顶部标题区和底部报名信息区，不要过度复杂"></textarea>
-              </div>
-              <div class="compact-field output full">
-                <label for="generatedPrompt">生成结果</label>
-                <textarea id="generatedPrompt" readonly></textarea>
-              </div>
-              <div class="compact-field full">
-                <label for="imageApiKey">OpenAI API Key</label>
-                <input id="imageApiKey" type="password" autocomplete="off" placeholder="填入自己的 OpenAI API Key，仅保存在本机">
-              </div>
-              <div class="compact-field">
-                <label for="imageModel">生图模型</label>
-                <input id="imageModel" type="text" value="gpt-image-2">
-              </div>
-              <div class="compact-field">
-                <label for="imageResolution">生成质量</label>
-                <select id="imageResolution">
-                  <option value="low">快速</option>
-                  <option value="medium" selected>标准</option>
-                  <option value="high">高清</option>
-                </select>
+              <div class="prompt-actions ai-actions ai-generation-actions">
+                <button class="mini-btn business-prompt-action" id="copyGeneratedBtn" type="button">复制 Prompt</button>
+                <button class="mini-btn active" id="generateImageBtn" type="button">生成图片</button>
               </div>
             </div>
-            <div class="prompt-actions">
-              <button class="mini-btn" id="copyGeneratedBtn" type="button">复制 Prompt</button>
-              <button class="mini-btn active" id="generateImageBtn" type="button">生成图片</button>
+
+            <div class="ai-block ai-edit-block">
+              <div class="ai-block-head">
+                <strong>二次编辑</strong>
+                <span>选中画布图片后继续修改</span>
+              </div>
+              <div class="compact-field full">
+                <label for="imageEditPrompt">编辑要求</label>
+                <textarea id="imageEditPrompt" placeholder="例如：把背景改成雪山，保持人物不变"></textarea>
+              </div>
+              <div class="prompt-actions ai-actions">
+                <button class="mini-btn" id="editSelectedImageBtn" type="button">编辑选中图片</button>
+              </div>
             </div>
             <div class="generation-progress hidden" id="generationProgress" aria-live="polite">
               <div class="generation-progress-bar"><div class="generation-progress-fill" id="generationProgressFill"></div></div>
@@ -333,7 +373,7 @@
                   <span class="canvas-generation-dot" aria-hidden="true"></span>
                   <span id="canvasGenerationTitle">正在生成图片</span>
                 </div>
-                <div class="canvas-generation-text" id="canvasGenerationText">OpenAI 正在根据 Prompt 生成，完成后会自动加入画布。</div>
+                <div class="canvas-generation-text" id="canvasGenerationText">图片模型正在根据 Prompt 生成，完成后会自动加入画布。</div>
                 <div class="canvas-generation-bar"><div class="canvas-generation-fill" id="canvasGenerationFill"></div></div>
               </div>
             </div>

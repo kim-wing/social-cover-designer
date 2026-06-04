@@ -5,10 +5,15 @@ const selectionOverlay = document.getElementById("selectionOverlay");
 const inlineTextEditor = document.getElementById("inlineTextEditor");
 const STORAGE_KEY = "social-cover-designer-v3";
 const IMAGE_API_KEY_STORAGE = "youdesign-openai-image-api-key";
+const IMAGE_API_KEY_REMEMBER_STORAGE = "youdesign-remember-image-api-key";
+const IMAGE_API_BASE_STORAGE = "youdesign-image-api-base";
+const IMAGE_PROMPT_MODE_STORAGE = "youdesign-image-prompt-mode";
+const CUSTOM_IMAGE_PROMPT_STORAGE = "youdesign-custom-image-prompt";
 const UNSPLASH_ACCESS_KEY_STORAGE = "youdesign-unsplash-access-key";
 const UNSPLASH_API_BASE = "https://api.unsplash.com";
 const UNSPLASH_KEY_HELP_URL = "https://unsplash.com/developers";
-const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
+const DEFAULT_IMAGE_API_BASE = "https://api.quickrouter.ai/v1";
+const QUICKROUTER_REGISTER_URL = "https://api.quickrouter.ai/register?aff=roL9WF";
 const APP_SCRIPT_URL = new URL("src/app.js", document.baseURI).href;
 const TRANSFORMERS_LOCAL_BASE = new URL("../vendor/transformers/", APP_SCRIPT_URL).href;
 const TRANSFORMERS_CDN_BASE = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/";
@@ -349,6 +354,7 @@ const state = {
 let inlineEditing = null;
 let objectClipboard = [];
 let rmbgPipelinePromise = null;
+let aiImageRequestInFlight = false;
 const maskEditor = {
   active: false,
   objectId: null,
@@ -2305,11 +2311,20 @@ function promptEls() {
     "genTime",
     "genPrice",
     "genExtra",
+    "businessPromptModeBtn",
+    "customPromptModeBtn",
+    "imagePromptModeHint",
+    "customImagePrompt",
     "generatedPrompt",
     "imageApiKey",
+    "rememberImageApiKey",
+    "imageApiBase",
+    "quickRouterKeyHelpBtn",
     "imageModel",
     "imageResolution",
+    "imageEditPrompt",
     "generateImageBtn",
+    "editSelectedImageBtn",
     "generationProgress",
     "generationProgressFill",
     "generationElapsed",
@@ -2321,6 +2336,38 @@ function promptEls() {
     "promptStatus"
   ];
   return Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+}
+
+function currentImagePromptMode() {
+  return localStorage.getItem(IMAGE_PROMPT_MODE_STORAGE) === "custom" ? "custom" : "business";
+}
+
+function setImagePromptMode(mode) {
+  const nextMode = mode === "custom" ? "custom" : "business";
+  localStorage.setItem(IMAGE_PROMPT_MODE_STORAGE, nextMode);
+  syncImagePromptMode(nextMode);
+}
+
+function syncImagePromptMode(mode = currentImagePromptMode()) {
+  const els = promptEls();
+  const customMode = mode === "custom";
+  document.querySelectorAll(".business-prompt-field").forEach(field => {
+    if (customMode) {
+      field.classList.add("hidden");
+    } else if (!["genItineraryField", "genPointsField"].includes(field.id)) {
+      field.classList.remove("hidden");
+    }
+  });
+  document.querySelectorAll(".custom-prompt-field").forEach(field => {
+    field.classList.toggle("hidden", !customMode);
+  });
+  document.querySelectorAll(".business-prompt-action").forEach(action => {
+    action.classList.toggle("hidden", customMode);
+  });
+  els.businessPromptModeBtn.classList.toggle("active", !customMode);
+  els.customPromptModeBtn.classList.toggle("active", customMode);
+  els.imagePromptModeHint.textContent = customMode ? "直接输入完整 Prompt 生成新图" : "填写业务信息后自动整理 Prompt";
+  if (!customMode) updatePromptSpecialFields();
 }
 
 function updatePromptSpecialFields() {
@@ -2467,18 +2514,18 @@ function startGenerationProgress() {
   els.generationProgressFill.style.width = "1%";
   els.canvasGenerationPlaceholder.classList.remove("hidden", "is-done", "is-error");
   els.canvasGenerationTitle.textContent = "正在生成图片";
-  els.canvasGenerationText.textContent = "OpenAI 正在根据 Prompt 生成，完成后会自动加入画布。";
+  els.canvasGenerationText.textContent = "图片模型正在根据 Prompt 生成，完成后会自动加入画布。";
   els.canvasGenerationFill.style.width = "1%";
   const tick = () => {
     const elapsed = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
     els.generationElapsed.textContent = `已耗时 ${elapsed}s`;
     if (!els.generationRemaining.textContent || els.generationRemaining.textContent === "预计剩余 --") {
-      els.generationRemaining.textContent = "官方接口生成中";
+      els.generationRemaining.textContent = "接口处理中";
     }
     const softProgress = Math.min(92, 8 + Math.floor(elapsed * 3.2));
     els.generationProgressFill.style.width = `${softProgress}%`;
     els.canvasGenerationFill.style.width = `${softProgress}%`;
-    els.canvasGenerationText.textContent = `OpenAI 正在生成中，已耗时 ${elapsed}s。完成后会自动加入画布。`;
+    els.canvasGenerationText.textContent = `图片模型正在处理中，已耗时 ${elapsed}s。完成后会自动加入画布。`;
   };
   tick();
   window.clearInterval(window.__generationProgressTimer);
@@ -2792,19 +2839,65 @@ function extractOpenAIImageSource(payload) {
   const first = Array.isArray(payload?.data) ? payload.data[0] : null;
   if (first?.b64_json) return `data:image/png;base64,${first.b64_json}`;
   if (first?.url) return first.url;
-  throw new Error("OpenAI 没有返回图片数据。");
+  throw new Error("图片接口没有返回图片数据。");
+}
+
+function imageApiBaseFromInput(els = promptEls()) {
+  return (els.imageApiBase?.value || DEFAULT_IMAGE_API_BASE).trim().replace(/\/$/, "");
+}
+
+function generationPromptFromCurrentMode() {
+  const els = promptEls();
+  if (currentImagePromptMode() === "custom") {
+    const prompt = els.customImagePrompt.value.trim();
+    if (!prompt) {
+      setPromptStatus("请输入自定义 Prompt。", "error");
+      els.customImagePrompt.focus();
+      return "";
+    }
+    return prompt;
+  }
+  return els.generatedPrompt.value.trim() || generateTourismPrompt();
+}
+
+function persistImageApiKeyPreference(apiKey, els = promptEls()) {
+  if (els.rememberImageApiKey?.checked) {
+    localStorage.setItem(IMAGE_API_KEY_REMEMBER_STORAGE, "1");
+    localStorage.setItem(IMAGE_API_KEY_STORAGE, apiKey.trim());
+  } else {
+    localStorage.removeItem(IMAGE_API_KEY_REMEMBER_STORAGE);
+    localStorage.removeItem(IMAGE_API_KEY_STORAGE);
+  }
+}
+
+function setAiImageRequestBusy(busy) {
+  aiImageRequestInFlight = busy;
+  const els = promptEls();
+  els.generateImageBtn.disabled = busy;
+  els.editSelectedImageBtn.disabled = busy;
+}
+
+function beginAiImageRequest(message = "图片模型正在处理上一条请求，请稍候。") {
+  if (aiImageRequestInFlight) {
+    setPromptStatus(message, "loading");
+    return false;
+  }
+  setAiImageRequestBusy(true);
+  return true;
 }
 
 async function requestOpenAIImage(apiKey, body) {
   const desktop = window.youdesignDesktop;
+  const apiBase = imageApiBaseFromInput();
   if (desktop?.generateOpenAIImage) {
-    updateGenerationProgress("OpenAI 正在生成图片", 18);
-    return desktop.generateOpenAIImage({ apiKey, ...body });
+    updateGenerationProgress("图片模型正在生成图片", 18);
+    return desktop.generateOpenAIImage({ apiKey, apiBase, ...body });
   }
-  const payload = await requestJson(`${OPENAI_IMAGE_API_BASE}/images/generations`, {
+  const payload = await requestJson(`${apiBase}/images/generations`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${apiKey}`,
+      "Accept": "application/json",
       "Content-Type": "application/json"
     },
     body: JSON.stringify(body)
@@ -2812,22 +2905,94 @@ async function requestOpenAIImage(apiKey, body) {
   return extractOpenAIImageSource(payload);
 }
 
-async function generateImageFromPrompt() {
-  const els = promptEls();
-  const apiKey = els.imageApiKey.value.trim();
-  if (!apiKey) {
-    setPromptStatus("请先填写自己的 OpenAI API Key。", "error");
-    els.imageApiKey.focus();
-    return;
+function dataUrlBase64(dataUrl) {
+  return String(dataUrl || "").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
+}
+
+function base64ImageBlob(base64, type = "image/png") {
+  const binary = atob(String(base64 || "").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type });
+}
+
+function selectedImageEditDataUrl(obj) {
+  const width = Math.max(1, Math.round(obj.width));
+  const height = Math.max(1, Math.round(obj.height));
+  const out = document.createElement("canvas");
+  out.width = width;
+  out.height = height;
+  const octx = out.getContext("2d");
+  octx.clearRect(0, 0, width, height);
+  drawImage(octx, obj);
+  return out.toDataURL("image/png");
+}
+
+async function requestOpenAIImageEdit(apiKey, body) {
+  const desktop = window.youdesignDesktop;
+  const apiBase = imageApiBaseFromInput();
+  if (desktop?.editOpenAIImage) {
+    updateGenerationProgress("图片模型正在编辑图片", 18);
+    return desktop.editOpenAIImage({ apiKey, apiBase, ...body });
   }
-  localStorage.setItem(IMAGE_API_KEY_STORAGE, apiKey);
-  const prompt = els.generatedPrompt.value || generateTourismPrompt();
-  const model = els.imageModel.value.trim() || "gpt-image-2";
-  const quality = els.imageResolution.value || "medium";
-  els.generateImageBtn.disabled = true;
-  startGenerationProgress();
-  setPromptStatus("正在调用 OpenAI 官方生图接口...", "loading");
+  const form = new FormData();
+  form.append("model", body.model);
+  form.append("image", base64ImageBlob(body.image), "image.png");
+  form.append("prompt", body.prompt);
+  form.append("n", String(body.n || 1));
+  if (body.size) form.append("size", body.size);
+  if (body.quality) form.append("quality", body.quality);
+  if (body.format) form.append("format", body.format);
+  const payload = await requestJson(`${apiBase}/images/edits`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Accept": "application/json"
+    },
+    body: form
+  });
+  return extractOpenAIImageSource(payload);
+}
+
+async function replaceSelectedImageWithSource(obj, src) {
+  const stableSrc = src.startsWith("data:") ? src : await assetSourceToDataUrl(src);
+  const img = await loadImage(stableSrc);
+  saveHistory();
+  obj.src = stableSrc;
+  obj.image = img;
+  obj.name = "AI 编辑图片";
+  obj.crop = { left: 0, top: 0, right: 0, bottom: 0 };
+  obj.originalSrc = undefined;
+  obj.originalImage = undefined;
+  obj.maskSrc = undefined;
+  obj.maskImage = undefined;
+  obj.maskCanvas = undefined;
+  obj.cloneCanvas = undefined;
+  obj.maskedRenderCache = null;
+  obj.rmbgEdited = false;
+  renderAll();
+  syncUi();
+  persist();
+}
+
+async function generateImageFromPrompt() {
+  if (!beginAiImageRequest("图片正在生成中，请稍候。")) return;
+  const els = promptEls();
   try {
+    const apiKey = els.imageApiKey.value.trim();
+    if (!apiKey) {
+      setPromptStatus("请先填写自己的 QuickRouter API Key。", "error");
+      els.imageApiKey.focus();
+      return;
+    }
+    persistImageApiKeyPreference(apiKey, els);
+    localStorage.setItem(IMAGE_API_BASE_STORAGE, imageApiBaseFromInput(els));
+    const prompt = generationPromptFromCurrentMode();
+    if (!prompt) return;
+    const model = els.imageModel.value.trim() || "gpt-image-2";
+    const quality = els.imageResolution.value || "medium";
+    startGenerationProgress();
+    setPromptStatus("正在调用图片生成接口...", "loading");
     const imageSrc = await requestOpenAIImage(apiKey, {
       model,
       prompt,
@@ -2840,12 +3005,63 @@ async function generateImageFromPrompt() {
     stopGenerationProgress(true);
     setPromptStatus("已生成图片并加入画布。");
   } catch (error) {
-    const message = error?.message || String(error || "") || "请检查 OpenAI API Key、额度或网络连接。";
-    console.error("OpenAI image generation failed", error);
+    const message = error?.message || String(error || "") || "请检查 API Key、额度或网络连接。";
+    console.error("Image generation failed", error);
     failGenerationProgress(message);
     setPromptStatus(`生成失败：${message}`, "error");
   } finally {
-    els.generateImageBtn.disabled = false;
+    setAiImageRequestBusy(false);
+  }
+}
+
+async function editSelectedImageFromPrompt() {
+  if (!beginAiImageRequest("图片正在编辑中，请稍候。")) return;
+  const els = promptEls();
+  try {
+    const obj = selected();
+    if (!obj || obj.type !== "image") {
+      setPromptStatus("请先选中一张要二次编辑的图片。", "error");
+      return;
+    }
+    const apiKey = els.imageApiKey.value.trim();
+    if (!apiKey) {
+      setPromptStatus("请先填写自己的 QuickRouter API Key。", "error");
+      els.imageApiKey.focus();
+      return;
+    }
+    const prompt = els.imageEditPrompt.value.trim();
+    if (!prompt) {
+      setPromptStatus("请输入二次编辑要求。", "error");
+      els.imageEditPrompt.focus();
+      return;
+    }
+    persistImageApiKeyPreference(apiKey, els);
+    localStorage.setItem(IMAGE_API_BASE_STORAGE, imageApiBaseFromInput(els));
+    const model = els.imageModel.value.trim() || "gpt-image-2";
+    const quality = els.imageResolution.value || "medium";
+    startGenerationProgress();
+    setPromptStatus("正在编辑选中图片...", "loading");
+    const imageDataUrl = selectedImageEditDataUrl(obj);
+    const imageSrc = await requestOpenAIImageEdit(apiKey, {
+      model,
+      image: dataUrlBase64(imageDataUrl),
+      prompt,
+      n: 1,
+      size: openAIImageSizeForCurrentCanvas(),
+      quality,
+      format: "png"
+    });
+    setPromptStatus("图片已编辑，正在替换当前图层...", "loading");
+    await replaceSelectedImageWithSource(obj, imageSrc);
+    stopGenerationProgress(true);
+    setPromptStatus("已完成二次编辑。可以继续输入要求再次编辑当前图片。");
+  } catch (error) {
+    const message = error?.message || String(error || "") || "请检查 API Key、额度或网络连接。";
+    console.error("Image edit failed", error);
+    failGenerationProgress(message);
+    setPromptStatus(`编辑失败：${message}`, "error");
+  } finally {
+    setAiImageRequestBusy(false);
   }
 }
 
@@ -3513,12 +3729,43 @@ function setupPromptGenerator() {
   const section = document.getElementById("promptSection");
   if (!section) return;
   const savedKey = localStorage.getItem(IMAGE_API_KEY_STORAGE);
-  if (savedKey) document.getElementById("imageApiKey").value = savedKey;
-  section.addEventListener("input", generateTourismPrompt);
-  section.addEventListener("change", generateTourismPrompt);
-  wire("imageApiKey", "input", e => {
-    localStorage.setItem(IMAGE_API_KEY_STORAGE, e.target.value.trim());
+  const rememberKey = localStorage.getItem(IMAGE_API_KEY_REMEMBER_STORAGE) === "1";
+  const savedApiBase = localStorage.getItem(IMAGE_API_BASE_STORAGE);
+  const savedCustomPrompt = localStorage.getItem(CUSTOM_IMAGE_PROMPT_STORAGE);
+  const imageApiKeyInput = document.getElementById("imageApiKey");
+  const rememberImageApiKey = document.getElementById("rememberImageApiKey");
+  rememberImageApiKey.checked = rememberKey;
+  if (rememberKey && savedKey) {
+    imageApiKeyInput.value = savedKey;
+  } else {
+    localStorage.removeItem(IMAGE_API_KEY_STORAGE);
+  }
+  if (savedApiBase) document.getElementById("imageApiBase").value = savedApiBase;
+  if (savedCustomPrompt) document.getElementById("customImagePrompt").value = savedCustomPrompt;
+  section.addEventListener("input", event => {
+    if (["imageApiKey", "imageApiBase", "imageModel", "imageEditPrompt", "customImagePrompt"].includes(event.target.id)) return;
+    generateTourismPrompt();
   });
+  section.addEventListener("change", event => {
+    if (["imageApiKey", "imageApiBase", "imageModel", "imageEditPrompt", "customImagePrompt"].includes(event.target.id)) return;
+    generateTourismPrompt();
+  });
+  wire("imageApiKey", "input", e => {
+    persistImageApiKeyPreference(e.target.value, promptEls());
+  });
+  wire("rememberImageApiKey", "change", e => {
+    persistImageApiKeyPreference(document.getElementById("imageApiKey").value, promptEls());
+    setPromptStatus(e.target.checked ? "已开启本机保存 API Key。" : "已关闭本机保存 API Key，并清除已保存 Key。");
+  });
+  wire("imageApiBase", "input", e => {
+    localStorage.setItem(IMAGE_API_BASE_STORAGE, e.target.value.trim());
+  });
+  wire("customImagePrompt", "input", e => {
+    localStorage.setItem(CUSTOM_IMAGE_PROMPT_STORAGE, e.target.value);
+  });
+  wire("quickRouterKeyHelpBtn", "click", () => openExternalLink(QUICKROUTER_REGISTER_URL));
+  wire("businessPromptModeBtn", "click", () => setImagePromptMode("business"));
+  wire("customPromptModeBtn", "click", () => setImagePromptMode("custom"));
   wire("genUseCase", "change", () => {
     updatePromptSpecialFields();
     generateTourismPrompt();
@@ -3527,9 +3774,11 @@ function setupPromptGenerator() {
     copyPromptText(document.getElementById("generatedPrompt").value || generateTourismPrompt());
   });
   wire("generateImageBtn", "click", generateImageFromPrompt);
+  wire("editSelectedImageBtn", "click", editSelectedImageFromPrompt);
   updatePromptSpecialFields();
   syncPromptAspectToCanvas();
   generateTourismPrompt();
+  syncImagePromptMode();
 }
 
 function setupUnsplashLibrary() {
@@ -4894,6 +5143,9 @@ function setupTauriDesktopBridge() {
     },
     generateOpenAIImage(options) {
       return invoke("openai_generate_image", { request: options });
+    },
+    editOpenAIImage(options) {
+      return invoke("openai_edit_image", { request: options });
     },
     downloadRemoteAsset(url) {
       return invoke("download_remote_asset", { request: { url } });

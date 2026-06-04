@@ -19,10 +19,13 @@ struct LocalFont {
 #[serde(rename_all = "camelCase")]
 struct OpenAIImageRequest {
     api_key: String,
+    api_base: Option<String>,
     model: String,
     prompt: Option<String>,
     size: Option<String>,
     quality: Option<String>,
+    image: Option<String>,
+    format: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -87,9 +90,12 @@ async fn openai_generate_image(request: OpenAIImageRequest) -> Result<String, St
     if let Some(quality) = request.quality.filter(|value| !value.trim().is_empty()) {
         body["quality"] = serde_json::Value::String(quality);
     }
+    if let Some(format) = request.format.filter(|value| !value.trim().is_empty()) {
+        body["format"] = serde_json::Value::String(format);
+    }
 
     let response = openai_http_client()
-        .post("https://api.openai.com/v1/images/generations")
+        .post(format!("{}/images/generations", image_api_base(request.api_base.as_deref())?))
         .bearer_auth(request.api_key.trim())
         .json(&body)
         .send()
@@ -119,6 +125,122 @@ async fn openai_generate_image(request: OpenAIImageRequest) -> Result<String, St
     }
 
     Err("OpenAI 没有返回图片数据。".to_string())
+}
+
+#[tauri::command]
+async fn openai_edit_image(request: OpenAIImageRequest) -> Result<String, String> {
+    if request.api_key.trim().is_empty() {
+        return Err("请先填写 API Key。".to_string());
+    }
+    let prompt = request
+        .prompt
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if prompt.is_empty() {
+        return Err("编辑要求不能为空。".to_string());
+    }
+    let image = request
+        .image
+        .as_deref()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if image.is_empty() {
+        return Err("缺少要编辑的图片。".to_string());
+    }
+
+    let image_bytes = decode_image_base64(&image)?;
+    let image_part = reqwest::multipart::Part::bytes(image_bytes)
+        .file_name("image.png")
+        .mime_str("image/png")
+        .map_err(|error| format!("图片表单构造失败：{error}"))?;
+    let mut form = reqwest::multipart::Form::new()
+        .text(
+            "model",
+            if request.model.trim().is_empty() {
+                "gpt-image-2".to_string()
+            } else {
+                request.model.trim().to_string()
+            },
+        )
+        .part("image", image_part)
+        .text("prompt", prompt)
+        .text("n", "1");
+    if let Some(size) = request.size.filter(|value| !value.trim().is_empty()) {
+        form = form.text("size", size);
+    }
+    if let Some(quality) = request.quality.filter(|value| !value.trim().is_empty()) {
+        form = form.text("quality", quality);
+    }
+    if let Some(format) = request.format.filter(|value| !value.trim().is_empty()) {
+        form = form.text("format", format);
+    }
+
+    let response = openai_http_client()
+        .post(format!("{}/images/edits", image_api_base(request.api_base.as_deref())?))
+        .bearer_auth(request.api_key.trim())
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|error| format!("图片编辑请求失败：{error}"))?;
+
+    parse_openai_image_response(response, "图片编辑接口请求失败").await
+}
+
+fn decode_image_base64(value: &str) -> Result<Vec<u8>, String> {
+    let payload = value
+        .split_once(',')
+        .map(|(_, payload)| payload)
+        .unwrap_or(value)
+        .trim();
+    if payload.is_empty() {
+        return Err("缺少要编辑的图片。".to_string());
+    }
+    base64::engine::general_purpose::STANDARD
+        .decode(payload)
+        .map_err(|error| format!("图片数据解析失败：{error}"))
+}
+
+async fn parse_openai_image_response(
+    response: reqwest::Response,
+    error_prefix: &str,
+) -> Result<String, String> {
+    let status = response.status();
+    let payload = response
+        .json::<OpenAIImageResponse>()
+        .await
+        .map_err(|error| format!("图片接口响应解析失败：{error}"))?;
+
+    if !status.is_success() {
+        return Err(payload
+            .error
+            .map(|error| error.message)
+            .unwrap_or_else(|| format!("{error_prefix}：{status}")));
+    }
+
+    if let Some(first) = payload.data.and_then(|mut data| data.drain(..).next()) {
+        if let Some(image) = first.b64_json {
+            return Ok(format!("data:image/png;base64,{image}"));
+        }
+        if let Some(url) = first.url {
+            return image_source_to_data_url(&url).await;
+        }
+    }
+
+    Err("图片接口没有返回图片数据。".to_string())
+}
+
+fn image_api_base(value: Option<&str>) -> Result<String, String> {
+    let base = value
+        .unwrap_or("https://api.quickrouter.ai/v1")
+        .trim()
+        .trim_end_matches('/');
+    if !(base.starts_with("https://") || base.starts_with("http://")) {
+        return Err("图片 API Base 必须以 http:// 或 https:// 开头。".to_string());
+    }
+    Ok(base.to_string())
 }
 
 fn openai_http_client() -> reqwest::Client {
@@ -502,6 +624,7 @@ pub fn run() {
             app_version,
             list_local_fonts,
             openai_generate_image,
+            openai_edit_image,
             download_remote_asset,
             save_export_file,
             check_for_updates,
