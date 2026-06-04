@@ -1165,9 +1165,10 @@ function maskedRenderCanvas(obj, image, maskSource, crop) {
   buffer.width = width;
   buffer.height = height;
   const bctx = buffer.getContext("2d");
+  const maskRect = imageSourceRectForBox(maskSource, crop);
   bctx.drawImage(image, sx, sy, sw, sh, 0, 0, width, height);
   bctx.globalCompositeOperation = "destination-in";
-  bctx.drawImage(maskSource, 0, 0, width, height);
+  bctx.drawImage(maskSource, maskRect.sx, maskRect.sy, maskRect.sw, maskRect.sh, 0, 0, width, height);
   obj.maskedRenderCache = {
     image,
     maskSource,
@@ -1465,6 +1466,9 @@ function maskOverlayCanvas(obj) {
   const source = obj.maskCanvas || obj.maskImage;
   const sourceWidth = source?.width || source?.naturalWidth || 1;
   const sourceHeight = source?.height || source?.naturalHeight || 1;
+  const crop = normalizeCrop(obj.crop);
+  const outputWidth = Math.max(1, Math.round(obj.width));
+  const outputHeight = Math.max(1, Math.round(obj.height));
   const cache = maskEditor.overlayCache;
   if (
     cache
@@ -1472,23 +1476,38 @@ function maskOverlayCanvas(obj) {
     && cache.source === source
     && cache.width === sourceWidth
     && cache.height === sourceHeight
+    && cache.outputWidth === outputWidth
+    && cache.outputHeight === outputHeight
+    && cache.maskVersion === (obj.maskVersion || 0)
+    && cache.cropLeft === crop.left
+    && cache.cropTop === crop.top
+    && cache.cropRight === crop.right
+    && cache.cropBottom === crop.bottom
   ) {
     return cache.canvas;
   }
 
   const overlay = document.createElement("canvas");
-  overlay.width = Math.max(1, sourceWidth);
-  overlay.height = Math.max(1, sourceHeight);
+  overlay.width = outputWidth;
+  overlay.height = outputHeight;
   const octx = overlay.getContext("2d");
+  const rect = imageSourceRectForBox(source, crop);
   octx.fillStyle = "#0071e3";
   octx.fillRect(0, 0, overlay.width, overlay.height);
   octx.globalCompositeOperation = "destination-in";
-  octx.drawImage(source, 0, 0, overlay.width, overlay.height);
+  octx.drawImage(source, rect.sx, rect.sy, rect.sw, rect.sh, 0, 0, overlay.width, overlay.height);
   maskEditor.overlayCache = {
     objectId: obj.id,
     source,
     width: sourceWidth,
     height: sourceHeight,
+    outputWidth,
+    outputHeight,
+    maskVersion: obj.maskVersion || 0,
+    cropLeft: crop.left,
+    cropTop: crop.top,
+    cropRight: crop.right,
+    cropBottom: crop.bottom,
     canvas: overlay
   };
   return overlay;
@@ -3269,9 +3288,11 @@ function canvasPointToObject(point, obj) {
 }
 
 function objectPointToMask(point, obj, maskCanvas) {
+  const crop = normalizeCrop(obj.crop);
+  const rect = imageSourceRectForBox(maskCanvas, crop);
   return {
-    x: point.x / Math.max(1, obj.width) * maskCanvas.width,
-    y: point.y / Math.max(1, obj.height) * maskCanvas.height
+    x: rect.sx + point.x / Math.max(1, obj.width) * rect.sw,
+    y: rect.sy + point.y / Math.max(1, obj.height) * rect.sh
   };
 }
 
