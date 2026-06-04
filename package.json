@@ -1,77 +1,30 @@
 {
   "name": "youdesign",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "YOUDESIGN social cover designer desktop app.",
   "author": "YOUXIAKE",
-  "main": "desktop/main.js",
   "private": true,
   "scripts": {
-    "start": "tauri dev",
-    "dev": "tauri dev",
-    "build": "tauri build --bundles app",
-    "build:mac": "tauri build --bundles app",
-    "build:mac:x64": "tauri build --bundles app",
-    "build:mac:arm": "tauri build --target aarch64-apple-darwin --bundles app",
-    "build:mac:dmg": "tauri build --bundles dmg",
-    "build:win": "tauri build --bundles nsis",
-    "build:all": "tauri build --bundles all",
-    "tauri": "tauri",
+    "start": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri dev",
+    "dev": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri dev",
+    "build": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
+    "build:mac": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
+    "build:mac:x64": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
+    "build:mac:arm": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --target aarch64-apple-darwin --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
+    "build:mac:dmg": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles dmg --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
+    "build:win": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles nsis --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
+    "build:win:cross": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --target x86_64-pc-windows-gnullvm --bundles nsis --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
+    "build:all": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles all --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
+    "build:release": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles app",
+    "build:release:mac:arm": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --target aarch64-apple-darwin --bundles app",
+    "build:release:win": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles nsis",
+    "build:release:win:cross": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --target x86_64-pc-windows-gnullvm --bundles nsis",
+    "tauri": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri",
     "tauri:prepare": "node scripts/prepare-tauri-dist.js",
     "tauri:local-update-manifest": "node scripts/create-local-update-manifest.js",
-    "electron:start": "electron .",
-    "electron:build": "electron-builder",
-    "electron:build:mac": "electron-builder --mac",
-    "electron:build:win": "electron-builder --win"
-  },
-  "build": {
-    "appId": "com.youxiake.youdesign",
-    "productName": "YOUDESIGN",
-    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
-    "directories": {
-      "output": "release"
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "kim-wing",
-        "repo": "social-cover-designer"
-      }
-    ],
-    "files": [
-      "index.html",
-      "build/icon.*",
-      "logo/**/*",
-      "游小侠/**/*",
-      "desktop/**/*",
-      "package.json"
-    ],
-    "mac": {
-      "category": "public.app-category.graphics-design",
-      "icon": "build/icon.icns",
-      "identity": null,
-      "target": [
-        "zip"
-      ]
-    },
-    "win": {
-      "icon": "build/icon.ico",
-      "target": [
-        "nsis"
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    }
+    "check": "npm run tauri:prepare && PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH cargo check --manifest-path src-tauri/Cargo.toml"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0",
-    "electron": "^37.0.0",
-    "electron-builder": "^26.0.12"
-  },
-  "dependencies": {
-    "electron-updater": "^6.8.3"
+    "@tauri-apps/cli": "^2.0.0"
   }
 }

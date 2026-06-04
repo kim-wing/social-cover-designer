@@ -1,6 +1,6 @@
 # YOUDESIGN Desktop
 
-YOUDESIGN now uses Tauri as the default desktop shell. The previous Electron shell is still kept under `desktop/` and can be run with the `electron:*` npm scripts if a fallback is needed.
+YOUDESIGN uses Tauri as its only maintained desktop shell. The previous Electron fallback has been removed from the npm scripts and package dependencies.
 
 ## Requirements
 
@@ -25,12 +25,28 @@ npm start
 
 `npm start` runs `tauri dev`. Before Tauri starts, `npm run tauri:prepare` copies the static frontend assets into `dist/`.
 
+To run the current technical check:
+
+```bash
+npm run check
+```
+
 ## Build
 
 ```bash
 npm run build:mac
 npm run build:mac:arm
 npm run build:win
+```
+
+Regular build scripts do not generate updater artifacts, so they do not require `TAURI_SIGNING_PRIVATE_KEY`.
+
+For release builds that must include signed updater artifacts, use:
+
+```bash
+npm run build:release
+npm run build:release:mac:arm
+npm run build:release:win
 ```
 
 Tauri build outputs are written under `src-tauri/target/`. The generated packages should be much smaller than the previous Electron packages because they use the system WebView instead of bundling Chromium.
@@ -47,20 +63,12 @@ Windows updater artifacts must be generated from a Windows environment or CI. Wh
 The source frontend remains:
 
 - `index.html`
+- `src/styles.css`
+- `src/app.js`
 - `logo/`
 - `游小侠/`
 
-The packaged frontend is generated into `dist/` by `scripts/prepare-tauri-dist.js`. Do not edit files in `dist/` directly.
-
-## Electron Fallback
-
-```bash
-npm run electron:start
-npm run electron:build:mac
-npm run electron:build:win
-```
-
-The Electron fallback still uses `desktop/main.js` and `desktop/preload.js`, but it is no longer the default build path.
+The packaged frontend is generated into `dist/` by `scripts/prepare-tauri-dist.js`. The prepare script also injects the package version into `dist/src/app.js`. Do not edit files in `dist/` directly.
 
 ## Updates
 
@@ -108,7 +116,7 @@ GitHub Release is the current update source. If users cannot reach GitHub or `re
 For local update testing:
 
 ```bash
-TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/youdesign-updater.key)" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" npm run build
+TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/youdesign-updater.key)" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" npm run build:release
 UPDATE_RELEASE_BASE_URL=http://127.0.0.1:17888 npm run tauri:local-update-manifest
 python3 -m http.server 17888 --directory local-update-test/server
 ```

@@ -1,6 +1,10 @@
 use base64::Engine;
+use std::time::Duration;
 use tauri::Emitter;
 use tauri_plugin_updater::UpdaterExt;
+
+const MAX_REMOTE_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
+const MAX_EXPORT_FILE_BYTES: usize = 80 * 1024 * 1024;
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -118,7 +122,19 @@ async fn openai_generate_image(request: OpenAIImageRequest) -> Result<String, St
 }
 
 fn openai_http_client() -> reqwest::Client {
-    reqwest::Client::new()
+    http_client(Duration::from_secs(180))
+}
+
+fn remote_asset_http_client() -> reqwest::Client {
+    http_client(Duration::from_secs(45))
+}
+
+fn http_client(timeout: Duration) -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::limited(4))
+        .build()
+        .expect("failed to build HTTP client")
 }
 
 #[tauri::command]
@@ -129,9 +145,13 @@ fn save_export_file(request: ExportFileRequest) -> Result<String, String> {
     }
 
     let bytes = if let Some(text) = request.text {
-        text.into_bytes()
+        let bytes = text.into_bytes();
+        ensure_export_size(bytes.len())?;
+        bytes
     } else if let Some(data_url) = request.data_url {
-        decode_export_data_url(&data_url)?
+        let bytes = decode_export_data_url(&data_url)?;
+        ensure_export_size(bytes.len())?;
+        bytes
     } else {
         return Err("没有可导出的文件内容。".to_string());
     };
@@ -155,6 +175,13 @@ fn save_export_file(request: ExportFileRequest) -> Result<String, String> {
     Ok(path.to_string_lossy().to_string())
 }
 
+fn ensure_export_size(size: usize) -> Result<(), String> {
+    if size > MAX_EXPORT_FILE_BYTES {
+        return Err("导出文件超过 80MB，请降低导出倍率或压缩图片后重试。".to_string());
+    }
+    Ok(())
+}
+
 fn sanitize_export_filename(filename: &str) -> String {
     filename
         .trim()
@@ -176,6 +203,9 @@ fn decode_export_data_url(data_url: &str) -> Result<Vec<u8>, String> {
     if !metadata.starts_with("data:image/") || !metadata.ends_with(";base64") {
         return Err("只支持导出 base64 图片数据。".to_string());
     }
+    if payload.len() > (MAX_EXPORT_FILE_BYTES * 4 / 3) + 4 {
+        return Err("导出文件超过 80MB，请降低导出倍率或压缩图片后重试。".to_string());
+    }
     base64::engine::general_purpose::STANDARD
         .decode(payload)
         .map_err(|error| format!("图片导出数据解析失败：{error}"))
@@ -193,16 +223,23 @@ async fn image_source_to_data_url(source: &str) -> Result<String, String> {
 
 #[tauri::command]
 async fn download_remote_asset(request: RemoteAssetRequest) -> Result<String, String> {
-    let url = request.url.trim();
-    if !(url.starts_with("https://") || url.starts_with("http://")) {
+    let url = validate_remote_image_url(&request.url)?;
+    download_url_as_data_url(url.as_str()).await
+}
+
+fn validate_remote_image_url(url: &str) -> Result<reqwest::Url, String> {
+    let parsed = reqwest::Url::parse(url.trim()).map_err(|_| "图片地址格式不正确。".to_string())?;
+    if !matches!(parsed.scheme(), "https" | "http") {
         return Err("只支持下载 http/https 图片资源。".to_string());
     }
-
-    download_url_as_data_url(url).await
+    if parsed.username() != "" || parsed.password().is_some() {
+        return Err("图片地址不能包含用户名或密码。".to_string());
+    }
+    Ok(parsed)
 }
 
 async fn download_url_as_data_url(url: &str) -> Result<String, String> {
-    let response = openai_http_client()
+    let response = remote_asset_http_client()
         .get(url)
         .send()
         .await
@@ -223,11 +260,14 @@ async fn download_url_as_data_url(url: &str) -> Result<String, String> {
     if !content_type.starts_with("image/") {
         return Err("远程资源不是图片。".to_string());
     }
+    if response.content_length().unwrap_or(0) > MAX_REMOTE_IMAGE_BYTES {
+        return Err("图片超过 20MB，无法加入画布。".to_string());
+    }
     let bytes = response
         .bytes()
         .await
         .map_err(|error| format!("图片读取失败：{error}"))?;
-    if bytes.len() > 20 * 1024 * 1024 {
+    if bytes.len() as u64 > MAX_REMOTE_IMAGE_BYTES {
         return Err("图片超过 20MB，无法加入画布。".to_string());
     }
     let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);

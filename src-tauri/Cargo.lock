@@ -5906,7 +5906,7 @@ dependencies = [
 
 [[package]]
 name = "youdesign"
-version = "1.0.16"
+version = "1.0.17"
 dependencies = [
  "base64 0.22.1",
  "reqwest 0.11.27",
