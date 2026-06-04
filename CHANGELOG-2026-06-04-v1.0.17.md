@@ -78,3 +78,33 @@ YOUDESIGN-1.0.17-win-x64-setup.exe.sig: sha256:b10bf8407593a29aadbee09c433d58fd8
 - Windows artifact ID: `7402019236`.
 - GitHub Release: `https://github.com/kim-wing/social-cover-designer/releases/tag/v1.0.17`
 - Removed old local Electron/Windows/test product artifacts after upload.
+
+## 2026-06-04 Smart Cutout Packaged-App Fix
+
+Issue:
+
+- After the technical upgrade, smart cutout worked from `index.html` but failed in the packaged Tauri app with a `loadfailed`-style model/runtime loading error.
+
+Root cause:
+
+- The packaged app was dynamically importing Transformers.js from a CDN.
+- Tauri production CSP and WebView resource handling made that remote runtime path fragile.
+- RMBG model downloads can also redirect from Hugging Face to XetHub-hosted assets, so the production app needs explicit support for those model download domains.
+
+Fix:
+
+- Added `@huggingface/transformers@3.5.2` as a project dependency.
+- Updated `scripts/prepare-tauri-dist.js` to copy the Transformers.js runtime and ONNX WASM files into `dist/vendor/transformers`.
+- Updated RMBG loading to prefer the packaged local Transformers.js runtime and only fall back to CDN if needed.
+- Explicitly set `env.backends.onnx.wasm.wasmPaths` to the packaged vendor runtime directory.
+- Expanded Tauri CSP for the cutout runtime path, including `blob:`, `data:`, remote model fetches, workers, and WASM execution.
+- Improved RMBG load errors so future failures show the original runtime/fetch/CSP message.
+
+Verification:
+
+```text
+index.html manual test: passed
+packaged YOUDESIGN.app smart cutout manual test: passed
+npm run check: passed
+npm run build:mac: passed
+```

@@ -26,5 +26,8 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.5.2"
   }
 }

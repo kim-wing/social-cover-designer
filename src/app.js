@@ -9,7 +9,13 @@ const UNSPLASH_ACCESS_KEY_STORAGE = "youdesign-unsplash-access-key";
 const UNSPLASH_API_BASE = "https://api.unsplash.com";
 const UNSPLASH_KEY_HELP_URL = "https://unsplash.com/developers";
 const OPENAI_IMAGE_API_BASE = "https://api.openai.com/v1";
-const TRANSFORMERS_CDN = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/transformers.min.js";
+const APP_SCRIPT_URL = new URL("src/app.js", document.baseURI).href;
+const TRANSFORMERS_LOCAL_BASE = new URL("../vendor/transformers/", APP_SCRIPT_URL).href;
+const TRANSFORMERS_CDN_BASE = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/";
+const TRANSFORMERS_MODULES = [
+  { url: `${TRANSFORMERS_LOCAL_BASE}transformers.min.js`, wasmBase: TRANSFORMERS_LOCAL_BASE },
+  { url: `${TRANSFORMERS_CDN_BASE}transformers.min.js`, wasmBase: TRANSFORMERS_CDN_BASE }
+];
 const RMBG_MODEL_ID = "briaai/RMBG-1.4";
 const APP_VERSION = "__YOUDESIGN_APP_VERSION__".startsWith("__") ? "1.0.17" : "__YOUDESIGN_APP_VERSION__";
 const MAX_EXPORT_PIXELS = 64 * 1000 * 1000;
@@ -2879,15 +2885,39 @@ function setStampStatus(message, mode = "idle") {
 
 async function loadRmbgPipeline() {
   if (!rmbgPipelinePromise) {
-    rmbgPipelinePromise = import(TRANSFORMERS_CDN)
-      .then(async module => {
-        const { pipeline, env } = module;
-        env.allowLocalModels = false;
-        env.useBrowserCache = true;
-        return pipeline("image-segmentation", RMBG_MODEL_ID);
-      });
+    rmbgPipelinePromise = createRmbgPipeline().catch(error => {
+      rmbgPipelinePromise = null;
+      throw new Error(formatRmbgLoadError(error));
+    });
   }
   return rmbgPipelinePromise;
+}
+
+async function createRmbgPipeline() {
+  const failures = [];
+  for (const source of TRANSFORMERS_MODULES) {
+    try {
+      const { pipeline, env } = await import(source.url);
+      env.allowLocalModels = false;
+      env.useBrowserCache = true;
+      env.backends.onnx.wasm.wasmPaths = source.wasmBase;
+      return pipeline("image-segmentation", RMBG_MODEL_ID);
+    } catch (error) {
+      failures.push(`${source.url}: ${error?.message || error}`);
+    }
+  }
+  throw new Error(failures.join(" | "));
+}
+
+function formatRmbgLoadError(error) {
+  const message = error?.message || String(error || "");
+  if (/load\s*failed|failed\s*to\s*fetch|network|fetch/i.test(message)) {
+    return `RMBG 模型加载失败：请确认当前网络可以访问 cdn.jsdelivr.net、huggingface.co 和 xethub.hf.co，然后重试。原始错误：${message}`;
+  }
+  if (/content security policy|csp|wasm|worker/i.test(message)) {
+    return `RMBG 模型加载被安全策略拦截：请重新打包安装最新版本后重试。原始错误：${message}`;
+  }
+  return `RMBG 模型加载失败：${message}`;
 }
 
 function imageLikeToCanvas(source) {

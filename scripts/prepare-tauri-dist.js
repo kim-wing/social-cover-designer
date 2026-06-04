@@ -10,6 +10,7 @@ const entries = [
   "logo",
   "游小侠"
 ];
+const transformersDist = path.join(root, "node_modules", "@huggingface", "transformers", "dist");
 
 function copyEntry(entry) {
   const from = path.join(root, entry);
@@ -30,6 +31,18 @@ function copyEntry(entry) {
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });
 entries.forEach(copyEntry);
+
+if (!fs.existsSync(transformersDist)) {
+  throw new Error("Missing @huggingface/transformers dist. Run npm install before packaging.");
+}
+fs.cpSync(transformersDist, path.join(dist, "vendor", "transformers"), {
+  recursive: true,
+  force: true,
+  filter(source) {
+    const name = path.basename(source);
+    return name !== ".DS_Store" && !name.endsWith(".map");
+  }
+});
 
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const appJs = path.join(dist, "src", "app.js");
