@@ -107,4 +107,28 @@ index.html manual test: passed
 packaged YOUDESIGN.app smart cutout manual test: passed
 npm run check: passed
 npm run build:mac: passed
+signed mac x64 updater build: passed
+signed mac arm64 updater build: passed
+Windows GitHub Actions NSIS updater build: passed
+GitHub release overwrite upload: passed
+GitHub latest.json reachability: passed
+```
+
+Release overwrite:
+
+- Commit: `315c733` (`Fix packaged RMBG runtime loading`)
+- Windows workflow run: `26929181373`
+- Windows artifact ID: `7402620641`
+- GitHub Release: `https://github.com/kim-wing/social-cover-designer/releases/tag/v1.0.17`
+
+Uploaded SHA256:
+
+```text
+latest.json: sha256:4ad369ad787fa508989ddf8afee9ff40f2e66ab53b53a348bdfc09c9d3490558
+YOUDESIGN-1.0.17-mac-x64.app.tar.gz: sha256:19dffbda54b44e2260c04b0722557b22a884aa9fbb4ea88756ce80a30792702f
+YOUDESIGN-1.0.17-mac-x64.app.tar.gz.sig: sha256:0c18de6619e6fa3c5c34221eb42b9308b549fb0e3e742e27231f852f28fc5cc7
+YOUDESIGN-1.0.17-mac-arm64.app.tar.gz: sha256:85d56cf3027ad49b3cb6bdd5fdd809679f3f04482f4755333e0833a9cc1360d4
+YOUDESIGN-1.0.17-mac-arm64.app.tar.gz.sig: sha256:ce593ab77335e4a161ed1a412055bb8e30a2436e7e05acf3ba037a91ba191935
+YOUDESIGN-1.0.17-win-x64-setup.exe: sha256:a764e660074238adcd59d1c5c43822c5155431a9456587ae1dbe8cb5e23f26ef
+YOUDESIGN-1.0.17-win-x64-setup.exe.sig: sha256:a5b1ab6925f7aaf700daa0552a4e8263fb7df488aa3e461138c5a5a1a950ad2a
 ```
