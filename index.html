@@ -325,7 +325,6 @@
             <p class="element-title">标签</p>
             <div class="element-grid">
               <button class="element-card" id="addPillTagBtn" type="button"><span class="element-icon">●</span><span><strong>胶囊标签</strong><span>收藏/攻略</span></span></button>
-              <button class="element-card" id="addCornerBadgeBtn" type="button"><span class="element-icon">⌜</span><span><strong>角标</strong><span>右上强调</span></span></button>
               <button class="element-card" id="addTopBadgeBtn" type="button"><span class="element-icon">TOP</span><span><strong>数字标签</strong><span>TOP / 必看</span></span></button>
             </div>
           </div>
@@ -420,23 +419,29 @@
               <div class="inspector-group-title"><span>文字</span></div>
               <div class="inspector-content">
                 <div class="compact-field">
-                  <label id="textValueLabel" for="textValue">内容</label>
-                  <textarea id="textValue" rows="3"></textarea>
+                  <label for="fontFamily">字体</label>
+                  <select id="fontFamily"></select>
                 </div>
-                <div class="field-grid">
+                <div class="field-grid three text-metrics-grid">
                   <div class="compact-field">
-                    <label for="fontFamily">字体</label>
-                    <select id="fontFamily"></select>
-                  </div>
-                  <div class="compact-field">
-                    <label for="fontSize">字号</label>
                     <input id="fontSize" type="number" min="8" max="320">
+                    <label for="fontSize">字号</label>
+                  </div>
+                  <div class="compact-field">
+                    <input id="letterSpacing" type="number" min="-80" max="240" step="1">
+                    <label for="letterSpacing">字距</label>
+                  </div>
+                  <div class="compact-field">
+                    <input id="lineHeight" type="number" min="80" max="300" step="1">
+                    <label for="lineHeight">行高</label>
                   </div>
                 </div>
-                <div class="button-row three">
-                  <button class="mini-btn" id="textAlignLeftBtn" type="button">左对齐</button>
-                  <button class="mini-btn" id="textAlignCenterBtn" type="button">居中</button>
-                  <button class="mini-btn" id="textAlignRightBtn" type="button">右对齐</button>
+                <button class="mini-btn text-auto-width-btn" id="autoTextWidthBtn" type="button">自动宽度</button>
+                <div class="text-control-label">对齐方式</div>
+                <div class="button-row three text-align-row">
+                  <button class="mini-btn" id="textAlignLeftBtn" type="button" aria-label="左对齐"></button>
+                  <button class="mini-btn" id="textAlignCenterBtn" type="button" aria-label="居中"></button>
+                  <button class="mini-btn" id="textAlignRightBtn" type="button" aria-label="右对齐"></button>
                 </div>
               </div>
             </div>
@@ -444,22 +449,63 @@
             <div class="inspector-group" id="appearanceGroup">
               <div class="inspector-group-title"><span>外观</span></div>
               <div class="inspector-content">
-                <div class="field-grid" id="appearanceGrid">
-                  <div class="compact-field">
+                <div class="appearance-row" id="appearanceFillOpacityRow">
+                  <div class="compact-field appearance-color-field">
                     <label id="fillColorLabel" for="fillColor">颜色</label>
-                    <input id="fillColor" type="color">
+                    <div class="appearance-color-input">
+                      <input id="fillColor" type="color">
+                      <input id="fillColorText" type="text" inputmode="text" maxlength="7" spellcheck="false" aria-label="填充色值">
+                    </div>
                   </div>
+                  <div class="inline-control appearance-inline-control appearance-number-control">
+                    <label for="opacity">透明度</label>
+                    <input id="opacity" type="number" min="5" max="100" step="1">
+                    <span class="number-suffix">%</span>
+                  </div>
+                </div>
+                <div class="appearance-gradient-panel hidden" id="fillGradientPanel">
                   <div class="compact-field">
-                    <label id="strokeColorLabel" for="strokeColor">描边</label>
-                    <input id="strokeColor" type="color">
+                    <label for="fillMode">填充类型</label>
+                    <select id="fillMode">
+                      <option value="solid">纯色</option>
+                      <option value="gradient">渐变</option>
+                    </select>
+                  </div>
+                  <div class="appearance-row hidden" id="fillGradientControls">
+                    <div class="compact-field appearance-color-field">
+                      <label for="gradientEndColor">结束颜色</label>
+                      <div class="appearance-color-input">
+                        <input id="gradientEndColor" type="color">
+                        <input id="gradientEndColorText" type="text" inputmode="text" maxlength="7" spellcheck="false" aria-label="渐变结束色值">
+                      </div>
+                    </div>
+                    <div class="inline-control appearance-inline-control appearance-number-control">
+                      <label for="gradientAngle">角度</label>
+                      <input id="gradientAngle" type="number" min="0" max="360" step="1">
+                      <span class="number-suffix">°</span>
+                    </div>
                   </div>
                 </div>
-                <div class="inline-control">
-                  <label for="strokeWidth">描边</label>
-                  <input id="strokeWidth" type="range" min="0" max="18" step="1">
-                  <output id="strokeWidthValue">0</output>
-                </div>
-                <label class="toggle-row hidden" id="strokeDashControl" for="strokeDashToggle"><span>虚线</span><input id="strokeDashToggle" type="checkbox"></label>
+                <details class="appearance-section" id="strokeSection">
+                  <summary>
+                    <span>描边</span>
+                    <span class="appearance-section-actions" aria-hidden="true">▸</span>
+                  </summary>
+                  <div class="appearance-section-body">
+                    <div class="appearance-row">
+                      <div class="compact-field appearance-color-field">
+                        <label id="strokeColorLabel" for="strokeColor">描边颜色</label>
+                        <input id="strokeColor" type="color">
+                      </div>
+                      <div class="inline-control appearance-inline-control appearance-number-control">
+                        <label for="strokeWidth">尺寸</label>
+                        <input id="strokeWidth" type="number" min="0" max="18" step="1">
+                        <span class="number-suffix">px</span>
+                      </div>
+                    </div>
+                    <label class="toggle-row hidden" id="strokeDashControl" for="strokeDashToggle"><span>虚线</span><input id="strokeDashToggle" type="checkbox"></label>
+                  </div>
+                </details>
                 <div class="inline-control hidden" id="shapeRadiusControl">
                   <label for="shapeRadius">圆角</label>
                   <input id="shapeRadius" type="range" min="0" max="160" step="1">
@@ -474,15 +520,6 @@
                   <label for="shapeStarPoints">星角</label>
                   <input id="shapeStarPoints" type="range" min="3" max="16" step="1">
                   <output id="shapeStarPointsValue">5</output>
-                </div>
-                <div class="button-row two hidden" id="shapeRadiusPresets">
-                  <button class="mini-btn" id="radiusStraightBtn" type="button">直角</button>
-                  <button class="mini-btn" id="radiusRoundBtn" type="button">圆角</button>
-                </div>
-                <div class="inline-control">
-                  <label for="opacity">透明度</label>
-                  <input id="opacity" type="range" min="0.05" max="1" step="0.05">
-                  <output id="opacityValue">100%</output>
                 </div>
                 <div class="inline-control">
                   <label for="shadow">阴影</label>

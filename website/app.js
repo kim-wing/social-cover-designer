@@ -6,18 +6,56 @@ document.documentElement.classList.add("motion-ready");
 const platform = navigator.platform.toLowerCase();
 const userAgent = navigator.userAgent.toLowerCase();
 const rows = [...document.querySelectorAll(".download-row")];
+const downloadDetect = document.getElementById("download-detect");
 
-let preferred = "mac-arm";
-if (userAgent.includes("windows")) {
-  preferred = "windows";
-} else if (platform.includes("macintel")) {
-  preferred = navigator.userAgentData ? "mac-arm" : "mac-intel";
+const recommendationText = {
+  "mac-arm": "已根据当前设备推荐 macOS Apple Silicon。若你的 Mac 是 Intel 芯片，请选择 Intel 版本。",
+  "mac-intel": "已根据当前设备推荐 macOS Intel。Apple Silicon 机型请选择 Apple Silicon 版本。",
+  windows: "已根据当前设备推荐 Windows x64。"
+};
+
+async function detectPreferredDownload() {
+  if (navigator.userAgentData?.getHighEntropyValues) {
+    try {
+      const hints = await navigator.userAgentData.getHighEntropyValues(["platform", "architecture"]);
+      const hintedPlatform = String(hints.platform || "").toLowerCase();
+      const architecture = String(hints.architecture || "").toLowerCase();
+
+      if (hintedPlatform.includes("windows")) return "windows";
+      if (hintedPlatform.includes("mac")) {
+        if (architecture.includes("arm") || architecture.includes("aarch64")) return "mac-arm";
+        if (architecture.includes("x86") || architecture.includes("amd64")) return "mac-intel";
+        return "mac-arm";
+      }
+    } catch {
+      // Browser privacy settings can block high-entropy hints; fall back to UA parsing.
+    }
+  }
+
+  if (userAgent.includes("windows") || platform.includes("win")) return "windows";
+  if (userAgent.includes("mac") || platform.includes("mac")) return "mac-arm";
+  return "mac-arm";
 }
 
+function applyDownloadRecommendation(preferred) {
+  rows.forEach(row => {
+    const active = row.dataset.platform === preferred;
+    row.classList.toggle("recommended", active);
+    if (active) {
+      row.setAttribute("aria-label", `${row.querySelector("strong")?.textContent || "推荐版本"}，推荐下载`);
+    } else {
+      row.removeAttribute("aria-label");
+    }
+  });
+
+  if (downloadDetect) {
+    downloadDetect.textContent = recommendationText[preferred] || recommendationText["mac-arm"];
+  }
+}
+
+detectPreferredDownload().then(applyDownloadRecommendation);
+
 rows.forEach(row => {
-  const active = row.dataset.platform === preferred;
-  row.classList.toggle("recommended", active);
-  if (active) row.setAttribute("aria-label", `${row.querySelector("strong")?.textContent || "推荐版本"}，推荐下载`);
   row.addEventListener("click", () => {
     rows.forEach(item => item.classList.remove("is-pressed"));
     row.classList.add("is-pressed");

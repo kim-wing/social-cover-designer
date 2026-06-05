@@ -99,7 +99,6 @@ const iconPathAliases = {
   badge: "rect",
   number: "text",
   verticalText: "text",
-  cornerBadge: "rect",
   topBadge: "selectAll",
   crop: "image",
   boolean: "shape"
@@ -142,7 +141,6 @@ const basiconSvg = {
   badge: '<path d="M6.5 6h7l4 4v8h-11V6Z"></path><path d="M13.5 6v4h4"></path>',
   number: '<path d="M9.5 4 7.5 20"></path><path d="M16.5 4l-2 16"></path><path d="M5 9h14"></path><path d="M4 15h14"></path>',
   verticalText: '<path d="M12 5v14"></path><path d="M8 5h8"></path><path d="M9 19h6"></path>',
-  cornerBadge: '<path d="M6 6h12v12"></path><path d="M18 6 6 18"></path>',
   topBadge: '<rect x="5" y="5" width="14" height="14" rx="2"></rect><path d="M8 9h8"></path><path d="M10 13h4"></path>',
   crop: '<path d="M7 3v14h14"></path><path d="M3 7h14v14"></path>',
   boolean: '<circle cx="9" cy="12" r="5"></circle><circle cx="15" cy="12" r="5"></circle>'
@@ -196,7 +194,6 @@ function applyIconSystem() {
     addBigNumberBtn: "number",
     addVerticalTextBtn: "verticalText",
     addPillTagBtn: "badge",
-    addCornerBadgeBtn: "cornerBadge",
     addTopBadgeBtn: "topBadge",
     addRectBtn: "rect",
     addCircleBtn: "circle",
@@ -281,6 +278,7 @@ const presets = [
 ];
 
 const swatchColors = ["#fff6d8", "#fff100", "#ff4d23", "#171411", "#f7f7f2", "#2563eb", "#12b981", "#ffe4ec", "#efe7ff", "#d9f99d", "#f8fafc", "#f97316", "#0f172a", "#fef3c7"];
+const DEFAULT_SHAPE_COLOR = "#ff4d23";
 const safeFontKeywords = [
   "字魂", "字小魂", "ZiHun", "ZiXiaoHun",
   "思源", "Source Han", "Noto Sans CJK", "Noto Serif CJK", "SourceHanSans", "SourceHanSerif", "NotoSansCJK", "NotoSerifCJK",
@@ -405,7 +403,11 @@ function text(value, x, y, fontSize, fill, extra = {}) {
     rotation: 0,
     opacity: 1,
     fontFamily: extra.fontFamily || "Alibaba PuHuiTi",
+    fontLocalStyle: extra.fontLocalStyle || "",
+    fontStyle: extra.fontStyle || "normal",
     fontSize,
+    lineHeight: extra.lineHeight || 1.14,
+    letterSpacing: extra.letterSpacing || 0,
     fontWeight: extra.fontWeight || 800,
     fill,
     stroke: extra.stroke || "#171411",
@@ -421,7 +423,7 @@ function shape(kind, x, y, width, heightOrFill, fillOrExtra, maybeExtra = {}) {
   const isLine = kind === "line";
   const isSymbol = ["triangle", "star", "polygon"].includes(kind);
   const height = isCircle ? width : isLine ? Math.max(12, heightOrFill || 24) : heightOrFill;
-  const fill = isCircle || isLine ? heightOrFill : fillOrExtra;
+  const fill = (isCircle || isLine ? heightOrFill : fillOrExtra) || DEFAULT_SHAPE_COLOR;
   const extra = isCircle ? fillOrExtra || {} : maybeExtra;
   const names = { circle: "圆形", line: "分割线", triangle: "三角形", star: "星形", polygon: "多边形", rect: "矩形" };
   return {
@@ -435,7 +437,7 @@ function shape(kind, x, y, width, heightOrFill, fillOrExtra, maybeExtra = {}) {
     rotation: 0,
     opacity: 1,
     fill: isLine ? "transparent" : fill,
-    stroke: extra.stroke || "#171411",
+    stroke: extra.stroke || (isLine ? DEFAULT_SHAPE_COLOR : "#171411"),
     strokeWidth: isLine ? extra.strokeWidth ?? 1 : extra.strokeWidth || 0,
     strokeDash: extra.strokeDash || false,
     radius: extra.radius || 0,
@@ -470,6 +472,92 @@ function isSafeCommercialFontName(fontName) {
 
 function isSafeCommercialFont(font) {
   return [font.family, font.fullName, font.postscriptName].some(isSafeCommercialFontName);
+}
+
+function normalizeFontLocalStyle(style) {
+  return String(style || "Regular").trim() || "Regular";
+}
+
+function fontWeightFromStyle(style) {
+  const normalized = normalizeFontLocalStyle(style).toLowerCase();
+  if (/thin|hairline|100/.test(normalized)) return 100;
+  if (/extra\s*light|ultra\s*light|200/.test(normalized)) return 200;
+  if (/light|300/.test(normalized)) return 300;
+  if (/regular|normal|book|roman|400/.test(normalized)) return 400;
+  if (/medium|500/.test(normalized)) return 500;
+  if (/semi\s*bold|demi\s*bold|600/.test(normalized)) return 600;
+  if (/extra\s*bold|ultra\s*bold|800/.test(normalized)) return 800;
+  if (/black|heavy|900/.test(normalized)) return 900;
+  if (/bold|700/.test(normalized)) return 700;
+  return 400;
+}
+
+function fontStyleFromLocalStyle(style) {
+  return /italic|oblique/i.test(normalizeFontLocalStyle(style)) ? "italic" : "normal";
+}
+
+function fontSelectValue(font) {
+  return font.value || `font:${encodeURIComponent(font.family)}:${encodeURIComponent(font.localStyle || "")}`;
+}
+
+function allFontOptions() {
+  return [...baseFonts, ...localFonts];
+}
+
+function findFontOption(value) {
+  return allFontOptions().find(font => fontSelectValue(font) === value || font.family === value) || null;
+}
+
+function fontPatchFromSelectValue(value) {
+  const font = findFontOption(value);
+  if (!font) return { fontFamily: value, fontLocalStyle: "", fontStyle: "normal" };
+  const patch = { fontFamily: font.family, fontLocalStyle: font.localStyle || "", fontStyle: font.fontStyle || "normal" };
+  if (font.fontWeight) patch.fontWeight = font.fontWeight;
+  return patch;
+}
+
+function fontSelectValueForObject(obj) {
+  if (!obj) return "";
+  const localStyle = normalizeFontLocalStyle(obj.fontLocalStyle || "");
+  const options = obj.fontLocalStyle ? [...localFonts, ...baseFonts] : allFontOptions();
+  const exact = options.find(font =>
+    font.family === obj.fontFamily &&
+    normalizeFontLocalStyle(font.localStyle || "") === localStyle
+  );
+  const familyOnly = options.find(font => font.family === obj.fontFamily);
+  return exact ? fontSelectValue(exact) : familyOnly ? fontSelectValue(familyOnly) : obj.fontFamily || "";
+}
+
+function textFontCss(obj, scale = 1) {
+  const style = obj.fontStyle || "normal";
+  const weight = obj.fontWeight || 800;
+  const size = (obj.fontSize || 42) * scale;
+  return `${style} ${weight} ${size}px "${obj.fontFamily}", sans-serif`;
+}
+
+function textLineHeight(obj, scale = 1) {
+  return obj.fontSize * (Number(obj.lineHeight) || 1.14) * scale;
+}
+
+function textLetterSpacing(obj, scale = 1) {
+  return (Number(obj.letterSpacing) || 0) * scale;
+}
+
+function measureTextLine(c, line, letterSpacing = 0) {
+  const text = String(line || "");
+  return c.measureText(text).width + Math.max(0, Array.from(text).length - 1) * letterSpacing;
+}
+
+function syncFontSelectStyle(value) {
+  const select = document.getElementById("fontFamily");
+  if (!select) return;
+  const font = findFontOption(value || select?.value || "");
+  const family = font?.family || selected()?.fontFamily || "PingFang SC";
+  const fontStyle = font?.fontStyle || selected()?.fontStyle || "normal";
+  const fontWeight = font?.fontWeight || selected()?.fontWeight || 800;
+  select.style.fontFamily = `"${family}", sans-serif`;
+  select.style.fontStyle = fontStyle;
+  select.style.fontWeight = String(fontWeight);
 }
 
 function fileLabel(path) {
@@ -896,18 +984,18 @@ function startInlineTextEdit(obj) {
   renderAll();
   syncUi();
   const scale = canvas.getBoundingClientRect().width / state.width;
-  const lineHeight = obj.fontSize * 1.14 * scale;
+  const lineHeight = textLineHeight(obj, scale);
   inlineEditing = { id: obj.id, original: obj.text || "", lineHeight };
   inlineTextEditor.value = obj.text || "";
   inlineTextEditor.style.left = `${obj.x * scale}px`;
   inlineTextEditor.style.top = `${obj.y * scale}px`;
   inlineTextEditor.style.width = `${Math.max(44, obj.width * scale)}px`;
   inlineTextEditor.style.height = `${Math.max(34, obj.height * scale)}px`;
-  inlineTextEditor.style.font = `${obj.fontWeight || 800} ${obj.fontSize * scale}px "${obj.fontFamily}", sans-serif`;
+  inlineTextEditor.style.font = textFontCss(obj, scale);
   inlineTextEditor.style.lineHeight = `${lineHeight}px`;
   inlineTextEditor.style.color = obj.fill || "#171411";
   inlineTextEditor.style.textAlign = obj.align || "left";
-  inlineTextEditor.style.letterSpacing = "0";
+  inlineTextEditor.style.letterSpacing = `${textLetterSpacing(obj, scale)}px`;
   inlineTextEditor.style.textDecoration = "none";
   inlineTextEditor.style.opacity = String(obj.opacity ?? 1);
   inlineTextEditor.style.transformOrigin = "50% 50%";
@@ -971,16 +1059,23 @@ function drawGroup(c, obj) {
 }
 
 function drawText(c, obj) {
-  c.font = `${obj.fontWeight || 800} ${obj.fontSize}px "${obj.fontFamily}", sans-serif`;
+  c.font = textFontCss(obj);
   c.textAlign = obj.align || "left";
   c.textBaseline = "top";
   c.lineJoin = "round";
-  const lines = wrapText(c, obj.text, obj.width, obj.fontSize * 1.12);
-  const lineHeight = obj.fontSize * 1.14;
+  const letterSpacing = textLetterSpacing(obj);
+  const lines = wrapText(c, obj.text, obj.width, letterSpacing);
+  const lineHeight = textLineHeight(obj);
   obj.height = Math.max(lineHeight, lines.length * lineHeight);
   lines.forEach((line, i) => {
     const x = obj.align === "center" ? obj.width / 2 : obj.align === "right" ? obj.width : 0;
     const y = i * lineHeight;
+    drawTextLine(c, obj, line, x, y, letterSpacing);
+  });
+}
+
+function drawTextLine(c, obj, line, x, y, letterSpacing = 0) {
+  if (!letterSpacing) {
     if (obj.strokeWidth > 0) {
       c.strokeStyle = obj.stroke;
       c.lineWidth = obj.strokeWidth;
@@ -988,17 +1083,38 @@ function drawText(c, obj) {
     }
     c.fillStyle = obj.fill;
     c.fillText(line, x, y);
+    return;
+  }
+  const originalAlign = c.textAlign;
+  const chars = Array.from(String(line || ""));
+  const width = measureTextLine(c, line, letterSpacing);
+  let cursor = obj.align === "center" ? x - width / 2 : obj.align === "right" ? x - width : x;
+  c.textAlign = "left";
+  if (obj.strokeWidth > 0) {
+    c.strokeStyle = obj.stroke;
+    c.lineWidth = obj.strokeWidth;
+    chars.forEach(ch => {
+      c.strokeText(ch, cursor, y);
+      cursor += c.measureText(ch).width + letterSpacing;
+    });
+    cursor = obj.align === "center" ? x - width / 2 : obj.align === "right" ? x - width : x;
+  }
+  c.fillStyle = obj.fill;
+  chars.forEach(ch => {
+    c.fillText(ch, cursor, y);
+    cursor += c.measureText(ch).width + letterSpacing;
   });
+  c.textAlign = originalAlign;
 }
 
-function wrapText(c, value, maxWidth, baseSize) {
+function wrapText(c, value, maxWidth, letterSpacing = 0) {
   const hardLines = String(value || "").split("\n");
   const result = [];
   hardLines.forEach(line => {
     let current = "";
     for (const ch of line) {
       const test = current + ch;
-      if (c.measureText(test).width > maxWidth && current) {
+      if (measureTextLine(c, test, letterSpacing) > maxWidth && current) {
         result.push(current);
         current = ch;
       } else {
@@ -1113,7 +1229,7 @@ function drawShape(c, obj) {
     c.setLineDash([]);
     return;
   }
-  c.fillStyle = obj.fill;
+  c.fillStyle = shapeFillPaint(c, obj);
   c.strokeStyle = obj.stroke || obj.fill;
   c.lineWidth = obj.strokeWidth || 0;
   if (obj.kind === "circle") {
@@ -1294,20 +1410,29 @@ function svgRoundedPointsPath(points, radius = 0) {
 
 function svgTextObject(obj) {
   const measure = document.createElement("canvas").getContext("2d");
-  measure.font = `${obj.fontWeight || 800} ${obj.fontSize}px "${obj.fontFamily}", sans-serif`;
-  const lines = wrapText(measure, obj.text, obj.width, obj.fontSize * 1.12);
-  const lineHeight = obj.fontSize * 1.14;
+  measure.font = textFontCss(obj);
+  const letterSpacing = textLetterSpacing(obj);
+  const lines = wrapText(measure, obj.text, obj.width, letterSpacing);
+  const lineHeight = textLineHeight(obj);
   const anchor = obj.align === "center" ? "middle" : obj.align === "right" ? "end" : "start";
   const x = obj.align === "center" ? obj.width / 2 : obj.align === "right" ? obj.width : 0;
   const stroke = obj.strokeWidth > 0
     ? ` stroke="${svgEscape(obj.stroke)}" stroke-width="${svgNum(obj.strokeWidth)}" paint-order="stroke fill" stroke-linejoin="round"`
     : "";
   const tspans = lines.map((line, index) => `<tspan x="${svgNum(x)}" y="${svgNum(index * lineHeight)}">${svgEscape(line)}</tspan>`).join("");
-  return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><text x="${svgNum(x)}" y="0" dominant-baseline="text-before-edge" font-family="${svgEscape(obj.fontFamily)}, sans-serif" font-size="${svgNum(obj.fontSize)}" font-weight="${svgEscape(obj.fontWeight || 800)}" fill="${svgEscape(obj.fill)}" text-anchor="${anchor}"${stroke}>${tspans}</text></g>`;
+  return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><text x="${svgNum(x)}" y="0" dominant-baseline="text-before-edge" font-family="${svgEscape(obj.fontFamily)}, sans-serif" font-size="${svgNum(obj.fontSize)}" font-style="${svgEscape(obj.fontStyle || "normal")}" font-weight="${svgEscape(obj.fontWeight || 800)}" letter-spacing="${svgNum(letterSpacing)}" fill="${svgEscape(obj.fill)}" text-anchor="${anchor}"${stroke}>${tspans}</text></g>`;
 }
 
 function svgShapeObject(obj) {
-  const common = `fill="${svgEscape(obj.kind === "line" ? "none" : obj.fill || "transparent")}" stroke="${svgEscape(obj.kind === "line" ? obj.stroke || "#171411" : obj.stroke || obj.fill || "none")}" stroke-width="${svgNum(obj.kind === "line" ? Math.max(1, obj.strokeWidth || 1) : obj.strokeWidth || 0)}"${obj.strokeDash ? ' stroke-dasharray="12 8"' : ""}`;
+  const gradientId = `fill-gradient-${obj.id}`;
+  const hasGradient = obj.kind !== "line" && obj.fillMode === "gradient";
+  const fill = hasGradient ? `url(#${svgEscape(gradientId)})` : obj.kind === "line" ? "none" : obj.fill || "transparent";
+  const common = `fill="${svgEscape(fill)}" stroke="${svgEscape(obj.kind === "line" ? obj.stroke || "#171411" : obj.stroke || obj.fill || "none")}" stroke-width="${svgNum(obj.kind === "line" ? Math.max(1, obj.strokeWidth || 1) : obj.strokeWidth || 0)}"${obj.strokeDash ? ' stroke-dasharray="12 8"' : ""}`;
+  let defs = "";
+  if (hasGradient) {
+    const coords = gradientCoords(obj.gradientAngle ?? 90);
+    defs = `<defs><linearGradient id="${svgEscape(gradientId)}" x1="${svgNum(coords.x1)}" y1="${svgNum(coords.y1)}" x2="${svgNum(coords.x2)}" y2="${svgNum(coords.y2)}"><stop offset="0%" stop-color="${svgEscape(normalizeHexColor(obj.fill) || "#171411")}"></stop><stop offset="100%" stop-color="${svgEscape(normalizeHexColor(obj.gradientEndColor) || "#ffffff")}"></stop></linearGradient></defs>`;
+  }
   let node = "";
   if (obj.kind === "line") {
     node = `<line x1="0" y1="${svgNum(obj.height / 2)}" x2="${svgNum(obj.width)}" y2="${svgNum(obj.height / 2)}" stroke-linecap="butt" ${common}></line>`;
@@ -1318,7 +1443,7 @@ function svgShapeObject(obj) {
   } else {
     node = `<path d="${svgRoundRectPath(obj.width, obj.height, obj.radius)}" ${common}></path>`;
   }
-  return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}>${node}</g>`;
+  return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}>${defs}${node}</g>`;
 }
 
 function svgImageObject(obj, index) {
@@ -1610,16 +1735,22 @@ function renderSelectionOverlay() {
   selectionOverlay.innerHTML = "";
   if (!objects.length) return;
   const scale = canvas.getBoundingClientRect().width / state.width;
-  const makeBox = (bounds, className = "selection-box") => {
+  const makeBox = (bounds, className = "selection-box", label = "") => {
     const box = document.createElement("div");
     box.className = className;
     box.style.left = `${bounds.x * scale}px`;
     box.style.top = `${bounds.y * scale}px`;
     box.style.width = `${bounds.width * scale}px`;
     box.style.height = `${bounds.height * scale}px`;
+    if (label) {
+      const tag = document.createElement("span");
+      tag.className = "selection-label";
+      tag.textContent = label;
+      box.appendChild(tag);
+    }
     selectionOverlay.appendChild(box);
   };
-  objects.forEach(obj => makeBox(obj));
+  objects.forEach(obj => makeBox(obj, "selection-box", obj.name || "图层"));
   if (swipeSelect.active && swipeSelect.start && swipeSelect.current) {
     const left = Math.min(swipeSelect.start.x, swipeSelect.current.x);
     const top = Math.min(swipeSelect.start.y, swipeSelect.current.y);
@@ -1634,9 +1765,16 @@ function renderSelectionOverlay() {
   }
   const bounds = selectionBounds(objects);
   if (!bounds) return;
+  const rotateOffset = 12;
   const handlePoints = [
+    { mode: "resize", name: "nw", x: bounds.x, y: bounds.y },
+    { mode: "resize", name: "ne", x: bounds.x + bounds.width, y: bounds.y },
+    { mode: "resize", name: "sw", x: bounds.x, y: bounds.y + bounds.height },
     { mode: "resize", name: "se", x: bounds.x + bounds.width, y: bounds.y + bounds.height },
-    { mode: "rotate", name: "rotate", x: bounds.x + bounds.width / 2, y: bounds.y - 34 }
+    { mode: "rotate", name: "nw", x: bounds.x, y: bounds.y, offsetX: -rotateOffset, offsetY: -rotateOffset },
+    { mode: "rotate", name: "ne", x: bounds.x + bounds.width, y: bounds.y, offsetX: rotateOffset, offsetY: -rotateOffset },
+    { mode: "rotate", name: "sw", x: bounds.x, y: bounds.y + bounds.height, offsetX: -rotateOffset, offsetY: rotateOffset },
+    { mode: "rotate", name: "se", x: bounds.x + bounds.width, y: bounds.y + bounds.height, offsetX: rotateOffset, offsetY: rotateOffset }
   ];
   if (cropEditor.active && objects.length === 1 && objects[0].id === cropEditor.objectId) {
     const left = objects[0].x;
@@ -1656,8 +1794,8 @@ function renderSelectionOverlay() {
     handle.className = "selection-handle";
     handle.dataset.mode = point.mode;
     handle.dataset.name = point.name;
-    handle.style.left = `${point.x * scale}px`;
-    handle.style.top = `${point.y * scale}px`;
+    handle.style.left = `${point.x * scale + (point.offsetX || 0)}px`;
+    handle.style.top = `${point.y * scale + (point.offsetY || 0)}px`;
     handle.title = point.mode === "crop" ? "裁剪" : point.mode === "resize" ? "缩放" : "旋转";
     selectionOverlay.appendChild(handle);
   });
@@ -1699,11 +1837,19 @@ function addSwipeSelectionAt(point) {
 
 function hitHandle(point, obj) {
   if (!obj) return null;
+  const scale = canvas.getBoundingClientRect().width / state.width;
+  const rotateOffset = 12 / Math.max(.01, scale);
   const handles = [
+    { mode: "resize", name: "nw", x: obj.x, y: obj.y },
+    { mode: "resize", name: "ne", x: obj.x + obj.width, y: obj.y },
+    { mode: "resize", name: "sw", x: obj.x, y: obj.y + obj.height },
     { mode: "resize", name: "se", x: obj.x + obj.width, y: obj.y + obj.height },
-    { mode: "rotate", name: "rotate", x: obj.x + obj.width / 2, y: obj.y - 34 }
+    { mode: "rotate", name: "nw", x: obj.x - rotateOffset, y: obj.y - rotateOffset },
+    { mode: "rotate", name: "ne", x: obj.x + obj.width + rotateOffset, y: obj.y - rotateOffset },
+    { mode: "rotate", name: "sw", x: obj.x - rotateOffset, y: obj.y + obj.height + rotateOffset },
+    { mode: "rotate", name: "se", x: obj.x + obj.width + rotateOffset, y: obj.y + obj.height + rotateOffset }
   ];
-  return handles.find(h => Math.hypot(point.x - h.x, point.y - h.y) < 22);
+  return handles.find(h => Math.hypot(point.x - h.x, point.y - h.y) < 12 / Math.max(.01, scale));
 }
 
 selectionOverlay.addEventListener("pointerdown", e => {
@@ -1886,9 +2032,9 @@ async function handlePointerMove(e) {
   }
   if (state.dragging.mode === "resize") {
     if (objects.length > 1 && state.dragging.bounds) {
-      resizeObjects(objects, state.dragging.objects, state.dragging.bounds, dx, dy, e.shiftKey);
+      resizeObjects(objects, state.dragging.objects, state.dragging.bounds, dx, dy, e.shiftKey, state.dragging.name || "se");
     } else if (obj) {
-      resizeObject(obj, state.dragging.obj, dx, dy, e.shiftKey);
+      resizeObject(obj, state.dragging.obj, dx, dy, e.shiftKey, state.dragging.name || "se");
     }
   }
   if (state.dragging.mode === "crop" && obj && obj.type === "image") {
@@ -2001,22 +2147,43 @@ function defaultLockAspect(obj) {
   return obj.lockAspect ?? (obj.type === "image" || obj.kind === "circle");
 }
 
-function resizeObject(obj, start, dx, dy, invertLock = false) {
-  const locked = invertLock ? !defaultLockAspect(obj) : defaultLockAspect(obj);
-  let nextW = Math.max(28, start.width + dx);
-  let nextH = Math.max(28, start.height + dy);
+function resizedRectFromHandle(start, dx, dy, handleName, locked) {
+  const minSize = 28;
+  const east = handleName.includes("e");
+  const west = handleName.includes("w");
+  const south = handleName.includes("s");
+  const north = handleName.includes("n");
+  const anchorX = east ? start.x : start.x + start.width;
+  const anchorY = south ? start.y : start.y + start.height;
+  let dragX = west ? start.x + dx : start.x + start.width + dx;
+  let dragY = north ? start.y + dy : start.y + start.height + dy;
+  if (east) dragX = Math.max(anchorX + minSize, dragX);
+  if (west) dragX = Math.min(anchorX - minSize, dragX);
+  if (south) dragY = Math.max(anchorY + minSize, dragY);
+  if (north) dragY = Math.min(anchorY - minSize, dragY);
   if (locked) {
     const ratio = Math.max(.05, start.width / Math.max(1, start.height));
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      nextH = nextW / ratio;
-    } else {
-      nextW = nextH * ratio;
-    }
-    nextW = Math.max(28, nextW);
-    nextH = Math.max(28, nextH);
+    let nextW = Math.abs(dragX - anchorX);
+    let nextH = Math.abs(dragY - anchorY);
+    if (Math.abs(dx) >= Math.abs(dy)) nextH = nextW / ratio;
+    else nextW = nextH * ratio;
+    dragX = anchorX + (east ? nextW : -nextW);
+    dragY = anchorY + (south ? nextH : -nextH);
   }
-  obj.width = nextW;
-  obj.height = nextH;
+  const left = Math.min(anchorX, dragX);
+  const top = Math.min(anchorY, dragY);
+  const width = Math.max(minSize, Math.abs(dragX - anchorX));
+  const height = Math.max(minSize, Math.abs(dragY - anchorY));
+  return { x: left, y: top, width, height };
+}
+
+function resizeObject(obj, start, dx, dy, invertLock = false, handleName = "se") {
+  const locked = invertLock ? !defaultLockAspect(obj) : defaultLockAspect(obj);
+  const rect = resizedRectFromHandle(start, dx, dy, handleName, locked);
+  obj.x = rect.x;
+  obj.y = rect.y;
+  obj.width = rect.width;
+  obj.height = rect.height;
   if (obj.type === "group" && obj.children && start.children) {
     const sx = obj.width / Math.max(1, start.width);
     const sy = obj.height / Math.max(1, start.height);
@@ -2026,28 +2193,22 @@ function resizeObject(obj, start, dx, dy, invertLock = false) {
     });
   }
   if (obj.kind === "circle" && locked) {
-    const size = Math.max(nextW, nextH);
+    const size = Math.max(obj.width, obj.height);
     obj.width = size;
     obj.height = size;
   }
 }
 
-function resizeObjects(objects, starts, bounds, dx, dy, invertLock = false) {
+function resizeObjects(objects, starts, bounds, dx, dy, invertLock = false, handleName = "se") {
   const locked = invertLock ? false : true;
-  let nextW = Math.max(28, bounds.width + dx);
-  let nextH = Math.max(28, bounds.height + dy);
-  if (locked) {
-    const ratio = Math.max(.05, bounds.width / Math.max(1, bounds.height));
-    if (Math.abs(dx) >= Math.abs(dy)) nextH = nextW / ratio;
-    else nextW = nextH * ratio;
-  }
-  const sx = nextW / Math.max(1, bounds.width);
-  const sy = nextH / Math.max(1, bounds.height);
+  const rect = resizedRectFromHandle(bounds, dx, dy, handleName, locked);
+  const sx = rect.width / Math.max(1, bounds.width);
+  const sy = rect.height / Math.max(1, bounds.height);
   starts.forEach(start => {
     const obj = objects.find(o => o.id === start.id);
     if (!obj) return;
-    obj.x = bounds.x + (start.x - bounds.x) * sx;
-    obj.y = bounds.y + (start.y - bounds.y) * sy;
+    obj.x = rect.x + (start.x - bounds.x) * sx;
+    obj.y = rect.y + (start.y - bounds.y) * sy;
     obj.width = Math.max(1, start.width * sx);
     obj.height = Math.max(1, start.height * sy);
     if (obj.type === "text") obj.fontSize = Math.max(8, start.fontSize * Math.min(sx, sy));
@@ -3924,17 +4085,6 @@ wire("addPillTagBtn", "click", () => {
   label.name = "胶囊文字";
   addObjects([bg, label], label);
 });
-wire("addCornerBadgeBtn", "click", () => {
-  const x = state.width - 300;
-  const y = 110;
-  const bg = shape("rect", x, y, 210, 82, "#ff4d23", { radius: 24, shadow: 8 });
-  bg.name = "角标底";
-  bg.rotation = 4;
-  const label = text("必看", x + 50, y + 19, 34, "#ffffff", { width: 130, fontWeight: 900 });
-  label.name = "角标文字";
-  label.rotation = 4;
-  addObjects([bg, label], label);
-});
 wire("addTopBadgeBtn", "click", () => {
   const x = state.width * .12;
   const y = state.height * .1;
@@ -3946,13 +4096,13 @@ wire("addTopBadgeBtn", "click", () => {
   num.name = "数字";
   addObjects([bg, top, num], num);
 });
-wire("addRectBtn", "click", () => addObject(shape("rect", 160, 260, 380, 220, "#ff4d23", { radius: 24 })));
-wire("addCircleBtn", "click", () => addObject(shape("circle", 180, 280, 240, "#2563eb")));
-wire("addTriangleBtn", "click", () => addObject(shape("triangle", 180, 280, 260, 260, "#ffb000", { lockAspect: true })));
-wire("addStarBtn", "click", () => addObject(shape("star", 190, 280, 240, 240, "#fff100", { strokeWidth: 0, lockAspect: true })));
-wire("addPolygonBtn", "click", () => addObject(shape("polygon", 180, 280, 260, 260, "#12b981", { sides: 6, lockAspect: true })));
+wire("addRectBtn", "click", () => addObject(shape("rect", 160, 260, 380, 220, DEFAULT_SHAPE_COLOR, { radius: 0 })));
+wire("addCircleBtn", "click", () => addObject(shape("circle", 180, 280, 240, DEFAULT_SHAPE_COLOR)));
+wire("addTriangleBtn", "click", () => addObject(shape("triangle", 180, 280, 260, 260, DEFAULT_SHAPE_COLOR, { lockAspect: true })));
+wire("addStarBtn", "click", () => addObject(shape("star", 190, 280, 240, 240, DEFAULT_SHAPE_COLOR, { strokeWidth: 0, lockAspect: true })));
+wire("addPolygonBtn", "click", () => addObject(shape("polygon", 180, 280, 260, 260, DEFAULT_SHAPE_COLOR, { sides: 6, lockAspect: true })));
 wire("addDividerBtn", "click", () => {
-  const obj = shape("line", 120, 470, 520, 24, "#171411", { stroke: "#171411", strokeWidth: 1, lockAspect: false });
+  const obj = shape("line", 120, 470, 520, 24, DEFAULT_SHAPE_COLOR, { stroke: DEFAULT_SHAPE_COLOR, strokeWidth: 1, lockAspect: false });
   addObject(obj);
 });
 wire("addOverlayBtn", "click", () => {
@@ -3971,6 +4121,34 @@ function normalizeHexColor(value) {
   return null;
 }
 
+function gradientCoords(angle = 90) {
+  const rad = (Number(angle || 0) - 90) * Math.PI / 180;
+  const x = Math.cos(rad);
+  const y = Math.sin(rad);
+  return {
+    x1: .5 - x / 2,
+    y1: .5 - y / 2,
+    x2: .5 + x / 2,
+    y2: .5 + y / 2
+  };
+}
+
+function shapeFillPaint(c, obj) {
+  if (obj.fillMode !== "gradient") return obj.fill || "#171411";
+  const start = normalizeHexColor(obj.fill) || "#171411";
+  const end = normalizeHexColor(obj.gradientEndColor) || "#ffffff";
+  const coords = gradientCoords(obj.gradientAngle ?? 90);
+  const gradient = c.createLinearGradient(
+    coords.x1 * obj.width,
+    coords.y1 * obj.height,
+    coords.x2 * obj.width,
+    coords.y2 * obj.height
+  );
+  gradient.addColorStop(0, start);
+  gradient.addColorStop(1, end);
+  return gradient;
+}
+
 function syncBackgroundColorUi(color = state.background) {
   const normalized = normalizeHexColor(color) || "#ffffff";
   const colorInput = document.getElementById("backgroundColor");
@@ -3982,6 +4160,37 @@ function syncBackgroundColorUi(color = state.background) {
   document.querySelectorAll("#swatches .swatch").forEach(button => {
     button.classList.toggle("active", normalizeHexColor(button.dataset.color) === normalized);
   });
+}
+
+function syncAppearanceFillControls(obj = selected()) {
+  if (!obj) return;
+  const fill = normalizeHexColor(obj.fill) || "#171411";
+  const end = normalizeHexColor(obj.gradientEndColor) || "#ffffff";
+  const mode = obj.fillMode === "gradient" ? "gradient" : "solid";
+  const fillColor = document.getElementById("fillColor");
+  const fillColorText = document.getElementById("fillColorText");
+  const fillMode = document.getElementById("fillMode");
+  const panel = document.getElementById("fillGradientPanel");
+  const controls = document.getElementById("fillGradientControls");
+  const endColor = document.getElementById("gradientEndColor");
+  const endColorText = document.getElementById("gradientEndColorText");
+  const angle = document.getElementById("gradientAngle");
+  if (fillColor) fillColor.value = fill;
+  if (fillColorText) fillColorText.value = fill.toUpperCase();
+  if (fillMode) fillMode.value = mode;
+  if (panel) panel.classList.toggle("hidden", !(obj.type === "shape" && obj.kind !== "line"));
+  if (controls) controls.classList.toggle("hidden", mode !== "gradient");
+  if (endColor) endColor.value = end;
+  if (endColorText) endColorText.value = end.toUpperCase();
+  if (angle) angle.value = Math.round(obj.gradientAngle ?? 90);
+}
+
+function updateSelectedAppearance(patch) {
+  const obj = selected();
+  if (!obj) return;
+  saveHistory();
+  updateSelected(patch);
+  syncAppearanceFillControls(obj);
 }
 
 function setBackgroundColor(color, shouldPersist = true) {
@@ -4054,7 +4263,7 @@ wire("booleanSubtractBtn", "click", () => booleanShapeObjects("subtract"));
 wire("booleanIntersectBtn", "click", () => booleanShapeObjects("intersect"));
 wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
 
-["posX", "posY", "objWidth", "objHeight", "rotation", "textValue", "fontFamily", "fontSize", "fillColor", "strokeColor", "strokeWidth", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow", "lockAspect"].forEach(id => {
+["posX", "posY", "objWidth", "objHeight", "rotation", "fontFamily", "fontSize", "letterSpacing", "lineHeight", "fillColor", "strokeColor", "strokeWidth", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow", "lockAspect"].forEach(id => {
   const handler = e => {
     const obj = selected();
     if (!obj) return;
@@ -4064,9 +4273,10 @@ wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
       objWidth: "width",
       objHeight: "height",
       rotation: "rotation",
-      textValue: "text",
       fontFamily: "fontFamily",
       fontSize: "fontSize",
+      letterSpacing: "letterSpacing",
+      lineHeight: "lineHeight",
       fillColor: "fill",
       strokeColor: "stroke",
       strokeWidth: "strokeWidth",
@@ -4079,12 +4289,21 @@ wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
     };
     let value = id === "lockAspect" ? e.target.checked : e.target.value;
     if (obj.type === "shape" && obj.kind === "line" && id === "fillColor") return;
-    if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "strokeWidth", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow"].includes(id)) value = Number(value);
+    if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "letterSpacing", "lineHeight", "strokeWidth", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow"].includes(id)) value = Number(value);
     if (id === "objWidth" || id === "objHeight") value = Math.max(1, value);
+    if (id === "letterSpacing") value = Math.min(240, Math.max(-80, value));
+    if (id === "lineHeight") value = Math.min(3, Math.max(.8, value / 100));
+    if (id === "opacity") value = Math.min(1, Math.max(.05, value / 100));
+    if (id === "strokeWidth") value = Math.min(18, Math.max(0, value));
     if (id === "shapeRadius") value = Math.max(0, value);
     if (id === "shapeSides") value = Math.min(16, Math.max(3, Math.round(value)));
     if (id === "shapeStarPoints") value = Math.min(16, Math.max(3, Math.round(value)));
     saveHistory();
+    if (id === "fontFamily") {
+      syncFontSelectStyle(value);
+      updateSelected(fontPatchFromSelectValue(value));
+      return;
+    }
     const patch = { [keyMap[id]]: value };
     if ((id === "objWidth" || id === "objHeight") && defaultLockAspect(obj)) {
       const ratio = Math.max(.05, obj.width / Math.max(1, obj.height));
@@ -4101,24 +4320,55 @@ wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
   if (id === "fillColor" || id === "strokeColor") wire(id, "change", handler);
 });
 
-wire("radiusStraightBtn", "click", () => {
-  const objects = selectedObjects().filter(obj => obj.type === "shape" && obj.kind === "rect");
-  if (!objects.length) return;
-  saveHistory();
-  objects.forEach(obj => { obj.radius = 0; });
-  renderAll();
-  syncUi();
-  persist();
+wire("fillColor", "input", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) return;
+  const field = document.getElementById("fillColorText");
+  if (field) field.value = normalized.toUpperCase();
 });
 
-wire("radiusRoundBtn", "click", () => {
-  const objects = selectedObjects().filter(obj => obj.type === "shape" && obj.kind === "rect");
-  if (!objects.length) return;
-  saveHistory();
-  objects.forEach(obj => { obj.radius = Math.round(Math.min(obj.width, obj.height) * .18); });
-  renderAll();
-  syncUi();
-  persist();
+wire("fillColorText", "input", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) return;
+  updateSelectedAppearance({ fill: normalized });
+});
+
+wire("fillColorText", "blur", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) syncAppearanceFillControls();
+});
+
+wire("fillMode", "change", e => {
+  const obj = selected();
+  if (!obj || obj.type !== "shape") return;
+  const patch = { fillMode: e.target.value };
+  if (e.target.value === "gradient" && !obj.gradientEndColor) patch.gradientEndColor = "#ffffff";
+  if (e.target.value === "gradient" && obj.gradientAngle == null) patch.gradientAngle = 90;
+  updateSelectedAppearance(patch);
+});
+
+wire("gradientEndColor", "input", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) return;
+  const field = document.getElementById("gradientEndColorText");
+  if (field) field.value = normalized.toUpperCase();
+  updateSelectedAppearance({ gradientEndColor: normalized, fillMode: "gradient" });
+});
+
+wire("gradientEndColorText", "input", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) return;
+  updateSelectedAppearance({ gradientEndColor: normalized, fillMode: "gradient" });
+});
+
+wire("gradientEndColorText", "blur", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) syncAppearanceFillControls();
+});
+
+wire("gradientAngle", "input", e => {
+  const value = Math.min(360, Math.max(0, Number(e.target.value || 0)));
+  updateSelectedAppearance({ gradientAngle: value, fillMode: "gradient" });
 });
 
 function alignObjects(mode) {
@@ -4156,6 +4406,22 @@ wire("alignRightBtn", "click", () => alignObjects("right"));
 wire("textAlignLeftBtn", "click", () => setTextAlign("left"));
 wire("textAlignCenterBtn", "click", () => setTextAlign("center"));
 wire("textAlignRightBtn", "click", () => setTextAlign("right"));
+wire("autoTextWidthBtn", "click", () => {
+  const objects = selectedObjects().filter(obj => obj.type === "text");
+  if (!objects.length) return;
+  saveHistory();
+  const measure = document.createElement("canvas").getContext("2d");
+  objects.forEach(obj => {
+    measure.font = textFontCss(obj);
+    const spacing = textLetterSpacing(obj);
+    const lines = String(obj.text || " ").split("\n");
+    const width = Math.max(...lines.map(line => measureTextLine(measure, line || " ", spacing)), 1);
+    obj.width = Math.ceil(width + Math.max(8, obj.fontSize * .08));
+  });
+  renderAll();
+  syncUi();
+  persist();
+});
 
 wire("bringForwardBtn", "click", () => moveLayer(1));
 wire("sendBackwardBtn", "click", () => moveLayer(-1));
@@ -4177,15 +4443,16 @@ function moveLayer(delta) {
 }
 
 function reorderLayer(draggedId, targetId, after = false) {
-  if (!draggedId || !targetId || draggedId === targetId) return;
+  if (!draggedId || draggedId === targetId) return;
   const visualIds = [...state.objects].reverse().map(obj => obj.id);
   const from = visualIds.indexOf(draggedId);
-  let to = visualIds.indexOf(targetId);
+  let to = targetId ? visualIds.indexOf(targetId) : visualIds.length;
   if (from < 0 || to < 0) return;
   saveHistory();
   visualIds.splice(from, 1);
   if (from < to) to -= 1;
   if (after) to += 1;
+  to = Math.max(0, Math.min(visualIds.length, to));
   visualIds.splice(to, 0, draggedId);
   const byId = new Map(state.objects.map(obj => [obj.id, obj]));
   state.objects = visualIds.reverse().map(id => byId.get(id)).filter(Boolean);
@@ -4663,12 +4930,22 @@ function applyLocalFonts(fonts) {
   localFonts = fonts
     .filter(isSafeCommercialFont)
     .filter(f => {
-      const key = `${f.family}-${f.style}`;
+      const key = `${f.family}-${normalizeFontLocalStyle(f.style)}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     })
-    .map(f => ({ family: f.family, label: `${f.family} ${f.style || "Regular"} · 可商用`, source: "local" }))
+    .map(f => {
+      const localStyle = normalizeFontLocalStyle(f.style);
+      return {
+        family: f.family,
+        label: `${f.family} · ${localStyle} · 可商用`,
+        localStyle,
+        fontStyle: fontStyleFromLocalStyle(localStyle),
+        fontWeight: fontWeightFromStyle(localStyle),
+        source: "local"
+      };
+    })
     .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
   document.getElementById("fontStatus").textContent = `可商用 ${localFonts.length} 款，过滤 ${fonts.length - safeFonts.length} 款`;
   syncFontSelect();
@@ -4853,23 +5130,24 @@ function syncFontSelect() {
     group.label = label;
     fonts.forEach(f => {
       const option = document.createElement("option");
-      option.value = f.family;
+      option.value = fontSelectValue(f);
       option.textContent = f.label;
       option.style.fontFamily = `"${f.family}", sans-serif`;
+      if (f.fontWeight) option.style.fontWeight = String(f.fontWeight);
+      if (f.fontStyle) option.style.fontStyle = f.fontStyle;
       group.appendChild(option);
     });
     select.appendChild(group);
   });
-  if (current) select.value = current;
+  if (current) select.value = findFontOption(current) ? fontSelectValue(findFontOption(current)) : current;
+  syncFontSelectStyle(select.value);
 }
 
 function syncInspectorOutputs(obj = selected()) {
   if (!obj) return;
-  document.getElementById("strokeWidthValue").textContent = String(obj.strokeWidth || 0);
   document.getElementById("shapeRadiusValue").textContent = String(Math.round(obj.radius || 0));
   document.getElementById("shapeSidesValue").textContent = String(Math.round(obj.sides || 6));
   document.getElementById("shapeStarPointsValue").textContent = String(Math.round(obj.points || 5));
-  document.getElementById("opacityValue").textContent = `${Math.round((obj.opacity ?? 1) * 100)}%`;
   document.getElementById("shadowValue").textContent = String(obj.shadow || 0);
 }
 
@@ -4916,21 +5194,23 @@ function syncUi(updateValues = true) {
   document.getElementById("appearanceGroup").classList.toggle("hidden", multi || !hasAppearance);
   document.getElementById("booleanGroup").classList.toggle("hidden", !booleanReady);
   document.getElementById("imageGroup").classList.toggle("hidden", multi || !isImage);
-  document.getElementById("appearanceGrid").classList.toggle("hidden", isImage || isGroup);
+  document.getElementById("appearanceFillOpacityRow").classList.toggle("hidden", false);
   document.getElementById("fillColor").closest(".compact-field").classList.toggle("hidden", isLine || isGroup);
-  document.getElementById("strokeWidth").closest(".inline-control").classList.toggle("hidden", isImage || isGroup);
+  document.getElementById("strokeSection").classList.toggle("hidden", isImage || isGroup);
   document.getElementById("strokeDashControl").classList.toggle("hidden", !isLine);
   document.getElementById("shapeRadiusControl").classList.toggle("hidden", !(isRect || isTriangle || isPolygon || isStar));
   document.getElementById("shapeSidesControl").classList.toggle("hidden", !isPolygon);
   document.getElementById("shapeStarPointsControl").classList.toggle("hidden", !isStar);
-  document.getElementById("shapeRadiusPresets").classList.toggle("hidden", !isRect);
   document.getElementById("fillColorLabel").textContent = isShape || isCompoundShape ? "填充颜色" : "文字颜色";
   document.getElementById("strokeColorLabel").textContent = isLine ? "线条颜色" : "描边颜色";
+  syncAppearanceFillControls(obj);
   syncTransformInputs(obj);
   if (multi) return;
-  document.getElementById("textValue").value = obj.text || "";
-  document.getElementById("fontFamily").value = obj.fontFamily || "PingFang SC";
+  document.getElementById("fontFamily").value = fontSelectValueForObject(obj);
+  syncFontSelectStyle();
   document.getElementById("fontSize").value = Math.round(obj.fontSize || 42);
+  document.getElementById("letterSpacing").value = Math.round(obj.letterSpacing || 0);
+  document.getElementById("lineHeight").value = Math.round((Number(obj.lineHeight) || 1.14) * 100);
   document.getElementById("fillColor").value = obj.fill || "#171411";
   document.getElementById("strokeColor").value = obj.stroke || "#171411";
   document.getElementById("strokeWidth").value = obj.strokeWidth || 0;
@@ -4938,7 +5218,7 @@ function syncUi(updateValues = true) {
   document.getElementById("shapeRadius").value = obj.radius || 0;
   document.getElementById("shapeSides").value = obj.sides || 6;
   document.getElementById("shapeStarPoints").value = obj.points || 5;
-  document.getElementById("opacity").value = obj.opacity ?? 1;
+  document.getElementById("opacity").value = Math.round((obj.opacity ?? 1) * 100);
   document.getElementById("shadow").value = obj.shadow || 0;
   syncInspectorOutputs(obj);
   syncMaskControls();
@@ -4992,6 +5272,31 @@ function setupInspectorInteractions() {
 function renderLayers() {
   const box = document.getElementById("layers");
   box.innerHTML = "";
+  if (!box.dataset.dragBound) {
+    box.dataset.dragBound = "true";
+    box.addEventListener("dragover", event => {
+      const layer = event.target.closest(".layer");
+      if (layer) return;
+      if (!event.dataTransfer.types.includes("text/plain")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      clearLayerDropMarkers();
+      box.classList.add("drop-to-end");
+    });
+    box.addEventListener("dragleave", event => {
+      if (box.contains(event.relatedTarget)) return;
+      box.classList.remove("drop-to-end");
+    });
+    box.addEventListener("drop", event => {
+      const layer = event.target.closest(".layer");
+      if (layer) return;
+      const draggedId = event.dataTransfer.getData("text/plain");
+      if (!draggedId) return;
+      event.preventDefault();
+      box.classList.remove("drop-to-end");
+      reorderLayer(draggedId, null, true);
+    });
+  }
   [...state.objects].reverse().forEach(obj => {
     const btn = document.createElement("button");
     const active = selectedObjects().some(selectedObj => selectedObj.id === obj.id);
@@ -4999,8 +5304,9 @@ function renderLayers() {
     btn.type = "button";
     btn.draggable = true;
     btn.dataset.layerId = obj.id;
+    btn.title = "拖动改变图层位置";
     const typeLabel = obj.type === "compoundShape" ? "shape" : obj.type === "group" ? `group · ${(obj.children || []).length}` : obj.type;
-    btn.innerHTML = `<span class="layer-name">${obj.name}</span><span class="layer-type">${typeLabel}</span>`;
+    btn.innerHTML = `<span class="layer-drag-handle" aria-hidden="true">⋮⋮</span><span class="layer-name">${obj.name}</span><span class="layer-type">${typeLabel}</span>`;
     btn.onclick = event => {
       if (event.shiftKey || event.metaKey || event.ctrlKey) toggleSelection(obj.id);
       else setSelection([obj.id]);
@@ -5014,12 +5320,14 @@ function renderLayers() {
     });
     btn.addEventListener("dragend", () => {
       btn.classList.remove("dragging");
-      document.querySelectorAll(".layer.drop-before, .layer.drop-after").forEach(item => item.classList.remove("drop-before", "drop-after"));
+      box.classList.remove("drop-to-end");
+      clearLayerDropMarkers();
     });
     btn.addEventListener("dragover", event => {
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
-      document.querySelectorAll(".layer.drop-before").forEach(item => item.classList.remove("drop-before"));
+      box.classList.remove("drop-to-end");
+      clearLayerDropMarkers();
       const rect = btn.getBoundingClientRect();
       btn.classList.toggle("drop-after", event.clientY > rect.top + rect.height / 2);
       btn.classList.toggle("drop-before", event.clientY <= rect.top + rect.height / 2);
@@ -5036,6 +5344,10 @@ function renderLayers() {
     box.appendChild(btn);
   });
   if (!state.objects.length) box.innerHTML = `<div class="empty">暂无图层。添加文字、图片、Logo 或图形开始。</div>`;
+}
+
+function clearLayerDropMarkers() {
+  document.querySelectorAll(".layer.drop-before, .layer.drop-after").forEach(item => item.classList.remove("drop-before", "drop-after"));
 }
 
 function setUpdateUi(status, payload = {}) {
