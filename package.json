@@ -22,6 +22,8 @@
     "tauri": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri",
     "tauri:prepare": "node scripts/prepare-tauri-dist.js",
     "tauri:local-update-manifest": "node scripts/create-local-update-manifest.js",
+    "website:sync-downloads": "node scripts/sync-website-downloads.js",
+    "website:sync-downloads:deploy": "node scripts/sync-website-downloads.js --deploy",
     "check": "npm run tauri:prepare && PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH cargo check --manifest-path src-tauri/Cargo.toml"
   },
   "devDependencies": {
