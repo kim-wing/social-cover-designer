@@ -80,7 +80,7 @@
         <section class="section" id="promptSection">
           <h2>AI生图 <small>生成 / 二次编辑</small></h2>
           <div class="prompt-generator" aria-label="AI 生图工具">
-            <div class="ai-block ai-account-block">
+            <div class="ai-block ai-account-block" id="aiAccountBlock">
               <div class="ai-block-head">
                 <strong>账号</strong>
                 <button class="mini-btn" id="quickRouterKeyHelpBtn" type="button">申请 API Key</button>
@@ -96,7 +96,7 @@
               </label>
             </div>
 
-            <div class="ai-block">
+            <div class="ai-block" id="aiGenerateBlock">
               <div class="ai-block-head">
                 <strong>生成新图</strong>
                 <span id="imagePromptModeHint">填写业务信息后自动整理 Prompt</span>
@@ -229,7 +229,7 @@
               </div>
             </div>
 
-            <div class="ai-block ai-edit-block">
+            <div class="ai-block ai-edit-block" id="aiEditBlock">
               <div class="ai-block-head">
                 <strong>二次编辑</strong>
                 <span>选中画布图片后继续修改</span>
@@ -663,6 +663,21 @@
       <div class="dialog-actions">
         <button class="btn" id="appDialogCancel" type="button">取消</button>
         <button class="btn primary" id="appDialogConfirm" type="button">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="onboarding-layer hidden" id="onboardingLayer" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle" aria-describedby="onboardingText">
+    <div class="onboarding-spotlight" id="onboardingSpotlight" aria-hidden="true"></div>
+    <div class="onboarding-card" id="onboardingCard">
+      <div class="onboarding-kicker" id="onboardingStepLabel">快速上手</div>
+      <h2 class="onboarding-title" id="onboardingTitle">欢迎使用 YOUDESIGN</h2>
+      <p class="onboarding-text" id="onboardingText"></p>
+      <div class="onboarding-dots" id="onboardingDots" aria-label="引导进度"></div>
+      <div class="onboarding-actions">
+        <button class="btn" id="onboardingSkipBtn" type="button">跳过引导</button>
+        <button class="btn" id="onboardingPrevBtn" type="button">上一步</button>
+        <button class="btn primary" id="onboardingNextBtn" type="button">下一步</button>
       </div>
     </div>
   </div>

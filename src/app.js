@@ -4,6 +4,7 @@ const stage = document.getElementById("stage");
 const selectionOverlay = document.getElementById("selectionOverlay");
 const inlineTextEditor = document.getElementById("inlineTextEditor");
 const STORAGE_KEY = "social-cover-designer-v3";
+const ONBOARDING_STORAGE_KEY = "youdesign-onboarding-v4";
 const IMAGE_API_KEY_STORAGE = "youdesign-openai-image-api-key";
 const IMAGE_API_KEY_REMEMBER_STORAGE = "youdesign-remember-image-api-key";
 const IMAGE_API_BASE_STORAGE = "youdesign-image-api-base";
@@ -386,6 +387,97 @@ const stampEditor = {
 const panState = { spaceDown: false, active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 };
 const swipeSelect = { active: false, ids: new Set(), started: false, start: null, current: null };
 const unsplashState = { query: "", page: 1, totalPages: 0, results: [], loading: false };
+const onboardingSteps = [
+  {
+    target: "#sizeSection",
+    panel: "sizeSection",
+    title: "尺寸：选择画布规格",
+    text: "这里可以选择小红书、朋友圈、公众号、抖音等常用尺寸，也可以输入自定义宽高，新建一张空白画布。"
+  },
+  {
+    target: "#promptSection",
+    panel: "promptSection",
+    title: "AI 生图：快速生成封面底图",
+    text: "AI 生图适合先做封面主视觉或背景图。这里既支持按业务信息自动整理 Prompt，也支持直接输入自定义 Prompt。"
+  },
+  {
+    target: "#aiAccountBlock",
+    panel: "promptSection",
+    title: "AI 生图：先填写 API Key",
+    text: "第一次使用需要填入 QuickRouter API Key。可以选择只本次使用，也可以勾选保存到本机，后续生成不用重复填写。"
+  },
+  {
+    target: "#aiGenerateBlock",
+    panel: "promptSection",
+    title: "AI 生图：业务 Prompt 自动整理",
+    text: "填写目的地、卖点、出发时间、价格和风格后，系统会自动整理成更完整的生图 Prompt，再点击生成图片加入画布。"
+  },
+  {
+    target: "#aiEditBlock",
+    panel: "promptSection",
+    title: "AI 生图：选中图片后继续编辑",
+    text: "画布里已经有图片时，可以选中图片，在这里输入修改要求，例如换背景、改风格、增加氛围，再生成新版图片。"
+  },
+  {
+    target: "#imageTools",
+    panel: "imageTools",
+    title: "图片：上传本地图片",
+    text: "支持 JPG、PNG、WebP。上传后会自动放入画布，适合导入产品图、人物图、活动照片或已经做好的背景图。"
+  },
+  {
+    target: "#unsplashPanel",
+    panel: "imageTools",
+    title: "免费图库：搜索 Unsplash 图片",
+    text: "这里可以接入 Unsplash 免费图库，填入 Access Key 后按关键词搜索图片。选中图片会自动加入画布，并保留下载记录。"
+  },
+  {
+    target: "#imageGroup",
+    fallbackTarget: ".right",
+    demoImagePanel: true,
+    title: "智能抠图：选中图片后使用",
+    text: "选中画布上的图片后，右侧会出现图片工具。点击“智能抠图”会下载 RMBG-1.4 模型，之后在本机处理图片，不会上传原图；抠完还能用修边画笔微调边缘。"
+  },
+  {
+    target: "#textTools",
+    panel: "textTools",
+    title: "文字：添加标题和标签",
+    text: "这里可以快速添加标题、正文、副标题、大数字和竖排字。文字放到画布后，双击即可直接编辑内容。"
+  },
+  {
+    target: "#shapeTools",
+    panel: "shapeTools",
+    title: "形状：做色块和装饰",
+    text: "矩形、圆形、三角形、星形、多边形和分割线都在这里。适合做背景色块、强调符号和版面分隔。"
+  },
+  {
+    target: "#mascotPanel",
+    panel: "mascotPanel",
+    title: "素材：添加现成元素",
+    text: "这里放常用的素材元素，点击就能加入画布，适合快速丰富封面，不用从零开始搭。"
+  },
+  {
+    target: "#logoSection",
+    panel: "logoSection",
+    title: "Logo：添加品牌标识",
+    text: "这里可以选择内置 Logo 样式，点击后直接放入画布，方便统一品牌露出。"
+  },
+  {
+    target: "#stage",
+    title: "在画布上直接编辑",
+    text: "选中元素后可以拖动、缩放、旋转。文字支持在画布上双击直接改内容，不需要去右侧输入。"
+  },
+  {
+    target: ".right",
+    title: "右侧调整样式",
+    text: "右侧会根据当前选中的元素显示位置、字体、颜色、描边、图层等设置。图层列表也可以直接拖动调整层级。"
+  },
+  {
+    target: ".toolbar",
+    title: "导入和导出",
+    text: "顶部可以撤销重做、调整缩放、导入工程、导出工程和导出图片。做完封面后直接点右上角导出图片。"
+  }
+];
+let onboardingIndex = 0;
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -792,6 +884,146 @@ function appConfirm(message, options = {}) {
     cancelText: options.cancelText || "取消",
     showCancel: true
   });
+}
+
+function onboardingEls() {
+  return {
+    layer: document.getElementById("onboardingLayer"),
+    card: document.getElementById("onboardingCard"),
+    spotlight: document.getElementById("onboardingSpotlight"),
+    stepLabel: document.getElementById("onboardingStepLabel"),
+    title: document.getElementById("onboardingTitle"),
+    text: document.getElementById("onboardingText"),
+    dots: document.getElementById("onboardingDots"),
+    skipBtn: document.getElementById("onboardingSkipBtn"),
+    prevBtn: document.getElementById("onboardingPrevBtn"),
+    nextBtn: document.getElementById("onboardingNextBtn")
+  };
+}
+
+function positionOnboardingSpotlight() {
+  const els = onboardingEls();
+  const step = onboardingSteps[onboardingIndex];
+  if (!els.layer || els.layer.classList.contains("hidden")) return;
+  let target = step ? document.querySelector(step.target) : null;
+  if (target && !target.getClientRects().length && step.fallbackTarget) target = document.querySelector(step.fallbackTarget);
+  if (!target) {
+    els.spotlight.classList.add("hidden");
+    return;
+  }
+  const rect = target.getBoundingClientRect();
+  const pad = 8;
+  const viewportPad = 16;
+  const gap = 14;
+  const cardRect = els.card.getBoundingClientRect();
+  const cardWidth = Math.min(cardRect.width || 390, window.innerWidth - viewportPad * 2);
+  const cardHeight = cardRect.height || 230;
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const candidates = [
+    { left: rect.right + gap, top: rect.top + rect.height / 2 - cardHeight / 2 },
+    { left: rect.left - gap - cardWidth, top: rect.top + rect.height / 2 - cardHeight / 2 },
+    { left: rect.left + rect.width / 2 - cardWidth / 2, top: rect.bottom + gap },
+    { left: rect.left + rect.width / 2 - cardWidth / 2, top: rect.top - gap - cardHeight }
+  ];
+  const chosen = candidates.find(item =>
+    item.left >= viewportPad &&
+    item.left + cardWidth <= window.innerWidth - viewportPad &&
+    item.top >= viewportPad &&
+    item.top + cardHeight <= window.innerHeight - viewportPad
+  ) || candidates[0];
+  els.card.style.left = `${clamp(chosen.left, viewportPad, Math.max(viewportPad, window.innerWidth - viewportPad - cardWidth))}px`;
+  els.card.style.top = `${clamp(chosen.top, viewportPad, Math.max(viewportPad, window.innerHeight - viewportPad - cardHeight))}px`;
+  els.card.style.right = "";
+  els.card.style.bottom = "";
+  els.spotlight.classList.remove("hidden");
+  els.spotlight.style.left = `${Math.max(8, rect.left - pad)}px`;
+  els.spotlight.style.top = `${Math.max(8, rect.top - pad)}px`;
+  els.spotlight.style.width = `${Math.min(window.innerWidth - 16, rect.width + pad * 2)}px`;
+  els.spotlight.style.height = `${Math.min(window.innerHeight - 16, rect.height + pad * 2)}px`;
+}
+
+function renderOnboardingStep() {
+  const els = onboardingEls();
+  const step = onboardingSteps[onboardingIndex];
+  if (!step || !els.layer) return;
+  document.body.classList.toggle("onboarding-image-demo", !!step.demoImagePanel);
+  if (step.panel) {
+    const button = document.querySelector(`.tool-chip[data-panel="${step.panel}"]`);
+    if (button) {
+      window.clearTimeout(window.__toolPanelTimer);
+      showToolPanel(step.panel, button);
+    }
+  }
+  const target = document.querySelector(step.target);
+  if (target && step.target !== "#stage" && step.target !== ".right" && step.target !== ".toolbar") {
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+  }
+  els.stepLabel.textContent = `快速上手 ${onboardingIndex + 1} / ${onboardingSteps.length}`;
+  els.title.textContent = step.title;
+  els.text.textContent = step.text;
+  els.prevBtn.disabled = onboardingIndex === 0;
+  els.nextBtn.textContent = onboardingIndex === onboardingSteps.length - 1 ? "开始使用" : "下一步";
+  els.dots.innerHTML = onboardingSteps.map((_, index) => (
+    `<button class="onboarding-dot ${index === onboardingIndex ? "active" : ""}" type="button" aria-label="第 ${index + 1} 步" data-step="${index}"></button>`
+  )).join("");
+  els.dots.querySelectorAll(".onboarding-dot").forEach(dot => {
+    dot.addEventListener("click", () => {
+      onboardingIndex = Number(dot.dataset.step || 0);
+      renderOnboardingStep();
+    });
+  });
+  requestAnimationFrame(() => requestAnimationFrame(positionOnboardingSpotlight));
+  window.setTimeout(positionOnboardingSpotlight, 80);
+}
+
+function closeOnboarding(markSeen = true) {
+  const { layer } = onboardingEls();
+  if (!layer) return;
+  layer.classList.add("hidden");
+  document.body.classList.remove("onboarding-image-demo");
+  if (markSeen) localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
+  document.removeEventListener("keydown", onOnboardingKeyDown);
+}
+
+function onOnboardingKeyDown(event) {
+  if (event.key === "Escape") closeOnboarding(true);
+  if (event.key === "ArrowRight" || event.key === "Enter") nextOnboardingStep();
+  if (event.key === "ArrowLeft") previousOnboardingStep();
+}
+
+function nextOnboardingStep() {
+  if (onboardingIndex >= onboardingSteps.length - 1) {
+    closeOnboarding(true);
+    return;
+  }
+  onboardingIndex += 1;
+  renderOnboardingStep();
+}
+
+function previousOnboardingStep() {
+  if (onboardingIndex <= 0) return;
+  onboardingIndex -= 1;
+  renderOnboardingStep();
+}
+
+function setupOnboardingGuide() {
+  const els = onboardingEls();
+  if (!els.layer || els.layer.dataset.ready) return;
+  els.layer.dataset.ready = "true";
+  els.skipBtn.addEventListener("click", () => closeOnboarding(true));
+  els.prevBtn.addEventListener("click", previousOnboardingStep);
+  els.nextBtn.addEventListener("click", nextOnboardingStep);
+  window.addEventListener("resize", positionOnboardingSpotlight);
+}
+
+function showOnboardingGuide() {
+  const els = onboardingEls();
+  if (!els.layer || localStorage.getItem(ONBOARDING_STORAGE_KEY) === "1") return;
+  onboardingIndex = 0;
+  els.layer.classList.remove("hidden");
+  renderOnboardingStep();
+  document.addEventListener("keydown", onOnboardingKeyDown);
+  requestAnimationFrame(() => els.nextBtn.focus());
 }
 
 function chooseExportImageType() {
@@ -5494,6 +5726,7 @@ function setupTauriDesktopBridge() {
 async function init() {
   applyIconSystem();
   setupInspectorInteractions();
+  setupOnboardingGuide();
   setupTauriDesktopBridge();
   setupPromptGenerator();
   setupUnsplashLibrary();
@@ -5506,7 +5739,11 @@ async function init() {
   loadMascotAssets();
   const cached = localStorage.getItem(STORAGE_KEY);
   if (cached) {
-    try { await restore(cached); return; } catch (e) {}
+    try {
+      await restore(cached);
+      requestAnimationFrame(showOnboardingGuide);
+      return;
+    } catch (e) {}
   }
   resizeCanvas();
   syncPromptAspectToCanvas();
@@ -5514,6 +5751,7 @@ async function init() {
   renderAll();
   syncUi();
   persist();
+  requestAnimationFrame(showOnboardingGuide);
 }
 
 init();
