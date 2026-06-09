@@ -1,6 +1,7 @@
 name: Sync website downloads
 
 on:
+  workflow_dispatch:
   release:
     types:
       - published
