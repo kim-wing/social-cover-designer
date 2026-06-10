@@ -13,6 +13,7 @@ const CUSTOM_IMAGE_PROMPT_STORAGE = "youdesign-custom-image-prompt";
 const UNSPLASH_ACCESS_KEY_STORAGE = "youdesign-unsplash-access-key";
 const UNSPLASH_API_BASE = "https://api.unsplash.com";
 const UNSPLASH_KEY_HELP_URL = "https://unsplash.com/developers";
+const UNSPLASH_UTM_SOURCE = "youdesign";
 const DEFAULT_IMAGE_API_BASE = "https://api.quickrouter.ai/v1";
 const QUICKROUTER_REGISTER_URL = "https://api.quickrouter.ai/register?aff=roL9WF";
 const APP_SCRIPT_URL = new URL("src/app.js", document.baseURI).href;
@@ -312,11 +313,36 @@ const safeFontKeywords = [
 ];
 const baseFonts = [
   { family: "Alibaba PuHuiTi", label: "阿里巴巴普惠体" },
-  { family: "Noto Sans CJK SC", label: "Noto Sans CJK" },
+  { family: "Noto Sans CJK SC", label: "思源黑体 / Noto Sans CJK" },
   { family: "Source Han Sans SC", label: "思源黑体" },
   { family: "Smiley Sans", label: "得意黑" },
-  { family: "MiSans", label: "MiSans" },
-  { family: "HarmonyOS Sans", label: "HarmonyOS Sans" }
+  { family: "MiSans", label: "小米兰亭 / MiSans" },
+  { family: "HarmonyOS Sans", label: "鸿蒙 Sans" }
+];
+const chineseFontNameMap = [
+  [/alibaba\s*puhuiti|alibabapuhuiti|alibaba\s*sans/i, "阿里巴巴普惠体"],
+  [/source\s*han\s*sans|sourcehansans|noto\s*sans\s*cjk|notosanscjk/i, "思源黑体"],
+  [/source\s*han\s*serif|sourcehanserif|noto\s*serif\s*cjk|notoserifcjk/i, "思源宋体"],
+  [/smiley\s*sans|smileysans/i, "得意黑"],
+  [/misans|mi\s*lan|milanting|小米兰亭/i, "小米兰亭"],
+  [/harmonyos/i, "鸿蒙 Sans"],
+  [/zihun|zixiaohun/i, "字魂"],
+  [/zcool|站酷/i, "站酷"],
+  [/youshe|youshebiaotihei/i, "优设标题黑"],
+  [/pangmenzhengdao/i, "庞门正道"],
+  [/douyin/i, "抖音美好体"],
+  [/kuaikan/i, "快看世界体"],
+  [/lxgw|霞鹜/i, "霞鹜"],
+  [/yozai|悠哉/i, "悠哉字体"],
+  [/wenquanyi/i, "文泉驿"],
+  [/genkai/i, "源界明朝"],
+  [/genyo/i, "源云明体"],
+  [/genryu/i, "源流明体"],
+  [/genseki/i, "源石黑体"],
+  [/gensen/i, "源泉圆体"],
+  [/genjyuu/i, "源柔黑体"],
+  [/soukou/i, "装甲明朝体"],
+  [/hanazono/i, "花园明朝"]
 ];
 const fallbackLogos = [
   "垂直logo.png",
@@ -422,7 +448,7 @@ const onboardingSteps = [
     target: "#imageTools",
     panel: "imageTools",
     title: "图片：上传本地图片",
-    text: "支持 JPG、PNG、WebP。上传后会自动放入画布，适合导入产品图、人物图、活动照片或已经做好的背景图。"
+    text: "支持 JPG、PNG、WebP、SVG。上传后会自动放入画布，适合导入产品图、人物图、活动照片、矢量素材或已经做好的背景图。"
   },
   {
     target: "#unsplashPanel",
@@ -502,9 +528,13 @@ function text(value, x, y, fontSize, fill, extra = {}) {
     letterSpacing: extra.letterSpacing || 0,
     fontWeight: extra.fontWeight || 800,
     fill,
+    fillOpacity: extra.fillOpacity ?? 1,
     stroke: extra.stroke || "#171411",
     strokeWidth: extra.strokeWidth || 0,
+    strokeOpacity: extra.strokeOpacity ?? 1,
     shadow: extra.shadow || 0,
+    shadowColor: extra.shadowColor || "#000000",
+    shadowOpacity: extra.shadowOpacity ?? .28,
     align: extra.align || "left",
     lockAspect: extra.lockAspect || false
   };
@@ -529,11 +559,15 @@ function shape(kind, x, y, width, heightOrFill, fillOrExtra, maybeExtra = {}) {
     rotation: 0,
     opacity: 1,
     fill: isLine ? "transparent" : fill,
+    fillOpacity: extra.fillOpacity ?? 1,
     stroke: extra.stroke || (isLine ? DEFAULT_SHAPE_COLOR : "#171411"),
     strokeWidth: isLine ? extra.strokeWidth ?? 1 : extra.strokeWidth || 0,
+    strokeOpacity: extra.strokeOpacity ?? 1,
     strokeDash: extra.strokeDash || false,
     radius: extra.radius || 0,
     shadow: extra.shadow || 0,
+    shadowColor: extra.shadowColor || "#000000",
+    shadowOpacity: extra.shadowOpacity ?? .28,
     sides: extra.sides || (kind === "polygon" ? 6 : undefined),
     points: extra.points || (kind === "star" ? 5 : undefined),
     lockAspect: extra.lockAspect ?? (kind === "circle" || isSymbol)
@@ -550,11 +584,17 @@ function imageObject(img, x, y, width, height, src) {
     opacity: 1,
     radius: 0,
     shadow: 0,
+    shadowColor: "#000000",
+    shadowOpacity: .28,
     lockAspect: true,
     crop: { left: 0, top: 0, right: 0, bottom: 0 },
     src,
     image: img
   };
+}
+
+function isUnsplashImageObject(obj) {
+  return obj?.type === "image" && obj.unsplash?.id;
 }
 
 function isSafeCommercialFontName(fontName) {
@@ -568,6 +608,31 @@ function isSafeCommercialFont(font) {
 
 function normalizeFontLocalStyle(style) {
   return String(style || "Regular").trim() || "Regular";
+}
+
+function hasChineseText(value) {
+  return /[\u3400-\u9fff]/.test(String(value || ""));
+}
+
+function displayFontFamilyName(font) {
+  const candidates = [font.label, font.family, font.fullName, font.postscriptName].filter(Boolean);
+  const chinese = candidates.find(hasChineseText);
+  if (chinese) return chinese.replace(/\s*·\s*可商用$/, "").trim();
+  const lookup = candidates.join(" ");
+  if (/zixiaohun/i.test(lookup)) return "字小魂字体";
+  if (/zihun/i.test(lookup)) return "字魂字体";
+  const matched = chineseFontNameMap.find(([pattern]) => pattern.test(lookup));
+  return matched ? matched[1] : font.family;
+}
+
+function displayFontLabel(font) {
+  const familyName = displayFontFamilyName(font);
+  const localStyle = normalizeFontLocalStyle(font.localStyle || font.style || "");
+  const showStyle = localStyle && !/^regular$/i.test(localStyle);
+  const alias = font.family && familyName !== font.family ? ` / ${font.family}` : "";
+  const style = showStyle ? ` · ${localStyle}` : "";
+  const suffix = font.source === "local" ? " · 可商用" : "";
+  return `${familyName}${alias}${style}${suffix}`;
 }
 
 function fontWeightFromStyle(style) {
@@ -594,6 +659,24 @@ function fontSelectValue(font) {
 
 function allFontOptions() {
   return [...baseFonts, ...localFonts];
+}
+
+function normalizedFontSearchText(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function fontMatchesSearch(font, query) {
+  if (!query) return true;
+  return [
+    displayFontFamilyName(font),
+    displayFontLabel(font),
+    font.family,
+    font.label,
+    font.localStyle,
+    font.fullName,
+    font.postscriptName,
+    font.source === "local" ? "本地字体" : "推荐字体"
+  ].some(value => normalizedFontSearchText(value).includes(query));
 }
 
 function findFontOption(value) {
@@ -642,6 +725,8 @@ function measureTextLine(c, line, letterSpacing = 0) {
 
 function syncFontSelectStyle(value) {
   const select = document.getElementById("fontFamily");
+  const label = document.getElementById("fontComboboxValue");
+  const trigger = document.getElementById("fontComboboxTrigger");
   if (!select) return;
   const font = findFontOption(value || select?.value || "");
   const family = font?.family || selected()?.fontFamily || "PingFang SC";
@@ -650,6 +735,15 @@ function syncFontSelectStyle(value) {
   select.style.fontFamily = `"${family}", sans-serif`;
   select.style.fontStyle = fontStyle;
   select.style.fontWeight = String(fontWeight);
+  if (label) {
+    label.textContent = font ? displayFontLabel(font) : family;
+    label.style.fontFamily = `"${family}", sans-serif`;
+    label.style.fontStyle = fontStyle;
+    label.style.fontWeight = String(fontWeight);
+  }
+  if (trigger) {
+    trigger.style.fontFamily = `"${family}", sans-serif`;
+  }
 }
 
 function fileLabel(path) {
@@ -1229,7 +1323,7 @@ function startInlineTextEdit(obj) {
   inlineTextEditor.style.textAlign = obj.align || "left";
   inlineTextEditor.style.letterSpacing = `${textLetterSpacing(obj, scale)}px`;
   inlineTextEditor.style.textDecoration = "none";
-  inlineTextEditor.style.opacity = String(obj.opacity ?? 1);
+  inlineTextEditor.style.opacity = String((obj.opacity ?? 1) * fillOpacity(obj));
   inlineTextEditor.style.transformOrigin = "50% 50%";
   inlineTextEditor.style.transform = `rotate(${obj.rotation || 0}deg)`;
   inlineTextEditor.classList.add("is-active");
@@ -1273,7 +1367,7 @@ function drawObject(c, obj) {
   c.rotate((obj.rotation || 0) * Math.PI / 180);
   c.translate(-obj.width / 2, -obj.height / 2);
   if (obj.shadow) {
-    c.shadowColor = "rgba(0,0,0,.22)";
+    c.shadowColor = shadowRenderColor(obj);
     c.shadowBlur = obj.shadow;
     c.shadowOffsetX = obj.shadow / 3;
     c.shadowOffsetY = obj.shadow / 3;
@@ -1309,11 +1403,11 @@ function drawText(c, obj) {
 function drawTextLine(c, obj, line, x, y, letterSpacing = 0) {
   if (!letterSpacing) {
     if (obj.strokeWidth > 0) {
-      c.strokeStyle = obj.stroke;
+      c.strokeStyle = colorWithOpacity(obj.stroke, strokeOpacity(obj));
       c.lineWidth = obj.strokeWidth;
       c.strokeText(line, x, y);
     }
-    c.fillStyle = obj.fill;
+    c.fillStyle = colorWithOpacity(obj.fill, fillOpacity(obj));
     c.fillText(line, x, y);
     return;
   }
@@ -1323,7 +1417,7 @@ function drawTextLine(c, obj, line, x, y, letterSpacing = 0) {
   let cursor = obj.align === "center" ? x - width / 2 : obj.align === "right" ? x - width : x;
   c.textAlign = "left";
   if (obj.strokeWidth > 0) {
-    c.strokeStyle = obj.stroke;
+    c.strokeStyle = colorWithOpacity(obj.stroke, strokeOpacity(obj));
     c.lineWidth = obj.strokeWidth;
     chars.forEach(ch => {
       c.strokeText(ch, cursor, y);
@@ -1331,7 +1425,7 @@ function drawTextLine(c, obj, line, x, y, letterSpacing = 0) {
     });
     cursor = obj.align === "center" ? x - width / 2 : obj.align === "right" ? x - width : x;
   }
-  c.fillStyle = obj.fill;
+  c.fillStyle = colorWithOpacity(obj.fill, fillOpacity(obj));
   chars.forEach(ch => {
     c.fillText(ch, cursor, y);
     cursor += c.measureText(ch).width + letterSpacing;
@@ -1450,7 +1544,7 @@ function shapePoints(obj) {
 
 function drawShape(c, obj) {
   if (obj.kind === "line") {
-    c.strokeStyle = obj.stroke || "#171411";
+    c.strokeStyle = colorWithOpacity(obj.stroke || "#171411", strokeOpacity(obj));
     c.lineWidth = Math.max(1, obj.strokeWidth || 1);
     c.lineCap = "butt";
     c.setLineDash(obj.strokeDash ? [12, 8] : []);
@@ -1462,7 +1556,7 @@ function drawShape(c, obj) {
     return;
   }
   c.fillStyle = shapeFillPaint(c, obj);
-  c.strokeStyle = obj.stroke || obj.fill;
+  c.strokeStyle = colorWithOpacity(obj.stroke || obj.fill, strokeOpacity(obj));
   c.lineWidth = obj.strokeWidth || 0;
   if (obj.kind === "circle") {
     c.beginPath();
@@ -1649,21 +1743,22 @@ function svgTextObject(obj) {
   const anchor = obj.align === "center" ? "middle" : obj.align === "right" ? "end" : "start";
   const x = obj.align === "center" ? obj.width / 2 : obj.align === "right" ? obj.width : 0;
   const stroke = obj.strokeWidth > 0
-    ? ` stroke="${svgEscape(obj.stroke)}" stroke-width="${svgNum(obj.strokeWidth)}" paint-order="stroke fill" stroke-linejoin="round"`
+    ? ` stroke="${svgEscape(obj.stroke)}" stroke-opacity="${svgNum(strokeOpacity(obj))}" stroke-width="${svgNum(obj.strokeWidth)}" paint-order="stroke fill" stroke-linejoin="round"`
     : "";
   const tspans = lines.map((line, index) => `<tspan x="${svgNum(x)}" y="${svgNum(index * lineHeight)}">${svgEscape(line)}</tspan>`).join("");
-  return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><text x="${svgNum(x)}" y="0" dominant-baseline="text-before-edge" font-family="${svgEscape(obj.fontFamily)}, sans-serif" font-size="${svgNum(obj.fontSize)}" font-style="${svgEscape(obj.fontStyle || "normal")}" font-weight="${svgEscape(obj.fontWeight || 800)}" letter-spacing="${svgNum(letterSpacing)}" fill="${svgEscape(obj.fill)}" text-anchor="${anchor}"${stroke}>${tspans}</text></g>`;
+  return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><text x="${svgNum(x)}" y="0" dominant-baseline="text-before-edge" font-family="${svgEscape(obj.fontFamily)}, sans-serif" font-size="${svgNum(obj.fontSize)}" font-style="${svgEscape(obj.fontStyle || "normal")}" font-weight="${svgEscape(obj.fontWeight || 800)}" letter-spacing="${svgNum(letterSpacing)}" fill="${svgEscape(obj.fill)}" fill-opacity="${svgNum(fillOpacity(obj))}" text-anchor="${anchor}"${stroke}>${tspans}</text></g>`;
 }
 
 function svgShapeObject(obj) {
   const gradientId = `fill-gradient-${obj.id}`;
   const hasGradient = obj.kind !== "line" && obj.fillMode === "gradient";
   const fill = hasGradient ? `url(#${svgEscape(gradientId)})` : obj.kind === "line" ? "none" : obj.fill || "transparent";
-  const common = `fill="${svgEscape(fill)}" stroke="${svgEscape(obj.kind === "line" ? obj.stroke || "#171411" : obj.stroke || obj.fill || "none")}" stroke-width="${svgNum(obj.kind === "line" ? Math.max(1, obj.strokeWidth || 1) : obj.strokeWidth || 0)}"${obj.strokeDash ? ' stroke-dasharray="12 8"' : ""}`;
+  const fillAlpha = hasGradient ? "" : ` fill-opacity="${svgNum(fillOpacity(obj))}"`;
+  const common = `fill="${svgEscape(fill)}"${fillAlpha} stroke="${svgEscape(obj.kind === "line" ? obj.stroke || "#171411" : obj.stroke || obj.fill || "none")}" stroke-opacity="${svgNum(strokeOpacity(obj))}" stroke-width="${svgNum(obj.kind === "line" ? Math.max(1, obj.strokeWidth || 1) : obj.strokeWidth || 0)}"${obj.strokeDash ? ' stroke-dasharray="12 8"' : ""}`;
   let defs = "";
   if (hasGradient) {
     const coords = gradientCoords(obj.gradientAngle ?? 90);
-    defs = `<defs><linearGradient id="${svgEscape(gradientId)}" x1="${svgNum(coords.x1)}" y1="${svgNum(coords.y1)}" x2="${svgNum(coords.x2)}" y2="${svgNum(coords.y2)}"><stop offset="0%" stop-color="${svgEscape(normalizeHexColor(obj.fill) || "#171411")}"></stop><stop offset="100%" stop-color="${svgEscape(normalizeHexColor(obj.gradientEndColor) || "#ffffff")}"></stop></linearGradient></defs>`;
+    defs = `<defs><linearGradient id="${svgEscape(gradientId)}" x1="${svgNum(coords.x1)}" y1="${svgNum(coords.y1)}" x2="${svgNum(coords.x2)}" y2="${svgNum(coords.y2)}"><stop offset="0%" stop-color="${svgEscape(normalizeHexColor(obj.fill) || "#171411")}" stop-opacity="${svgNum(fillOpacity(obj))}"></stop><stop offset="100%" stop-color="${svgEscape(normalizeHexColor(obj.gradientEndColor) || "#ffffff")}" stop-opacity="${svgNum(fillOpacity(obj))}"></stop></linearGradient></defs>`;
   }
   let node = "";
   if (obj.kind === "line") {
@@ -1725,7 +1820,7 @@ function exportSvgText() {
   const body = [`<rect width="100%" height="100%" fill="${svgEscape(state.background)}"></rect>`];
   state.objects.forEach((obj, index) => {
     if (obj.shadow) {
-      defs.push(`<filter id="shadow-${obj.id}" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="${svgNum(obj.shadow / 3)}" dy="${svgNum(obj.shadow / 3)}" stdDeviation="${svgNum(obj.shadow / 2)}" flood-color="#000000" flood-opacity=".22"></feDropShadow></filter>`);
+      defs.push(`<filter id="shadow-${obj.id}" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="${svgNum(obj.shadow / 3)}" dy="${svgNum(obj.shadow / 3)}" stdDeviation="${svgNum(obj.shadow / 2)}" flood-color="${svgEscape(shadowHexColor(obj))}" flood-opacity="${svgNum(shadowOpacity(obj))}"></feDropShadow></filter>`);
     }
     body.push(svgObject(obj, index));
   });
@@ -1784,7 +1879,7 @@ function drawCompoundShape(c, obj) {
   buffer.width = Math.max(1, Math.ceil(obj.width));
   buffer.height = Math.max(1, Math.ceil(obj.height));
   const bctx = buffer.getContext("2d");
-  bctx.fillStyle = obj.fill || "#171411";
+  bctx.fillStyle = colorWithOpacity(obj.fill || "#171411", fillOpacity(obj));
   (obj.parts || []).forEach((part, index) => {
     if (index === 0) bctx.globalCompositeOperation = "source-over";
     else if (obj.booleanMode === "subtract") bctx.globalCompositeOperation = "destination-out";
@@ -1796,7 +1891,7 @@ function drawCompoundShape(c, obj) {
   });
   c.drawImage(buffer, 0, 0, obj.width, obj.height);
   if (obj.strokeWidth > 0) {
-    c.strokeStyle = obj.stroke || obj.fill || "#171411";
+    c.strokeStyle = colorWithOpacity(obj.stroke || obj.fill || "#171411", strokeOpacity(obj));
     c.lineWidth = obj.strokeWidth;
     c.strokeRect(0, 0, obj.width, obj.height);
   }
@@ -2569,9 +2664,13 @@ function booleanShapeObjects(mode) {
     rotation: 0,
     opacity: 1,
     fill: first.fill === "transparent" ? first.stroke || "#171411" : first.fill || "#171411",
+    fillOpacity: fillOpacity(first),
     stroke: first.stroke || "#171411",
     strokeWidth: 0,
+    strokeOpacity: strokeOpacity(first),
     shadow: 0,
+    shadowColor: "#000000",
+    shadowOpacity: .28,
     lockAspect: false,
     booleanMode: mode,
     parts
@@ -2613,6 +2712,8 @@ function groupSelectedLayers() {
     rotation: 0,
     opacity: 1,
     shadow: 0,
+    shadowColor: "#000000",
+    shadowOpacity: .28,
     lockAspect: false,
     children
   };
@@ -3014,8 +3115,36 @@ async function addGeneratedImageToCanvas(src) {
   addObject(obj);
 }
 
+function isRetryableNetworkError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return message.includes("failed to fetch")
+    || message.includes("network")
+    || message.includes("connection")
+    || message.includes("timeout")
+    || message.includes("closed")
+    || message.includes("eof");
+}
+
+function wait(ms) {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url, options = {}, attempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fetch(url, options);
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || !isRetryableNetworkError(error)) throw error;
+      await wait(650 * attempt);
+    }
+  }
+  throw lastError;
+}
+
 async function requestJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetchWithRetry(url, options);
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.code && payload.code !== 200) {
     const message = payload.error?.message || payload.message || `接口请求失败：${response.status}`;
@@ -3052,6 +3181,25 @@ function setUnsplashStatus(message, type = "") {
   status.classList.toggle("is-error", type === "error");
 }
 
+function unsplashReferralUrl(url) {
+  const fallback = "https://unsplash.com/";
+  try {
+    const parsed = new URL(url || fallback);
+    parsed.searchParams.set("utm_source", UNSPLASH_UTM_SOURCE);
+    parsed.searchParams.set("utm_medium", "referral");
+    return parsed.toString();
+  } catch (error) {
+    return `${fallback}?utm_source=${encodeURIComponent(UNSPLASH_UTM_SOURCE)}&utm_medium=referral`;
+  }
+}
+
+function unsplashAttribution(photo) {
+  const photographerName = photo?.user?.name || "Unsplash Photographer";
+  const photographerUrl = unsplashReferralUrl(photo?.user?.links?.html || "https://unsplash.com/");
+  const unsplashUrl = unsplashReferralUrl("https://unsplash.com/");
+  return { photographerName, photographerUrl, unsplashUrl };
+}
+
 async function requestUnsplashJson(path, apiKey, params = {}) {
   const url = new URL(/^https?:\/\//i.test(path) ? path : `${UNSPLASH_API_BASE}${path}`);
   Object.entries(params).forEach(([key, value]) => {
@@ -3077,6 +3225,7 @@ function renderUnsplashResults() {
     return;
   }
   unsplashState.results.forEach(photo => {
+    const attribution = unsplashAttribution(photo);
     const card = document.createElement("div");
     card.className = "stock-card";
     const photoButton = document.createElement("button");
@@ -3096,12 +3245,12 @@ function renderUnsplashResults() {
     const credit = document.createElement("span");
     credit.append("Photo by ");
     const userLink = document.createElement("a");
-    userLink.href = photo.user?.links?.html || "https://unsplash.com";
+    userLink.href = attribution.photographerUrl;
     userLink.target = "_blank";
     userLink.rel = "noopener noreferrer";
-    userLink.textContent = photo.user?.name || "Unsplash";
+    userLink.textContent = attribution.photographerName;
     const unsplashLink = document.createElement("a");
-    unsplashLink.href = "https://unsplash.com";
+    unsplashLink.href = attribution.unsplashUrl;
     unsplashLink.target = "_blank";
     unsplashLink.rel = "noopener noreferrer";
     unsplashLink.textContent = "Unsplash";
@@ -3166,11 +3315,13 @@ async function searchUnsplashPhotos({ reset = true } = {}) {
 
 async function trackUnsplashDownload(photo, apiKey) {
   const location = photo?.links?.download_location;
-  if (!location) return;
+  if (!location) return false;
   try {
     await requestUnsplashJson(location, apiKey);
+    return true;
   } catch (error) {
     console.warn("Unsplash download tracking failed", error);
+    return false;
   }
 }
 
@@ -3186,14 +3337,29 @@ async function addUnsplashPhotoToCanvas(photo) {
     setUnsplashStatus("这张图片缺少可用地址。", "error");
     return;
   }
-  setUnsplashStatus("正在下载图片并加入画布...", "loading");
+  const attribution = unsplashAttribution(photo);
+  setUnsplashStatus("正在记录下载事件，并以 Unsplash 原图链接加入画布...", "loading");
   try {
-    await trackUnsplashDownload(photo, apiKey);
-    const stableSrc = await assetSourceToDataUrl(src);
-    await addImageSourceToCanvas(stableSrc, {
-      name: `Unsplash - ${photo.user?.name || "photo"}`
+    const tracked = await trackUnsplashDownload(photo, apiKey);
+    await addImageSourceToCanvas(src, {
+      name: `Photo by ${attribution.photographerName}`,
+      objectPatch: {
+        unsplash: {
+          id: photo.id,
+          sourceUrl: src,
+          photoUrl: unsplashReferralUrl(photo.links?.html || attribution.unsplashUrl),
+          downloadLocation: photo.links?.download_location || "",
+          downloadTracked: tracked,
+          photographerName: attribution.photographerName,
+          photographerUrl: attribution.photographerUrl,
+          unsplashUrl: attribution.unsplashUrl,
+          attributionText: `Photo by ${attribution.photographerName} on Unsplash`
+        }
+      }
     });
-    setUnsplashStatus(`已加入画布：Photo by ${photo.user?.name || "Unsplash"} on Unsplash`);
+    setUnsplashStatus(tracked
+      ? `已加入画布并记录下载：Photo by ${attribution.photographerName} on Unsplash`
+      : `已加入画布，但下载事件未记录成功：Photo by ${attribution.photographerName} on Unsplash`, tracked ? "" : "error");
   } catch (error) {
     const message = error?.message || "图片加入失败，请检查网络。";
     setUnsplashStatus(`加入失败：${message}`, "error");
@@ -4353,6 +4519,47 @@ function normalizeHexColor(value) {
   return null;
 }
 
+function hexToRgba(value, alpha = 1) {
+  const hex = normalizeHexColor(value);
+  if (!hex) return `rgba(0,0,0,${alpha})`;
+  const number = Number.parseInt(hex.slice(1), 16);
+  const r = (number >> 16) & 255;
+  const g = (number >> 8) & 255;
+  const b = number & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function clamp01(value, fallback = 1) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(1, Math.max(0, number));
+}
+
+function fillOpacity(obj) {
+  return clamp01(obj?.fillOpacity, clamp01(obj?.opacity, 1));
+}
+
+function strokeOpacity(obj) {
+  return clamp01(obj?.strokeOpacity, 1);
+}
+
+function shadowOpacity(obj) {
+  return clamp01(obj?.shadowOpacity, .28);
+}
+
+function colorWithOpacity(color, alpha, fallback = "#171411") {
+  const normalized = normalizeHexColor(color) || normalizeHexColor(fallback) || "#171411";
+  return hexToRgba(normalized, clamp01(alpha, 1));
+}
+
+function shadowHexColor(obj) {
+  return normalizeHexColor(obj?.shadowColor) || "#000000";
+}
+
+function shadowRenderColor(obj) {
+  return hexToRgba(shadowHexColor(obj), shadowOpacity(obj));
+}
+
 function gradientCoords(angle = 90) {
   const rad = (Number(angle || 0) - 90) * Math.PI / 180;
   const x = Math.cos(rad);
@@ -4366,9 +4573,10 @@ function gradientCoords(angle = 90) {
 }
 
 function shapeFillPaint(c, obj) {
-  if (obj.fillMode !== "gradient") return obj.fill || "#171411";
+  if (obj.fillMode !== "gradient") return colorWithOpacity(obj.fill || "#171411", fillOpacity(obj));
   const start = normalizeHexColor(obj.fill) || "#171411";
   const end = normalizeHexColor(obj.gradientEndColor) || "#ffffff";
+  const alpha = fillOpacity(obj);
   const coords = gradientCoords(obj.gradientAngle ?? 90);
   const gradient = c.createLinearGradient(
     coords.x1 * obj.width,
@@ -4376,8 +4584,8 @@ function shapeFillPaint(c, obj) {
     coords.x2 * obj.width,
     coords.y2 * obj.height
   );
-  gradient.addColorStop(0, start);
-  gradient.addColorStop(1, end);
+  gradient.addColorStop(0, hexToRgba(start, alpha));
+  gradient.addColorStop(1, hexToRgba(end, alpha));
   return gradient;
 }
 
@@ -4417,12 +4625,63 @@ function syncAppearanceFillControls(obj = selected()) {
   if (angle) angle.value = Math.round(obj.gradientAngle ?? 90);
 }
 
+function syncShadowControls(obj = selected()) {
+  if (!obj) return;
+  const color = shadowHexColor(obj);
+  const colorInput = document.getElementById("shadowColor");
+  const textInput = document.getElementById("shadowColorText");
+  const sizeInput = document.getElementById("shadow");
+  const rangeInput = document.getElementById("shadowRange");
+  const opacityInput = document.getElementById("shadowOpacity");
+  if (colorInput) colorInput.value = color;
+  if (textInput) textInput.value = color.toUpperCase();
+  if (sizeInput) sizeInput.value = Math.round(obj.shadow || 0);
+  if (rangeInput) rangeInput.value = Math.round(obj.shadow || 0);
+  if (opacityInput) opacityInput.value = Math.round(shadowOpacity(obj) * 100);
+}
+
+function syncStrokeSizeControls(obj = selected()) {
+  if (!obj) return;
+  const value = Math.round(obj.strokeWidth || 0);
+  const sizeInput = document.getElementById("strokeWidth");
+  const rangeInput = document.getElementById("strokeWidthRange");
+  const opacityInput = document.getElementById("strokeOpacity");
+  if (sizeInput) sizeInput.value = value;
+  if (rangeInput) rangeInput.value = value;
+  if (opacityInput) opacityInput.value = Math.round(strokeOpacity(obj) * 100);
+}
+
+function syncImageAttribution(obj = selected()) {
+  const box = document.getElementById("imageAttribution");
+  if (!box) return;
+  box.innerHTML = "";
+  const credit = obj?.unsplash;
+  if (!credit?.photographerName || !credit?.photographerUrl || !credit?.unsplashUrl) {
+    box.classList.add("hidden");
+    return;
+  }
+  const userLink = document.createElement("a");
+  userLink.href = credit.photographerUrl;
+  userLink.target = "_blank";
+  userLink.rel = "noopener noreferrer";
+  userLink.textContent = credit.photographerName;
+  const sourceLink = document.createElement("a");
+  sourceLink.href = credit.unsplashUrl;
+  sourceLink.target = "_blank";
+  sourceLink.rel = "noopener noreferrer";
+  sourceLink.textContent = "Unsplash";
+  const tracked = credit.downloadTracked ? "已记录下载事件。" : "下载事件未记录成功。";
+  box.append("Photo by ", userLink, " on ", sourceLink, ` · ${tracked}`);
+  box.classList.remove("hidden");
+}
+
 function updateSelectedAppearance(patch) {
   const obj = selected();
   if (!obj) return;
   saveHistory();
   updateSelected(patch);
   syncAppearanceFillControls(obj);
+  syncShadowControls(obj);
 }
 
 function setBackgroundColor(color, shouldPersist = true) {
@@ -4495,7 +4754,7 @@ wire("booleanSubtractBtn", "click", () => booleanShapeObjects("subtract"));
 wire("booleanIntersectBtn", "click", () => booleanShapeObjects("intersect"));
 wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
 
-["posX", "posY", "objWidth", "objHeight", "rotation", "fontFamily", "fontSize", "letterSpacing", "lineHeight", "fillColor", "strokeColor", "strokeWidth", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow", "lockAspect"].forEach(id => {
+["posX", "posY", "objWidth", "objHeight", "rotation", "fontFamily", "fontSize", "letterSpacing", "lineHeight", "fillColor", "fillOpacity", "strokeColor", "strokeWidth", "strokeWidthRange", "strokeOpacity", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow", "shadowRange", "shadowColor", "shadowOpacity", "lockAspect"].forEach(id => {
   const handler = e => {
     const obj = selected();
     if (!obj) return;
@@ -4510,23 +4769,30 @@ wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
       letterSpacing: "letterSpacing",
       lineHeight: "lineHeight",
       fillColor: "fill",
+      fillOpacity: "fillOpacity",
       strokeColor: "stroke",
       strokeWidth: "strokeWidth",
+      strokeWidthRange: "strokeWidth",
+      strokeOpacity: "strokeOpacity",
       shapeRadius: "radius",
       shapeSides: "sides",
       shapeStarPoints: "points",
       opacity: "opacity",
       shadow: "shadow",
+      shadowRange: "shadow",
+      shadowColor: "shadowColor",
+      shadowOpacity: "shadowOpacity",
       lockAspect: "lockAspect"
     };
     let value = id === "lockAspect" ? e.target.checked : e.target.value;
     if (obj.type === "shape" && obj.kind === "line" && id === "fillColor") return;
-    if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "letterSpacing", "lineHeight", "strokeWidth", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow"].includes(id)) value = Number(value);
+    if (["posX", "posY", "objWidth", "objHeight", "rotation", "fontSize", "letterSpacing", "lineHeight", "fillOpacity", "strokeWidth", "strokeWidthRange", "strokeOpacity", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow", "shadowRange", "shadowOpacity"].includes(id)) value = Number(value);
     if (id === "objWidth" || id === "objHeight") value = Math.max(1, value);
     if (id === "letterSpacing") value = Math.min(240, Math.max(-80, value));
     if (id === "lineHeight") value = Math.min(3, Math.max(.8, value / 100));
-    if (id === "opacity") value = Math.min(1, Math.max(.05, value / 100));
-    if (id === "strokeWidth") value = Math.min(18, Math.max(0, value));
+    if (id === "opacity" || id === "fillOpacity" || id === "strokeOpacity" || id === "shadowOpacity") value = Math.min(1, Math.max(0, value / 100));
+    if (id === "strokeWidth" || id === "strokeWidthRange") value = Math.min(18, Math.max(0, value));
+    if (id === "shadow" || id === "shadowRange") value = Math.min(36, Math.max(0, value));
     if (id === "shapeRadius") value = Math.max(0, value);
     if (id === "shapeSides") value = Math.min(16, Math.max(3, Math.round(value)));
     if (id === "shapeStarPoints") value = Math.min(16, Math.max(3, Math.round(value)));
@@ -4547,9 +4813,11 @@ wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
       }
     }
     updateSelected(patch);
+    if (id === "strokeWidth" || id === "strokeWidthRange" || id === "strokeOpacity") syncStrokeSizeControls(selected());
+    if (id === "shadow" || id === "shadowRange" || id === "shadowOpacity") syncShadowControls(selected());
   };
   wire(id, id === "lockAspect" ? "change" : "input", handler);
-  if (id === "fillColor" || id === "strokeColor") wire(id, "change", handler);
+  if (id === "fillColor" || id === "strokeColor" || id === "shadowColor") wire(id, "change", handler);
 });
 
 wire("fillColor", "input", e => {
@@ -4568,6 +4836,51 @@ wire("fillColorText", "input", e => {
 wire("fillColorText", "blur", e => {
   const normalized = normalizeHexColor(e.target.value);
   if (!normalized) syncAppearanceFillControls();
+});
+
+wire("strokeColor", "input", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) return;
+  const field = document.getElementById("strokeColorText");
+  if (field) field.value = normalized.toUpperCase();
+});
+
+wire("strokeColorText", "input", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) return;
+  updateSelectedAppearance({ stroke: normalized });
+});
+
+wire("strokeColorText", "blur", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (normalized) {
+    e.target.value = normalized.toUpperCase();
+    return;
+  }
+  const obj = selected();
+  e.target.value = normalizeHexColor(obj?.stroke) || "#171411";
+});
+
+wire("shadowColor", "input", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) return;
+  const field = document.getElementById("shadowColorText");
+  if (field) field.value = normalized.toUpperCase();
+});
+
+wire("shadowColorText", "input", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (!normalized) return;
+  updateSelectedAppearance({ shadowColor: normalized });
+});
+
+wire("shadowColorText", "blur", e => {
+  const normalized = normalizeHexColor(e.target.value);
+  if (normalized) {
+    e.target.value = normalized.toUpperCase();
+    return;
+  }
+  e.target.value = shadowHexColor(selected()).toUpperCase();
 });
 
 wire("fillMode", "change", e => {
@@ -4892,32 +5205,92 @@ window.addEventListener("resize", () => {
   renderAll();
 });
 
-wire("imageUploadBtn", "click", () => document.getElementById("imageInput").click());
+wire("imageUploadBtn", "keydown", event => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  document.getElementById("imageInput").click();
+});
 
 wire("imageInput", "change", async e => {
   const file = e.target.files[0];
   if (!file) return;
+  const validation = validateImageImportFile(file);
   document.getElementById("imageUploadTitle").textContent = file.name;
-  document.getElementById("imageUploadMeta").textContent = "正在读取图片...";
-  const img = await addImageFileToCanvas(file, {
-    x: state.width * .14,
-    y: state.height * .22,
-    name: file.name ? file.name.replace(/\.[^.]+$/, "") : "图片"
-  });
-  document.getElementById("imageUploadMeta").textContent = `${img.width} × ${img.height}，已添加到画布`;
-  e.target.value = "";
+  if (!validation.ok) {
+    document.getElementById("imageUploadMeta").textContent = validation.message;
+    e.target.value = "";
+    return;
+  }
+  document.getElementById("imageUploadMeta").textContent = validation.isSvg ? "正在读取 SVG..." : "正在读取图片...";
+  try {
+    const obj = await addImageFileToCanvas(file, {
+      x: state.width * .14,
+      y: state.height * .22,
+      name: file.name ? file.name.replace(/\.[^.]+$/, "") : "图片"
+    });
+    document.getElementById("imageUploadMeta").textContent = `${Math.round(obj.width)} × ${Math.round(obj.height)}，已添加到画布`;
+  } catch (error) {
+    console.error("Image import failed", error);
+    document.getElementById("imageUploadMeta").textContent = validation.isSvg
+      ? "SVG 读取失败，请确认文件不是 AI/PDF 伪装的 SVG。"
+      : "图片读取失败，请换成 JPG、PNG、WebP 或 SVG。";
+  } finally {
+    e.target.value = "";
+  }
 });
+
+function validateImageImportFile(file) {
+  const name = String(file?.name || "");
+  const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+  if (ext === "ai") {
+    return {
+      ok: false,
+      message: "AI 文件暂不支持直接导入，请在 Illustrator 导出为 SVG 或 PNG 后再上传。"
+    };
+  }
+  if (ext === "psd") {
+    return {
+      ok: false,
+      message: "PSD 文件暂不支持直接导入，请在 Photoshop 导出为 PNG/WebP 后再上传。"
+    };
+  }
+  const supportedExts = new Set(["jpg", "jpeg", "png", "webp", "gif", "svg"]);
+  const supportedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"]);
+  const isSvg = ext === "svg" || file?.type === "image/svg+xml";
+  if (supportedExts.has(ext) || supportedTypes.has(file?.type)) return { ok: true, isSvg };
+  return {
+    ok: false,
+    message: "暂只支持 JPG、PNG、WebP、GIF、SVG。AI/PSD 请先导出为 SVG 或 PNG。"
+  };
+}
 
 async function addImageFileToCanvas(file, options = {}) {
   const src = await readFile(file);
-  return addImageSourceToCanvas(src, options);
+  let img;
+  try {
+    img = await loadImage(src);
+  } catch (error) {
+    const blobUrl = URL.createObjectURL(file);
+    try {
+      img = await loadImage(blobUrl, false);
+    } finally {
+      URL.revokeObjectURL(blobUrl);
+    }
+  }
+  return addLoadedImageToCanvas(img, src, options);
 }
 
 async function addImageSourceToCanvas(src, options = {}) {
   const img = await loadImage(src);
+  return addLoadedImageToCanvas(img, src, options);
+}
+
+function addLoadedImageToCanvas(img, src, options = {}) {
   const maxW = state.width * .72;
-  const ratio = img.width / img.height;
-  const w = Math.min(maxW, img.width);
+  const imageWidth = img.naturalWidth || img.width || 1;
+  const imageHeight = img.naturalHeight || img.height || 1;
+  const ratio = imageWidth / Math.max(1, imageHeight);
+  const w = Math.min(maxW, imageWidth);
   const h = w / ratio;
   const obj = imageObject(
     img,
@@ -4928,8 +5301,9 @@ async function addImageSourceToCanvas(src, options = {}) {
     src
   );
   if (options.name) obj.name = options.name;
+  if (options.objectPatch && typeof options.objectPatch === "object") Object.assign(obj, options.objectPatch);
   addObject(obj);
-  return img;
+  return obj;
 }
 
 document.addEventListener("paste", async event => {
@@ -4945,9 +5319,9 @@ document.addEventListener("paste", async event => {
   if (!file) return;
   event.preventDefault();
   try {
-    const img = await addImageFileToCanvas(file, { name: "粘贴图片" });
+    const obj = await addImageFileToCanvas(file, { name: "粘贴图片" });
     document.getElementById("imageUploadTitle").textContent = "粘贴图片";
-    document.getElementById("imageUploadMeta").textContent = `${img.width} × ${img.height}，已添加到画布`;
+    document.getElementById("imageUploadMeta").textContent = `${Math.round(obj.width)} × ${Math.round(obj.height)}，已添加到画布`;
   } catch (error) {
     appAlert(error?.message || "剪贴板图片读取失败。", "粘贴图片失败", "danger");
   }
@@ -5156,6 +5530,24 @@ wire("localFontsBtn", "click", async () => {
   }
 });
 
+wire("fontSearch", "input", () => {
+  syncFontSelect();
+});
+wire("fontComboboxTrigger", "click", () => {
+  const popover = document.getElementById("fontComboboxPopover");
+  setFontComboboxOpen(popover?.classList.contains("hidden"));
+});
+document.addEventListener("click", event => {
+  const box = document.getElementById("fontCombobox");
+  if (!box || box.contains(event.target)) return;
+  setFontComboboxOpen(false);
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") setFontComboboxOpen(false);
+});
+window.addEventListener("resize", positionFontComboboxPopover);
+document.addEventListener("scroll", positionFontComboboxPopover, true);
+
 function applyLocalFonts(fonts) {
   const seen = new Set();
   const safeFonts = fonts.filter(isSafeCommercialFont);
@@ -5171,7 +5563,9 @@ function applyLocalFonts(fonts) {
       const localStyle = normalizeFontLocalStyle(f.style);
       return {
         family: f.family,
-        label: `${f.family} · ${localStyle} · 可商用`,
+        label: displayFontLabel({ ...f, localStyle, source: "local" }),
+        fullName: f.fullName,
+        postscriptName: f.postscriptName,
         localStyle,
         fontStyle: fontStyleFromLocalStyle(localStyle),
         fontWeight: fontWeightFromStyle(localStyle),
@@ -5214,7 +5608,7 @@ async function normalizeObjectImageSource(obj) {
     for (const child of obj.children) await normalizeObjectImageSource(child);
     return;
   }
-  if (!obj || obj.type !== "image" || !obj.src || obj.src.startsWith("data:")) return;
+  if (!obj || obj.type !== "image" || !obj.src || obj.src.startsWith("data:") || isUnsplashImageObject(obj)) return;
   const dataUrl = await assetSourceToDataUrl(obj.src);
   if (dataUrl === obj.src) return;
   obj.src = dataUrl;
@@ -5351,28 +5745,115 @@ function renderSwatches() {
 
 function syncFontSelect() {
   const select = document.getElementById("fontFamily");
+  const search = document.getElementById("fontSearch");
+  const list = document.getElementById("fontComboboxList");
   const current = select.value;
+  const query = normalizedFontSearchText(search?.value);
   select.innerHTML = "";
+  if (list) list.innerHTML = "";
+  let count = 0;
   [
     ["推荐字体", baseFonts],
     ["本地字体", localFonts]
   ].forEach(([label, fonts]) => {
-    if (!fonts.length) return;
+    const filtered = fonts.filter(font => fontMatchesSearch(font, query));
+    if (!filtered.length) return;
     const group = document.createElement("optgroup");
     group.label = label;
-    fonts.forEach(f => {
+    if (list) {
+      const groupLabel = document.createElement("div");
+      groupLabel.className = "font-combobox-group";
+      groupLabel.textContent = label;
+      list.appendChild(groupLabel);
+    }
+    filtered.forEach(f => {
       const option = document.createElement("option");
       option.value = fontSelectValue(f);
-      option.textContent = f.label;
+      option.textContent = displayFontLabel(f);
       option.style.fontFamily = `"${f.family}", sans-serif`;
       if (f.fontWeight) option.style.fontWeight = String(f.fontWeight);
       if (f.fontStyle) option.style.fontStyle = f.fontStyle;
       group.appendChild(option);
+      if (list) list.appendChild(fontOptionButton(f));
+      count += 1;
     });
     select.appendChild(group);
   });
-  if (current) select.value = findFontOption(current) ? fontSelectValue(findFontOption(current)) : current;
+  if (!count) {
+    const option = document.createElement("option");
+    option.textContent = "没有找到匹配字体";
+    option.value = "";
+    option.disabled = true;
+    select.appendChild(option);
+    if (list) {
+      const empty = document.createElement("div");
+      empty.className = "font-combobox-empty";
+      empty.textContent = "没有找到匹配字体";
+      list.appendChild(empty);
+    }
+  }
+  if (current && [...select.options].some(option => option.value === current)) select.value = current;
   syncFontSelectStyle(select.value);
+}
+
+function setFontComboboxOpen(open) {
+  const box = document.getElementById("fontCombobox");
+  const popover = document.getElementById("fontComboboxPopover");
+  const trigger = document.getElementById("fontComboboxTrigger");
+  const search = document.getElementById("fontSearch");
+  if (!box || !popover || !trigger) return;
+  popover.classList.toggle("hidden", !open);
+  trigger.setAttribute("aria-expanded", String(open));
+  if (open) {
+    syncFontSelect();
+    document.body.appendChild(popover);
+    positionFontComboboxPopover();
+    requestAnimationFrame(() => {
+      positionFontComboboxPopover();
+      search?.focus();
+    });
+  } else {
+    box.appendChild(popover);
+    popover.removeAttribute("style");
+  }
+}
+
+function positionFontComboboxPopover() {
+  const trigger = document.getElementById("fontComboboxTrigger");
+  const popover = document.getElementById("fontComboboxPopover");
+  if (!trigger || !popover || popover.classList.contains("hidden")) return;
+  const rect = trigger.getBoundingClientRect();
+  const pad = 10;
+  const width = Math.min(rect.width, window.innerWidth - pad * 2);
+  popover.style.position = "fixed";
+  popover.style.zIndex = "120";
+  popover.style.left = `${Math.max(pad, Math.min(rect.left, window.innerWidth - pad - width))}px`;
+  popover.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - pad - Math.min(340, window.innerHeight - pad * 2))}px`;
+  popover.style.width = `${width}px`;
+}
+
+function selectFontFromCombobox(value) {
+  const select = document.getElementById("fontFamily");
+  if (!select || !value) return;
+  select.value = value;
+  select.dispatchEvent(new Event("input", { bubbles: true }));
+  setFontComboboxOpen(false);
+}
+
+function fontOptionButton(font) {
+  const value = fontSelectValue(font);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `font-combobox-option ${document.getElementById("fontFamily")?.value === value ? "active" : ""}`;
+  button.dataset.value = value;
+  button.setAttribute("role", "option");
+  button.setAttribute("aria-selected", button.classList.contains("active") ? "true" : "false");
+  button.style.fontFamily = `"${font.family}", sans-serif`;
+  if (font.fontWeight) button.style.fontWeight = String(font.fontWeight);
+  if (font.fontStyle) button.style.fontStyle = font.fontStyle;
+  button.innerHTML = `<span>${displayFontLabel(font)}</span><small>${font.source === "local" ? "本地" : "推荐"}</small>`;
+  button.addEventListener("click", () => selectFontFromCombobox(value));
+  return button;
 }
 
 function syncInspectorOutputs(obj = selected()) {
@@ -5380,7 +5861,6 @@ function syncInspectorOutputs(obj = selected()) {
   document.getElementById("shapeRadiusValue").textContent = String(Math.round(obj.radius || 0));
   document.getElementById("shapeSidesValue").textContent = String(Math.round(obj.sides || 6));
   document.getElementById("shapeStarPointsValue").textContent = String(Math.round(obj.points || 5));
-  document.getElementById("shadowValue").textContent = String(obj.shadow || 0);
 }
 
 function syncTransformInputs(obj = selected()) {
@@ -5444,14 +5924,17 @@ function syncUi(updateValues = true) {
   document.getElementById("letterSpacing").value = Math.round(obj.letterSpacing || 0);
   document.getElementById("lineHeight").value = Math.round((Number(obj.lineHeight) || 1.14) * 100);
   document.getElementById("fillColor").value = obj.fill || "#171411";
+  document.getElementById("fillOpacity").value = Math.round(fillOpacity(obj) * 100);
   document.getElementById("strokeColor").value = obj.stroke || "#171411";
-  document.getElementById("strokeWidth").value = obj.strokeWidth || 0;
+  document.getElementById("strokeColorText").value = (normalizeHexColor(obj.stroke) || "#171411").toUpperCase();
+  syncStrokeSizeControls(obj);
   document.getElementById("strokeDashToggle").checked = !!obj.strokeDash;
   document.getElementById("shapeRadius").value = obj.radius || 0;
   document.getElementById("shapeSides").value = obj.sides || 6;
   document.getElementById("shapeStarPoints").value = obj.points || 5;
   document.getElementById("opacity").value = Math.round((obj.opacity ?? 1) * 100);
-  document.getElementById("shadow").value = obj.shadow || 0;
+  syncShadowControls(obj);
+  syncImageAttribution(isImage ? obj : null);
   syncInspectorOutputs(obj);
   syncMaskControls();
   ["left", "center", "right"].forEach(align => {

@@ -10,7 +10,7 @@
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <span class="window-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+        <img class="brand-icon" src="build/icon.png" alt="" aria-hidden="true">
         <span class="brand-copy">
           <strong>YOUDESIGN</strong>
           <span id="currentSizeLabel">1080 × 1440</span>
@@ -258,14 +258,14 @@
           <div class="add-subpanel" id="imageTools">
             <p class="element-title">图片</p>
             <label class="label" for="imageInput">上传图片</label>
-            <button class="upload-card" id="imageUploadBtn" type="button">
+            <label class="upload-card" id="imageUploadBtn" for="imageInput" role="button" tabindex="0">
               <span class="upload-icon">+</span>
               <span>
                 <strong id="imageUploadTitle">上传图片</strong>
-                <span id="imageUploadMeta">支持 JPG、PNG、WebP，上传后自动放入画布</span>
+                <span id="imageUploadMeta">支持 JPG、PNG、WebP、SVG，上传后自动放入画布</span>
               </span>
-            </button>
-            <input class="file-input" id="imageInput" type="file" accept="image/*">
+            </label>
+            <input class="file-input" id="imageInput" type="file">
             <div class="stock-panel" id="unsplashPanel">
               <div class="stock-head">
                 <div>
@@ -281,8 +281,12 @@
                   <li>登录后进入 Your applications，选择 New Application。</li>
                   <li>勾选 API 条款后填写应用名称，例如 YOUDESIGN。</li>
                   <li>创建后复制 Access Key，粘贴到下面输入框。</li>
+                  <li>申请生产权限时，应用说明可写：YOUDESIGN helps creators design social cover images and add properly attributed Unsplash photos to their canvas.</li>
                 </ol>
               </details>
+              <div class="stock-compliance-note">
+                使用图片时会保留 Unsplash 图片链接、记录下载事件，并显示摄影师与 Unsplash 署名。
+              </div>
               <div class="compact-field">
                 <label for="unsplashAccessKey">Unsplash Access Key</label>
                 <input id="unsplashAccessKey" type="password" placeholder="填写自己的 Unsplash Access Key">
@@ -300,7 +304,7 @@
               <div class="button-row two">
                 <button class="mini-btn" id="unsplashLoadMoreBtn" type="button" disabled>加载更多</button>
               </div>
-              <div class="stock-status" id="unsplashStatus">图片免费使用；API 集成会显示摄影师署名并记录下载。</div>
+              <div class="stock-status" id="unsplashStatus">使用图片会触发下载记录，并保留 Photo by 摄影师 on Unsplash 署名。</div>
             </div>
           </div>
           <div class="element-group add-subpanel" id="textTools">
@@ -420,7 +424,17 @@
               <div class="inspector-content">
                 <div class="compact-field">
                   <label for="fontFamily">字体</label>
-                  <select id="fontFamily"></select>
+                  <div class="font-combobox" id="fontCombobox">
+                    <button class="font-combobox-trigger" id="fontComboboxTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                      <span id="fontComboboxValue">选择字体</span>
+                      <span class="font-combobox-arrow" aria-hidden="true">⌄</span>
+                    </button>
+                    <div class="font-combobox-popover hidden" id="fontComboboxPopover">
+                      <input id="fontSearch" type="search" placeholder="搜索字体，例如 思源 / MiSans / Bold">
+                      <div class="font-combobox-list" id="fontComboboxList" role="listbox"></div>
+                    </div>
+                    <select id="fontFamily" class="native-font-select" aria-hidden="true" tabindex="-1"></select>
+                  </div>
                 </div>
                 <div class="field-grid three text-metrics-grid">
                   <div class="compact-field">
@@ -449,6 +463,11 @@
             <div class="inspector-group" id="appearanceGroup">
               <div class="inspector-group-title"><span>外观</span></div>
               <div class="inspector-content">
+                <div class="inline-control appearance-inline-control appearance-number-control" id="overallOpacityControl">
+                  <label for="opacity">整体透明度</label>
+                  <input id="opacity" type="number" min="0" max="100" step="1">
+                  <span class="number-suffix">%</span>
+                </div>
                 <div class="appearance-row" id="appearanceFillOpacityRow">
                   <div class="compact-field appearance-color-field">
                     <label id="fillColorLabel" for="fillColor">颜色</label>
@@ -458,8 +477,8 @@
                     </div>
                   </div>
                   <div class="inline-control appearance-inline-control appearance-number-control">
-                    <label for="opacity">透明度</label>
-                    <input id="opacity" type="number" min="5" max="100" step="1">
+                    <label for="fillOpacity">透明度</label>
+                    <input id="fillOpacity" type="number" min="0" max="100" step="1">
                     <span class="number-suffix">%</span>
                   </div>
                 </div>
@@ -488,22 +507,63 @@
                 </div>
                 <details class="appearance-section" id="strokeSection">
                   <summary>
-                    <span>描边</span>
-                    <span class="appearance-section-actions" aria-hidden="true">▸</span>
+                    <span>描边 <small>点击展开</small></span>
+                    <span class="appearance-section-actions" aria-hidden="true"></span>
                   </summary>
                   <div class="appearance-section-body">
                     <div class="appearance-row">
                       <div class="compact-field appearance-color-field">
                         <label id="strokeColorLabel" for="strokeColor">描边颜色</label>
-                        <input id="strokeColor" type="color">
+                        <div class="appearance-color-input">
+                          <input id="strokeColor" type="color">
+                          <input id="strokeColorText" type="text" inputmode="text" maxlength="7" spellcheck="false" aria-label="描边色值">
+                        </div>
                       </div>
                       <div class="inline-control appearance-inline-control appearance-number-control">
+                        <label for="strokeOpacity">透明度</label>
+                        <input id="strokeOpacity" type="number" min="0" max="100" step="1">
+                        <span class="number-suffix">%</span>
+                      </div>
+                    </div>
+                    <div class="appearance-row">
+                      <div class="inline-control appearance-inline-control appearance-slider-number-control">
                         <label for="strokeWidth">尺寸</label>
+                        <input id="strokeWidthRange" type="range" min="0" max="18" step="1">
                         <input id="strokeWidth" type="number" min="0" max="18" step="1">
                         <span class="number-suffix">px</span>
                       </div>
                     </div>
                     <label class="toggle-row hidden" id="strokeDashControl" for="strokeDashToggle"><span>虚线</span><input id="strokeDashToggle" type="checkbox"></label>
+                  </div>
+                </details>
+                <details class="appearance-section" id="shadowSection">
+                  <summary>
+                    <span>阴影 <small>点击展开</small></span>
+                    <span class="appearance-section-actions" aria-hidden="true"></span>
+                  </summary>
+                  <div class="appearance-section-body">
+                    <div class="appearance-row">
+                      <div class="compact-field appearance-color-field">
+                        <label for="shadowColor">阴影颜色</label>
+                        <div class="appearance-color-input">
+                          <input id="shadowColor" type="color">
+                          <input id="shadowColorText" type="text" inputmode="text" maxlength="7" spellcheck="false" aria-label="阴影色值">
+                        </div>
+                      </div>
+                      <div class="inline-control appearance-inline-control appearance-number-control">
+                        <label for="shadowOpacity">透明度</label>
+                        <input id="shadowOpacity" type="number" min="0" max="100" step="1">
+                        <span class="number-suffix">%</span>
+                      </div>
+                    </div>
+                    <div class="appearance-row">
+                      <div class="inline-control appearance-inline-control appearance-slider-number-control">
+                        <label for="shadow">尺寸</label>
+                        <input id="shadowRange" type="range" min="0" max="36" step="1">
+                        <input id="shadow" type="number" min="0" max="36" step="1">
+                        <span class="number-suffix">px</span>
+                      </div>
+                    </div>
                   </div>
                 </details>
                 <div class="inline-control hidden" id="shapeRadiusControl">
@@ -520,11 +580,6 @@
                   <label for="shapeStarPoints">星角</label>
                   <input id="shapeStarPoints" type="range" min="3" max="16" step="1">
                   <output id="shapeStarPointsValue">5</output>
-                </div>
-                <div class="inline-control">
-                  <label for="shadow">阴影</label>
-                  <input id="shadow" type="range" min="0" max="36" step="1">
-                  <output id="shadowValue">0</output>
                 </div>
               </div>
             </div>
@@ -602,6 +657,7 @@
                       <button class="mini-btn active" id="finishStampEditBtn" type="button">完成图章</button>
                     </div>
                   </div>
+                  <div class="image-attribution hidden" id="imageAttribution"></div>
                   <div class="mask-status" id="maskStatus">首次使用会下载 RMBG-1.4 模型，之后在本机处理图片。</div>
                 </div>
               </div>

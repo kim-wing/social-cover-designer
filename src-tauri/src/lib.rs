@@ -1,10 +1,12 @@
 use base64::Engine;
+use std::thread;
 use std::time::Duration;
 use tauri::Emitter;
 use tauri_plugin_updater::UpdaterExt;
 
 const MAX_REMOTE_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_EXPORT_FILE_BYTES: usize = 80 * 1024 * 1024;
+const OPENAI_IMAGE_RETRY_ATTEMPTS: usize = 3;
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,13 +96,10 @@ async fn openai_generate_image(request: OpenAIImageRequest) -> Result<String, St
         body["format"] = serde_json::Value::String(format);
     }
 
-    let response = openai_http_client()
-        .post(format!("{}/images/generations", image_api_base(request.api_base.as_deref())?))
-        .bearer_auth(request.api_key.trim())
-        .json(&body)
-        .send()
+    let endpoint = format!("{}/images/generations", image_api_base(request.api_base.as_deref())?);
+    let response = send_openai_json_with_retry(&endpoint, request.api_key.trim(), &body)
         .await
-        .map_err(|error| format!("OpenAI 请求失败：{error}"))?;
+        .map_err(|error| openai_network_error_message("OpenAI 请求失败", &error.to_string()))?;
 
     let status = response.status();
     let payload = response
@@ -152,39 +151,27 @@ async fn openai_edit_image(request: OpenAIImageRequest) -> Result<String, String
     }
 
     let image_bytes = decode_image_base64(&image)?;
-    let image_part = reqwest::multipart::Part::bytes(image_bytes)
-        .file_name("image.png")
-        .mime_str("image/png")
-        .map_err(|error| format!("图片表单构造失败：{error}"))?;
-    let mut form = reqwest::multipart::Form::new()
-        .text(
-            "model",
-            if request.model.trim().is_empty() {
-                "gpt-image-2".to_string()
-            } else {
-                request.model.trim().to_string()
-            },
+    let endpoint = format!("{}/images/edits", image_api_base(request.api_base.as_deref())?);
+    let model = if request.model.trim().is_empty() {
+        "gpt-image-2".to_string()
+    } else {
+        request.model.trim().to_string()
+    };
+    let size = request.size.filter(|value| !value.trim().is_empty());
+    let quality = request.quality.filter(|value| !value.trim().is_empty());
+    let format = request.format.filter(|value| !value.trim().is_empty());
+    let response = send_openai_multipart_with_retry(&endpoint, request.api_key.trim(), || {
+        build_openai_edit_form(
+            image_bytes.clone(),
+            model.clone(),
+            prompt.clone(),
+            size.clone(),
+            quality.clone(),
+            format.clone(),
         )
-        .part("image", image_part)
-        .text("prompt", prompt)
-        .text("n", "1");
-    if let Some(size) = request.size.filter(|value| !value.trim().is_empty()) {
-        form = form.text("size", size);
-    }
-    if let Some(quality) = request.quality.filter(|value| !value.trim().is_empty()) {
-        form = form.text("quality", quality);
-    }
-    if let Some(format) = request.format.filter(|value| !value.trim().is_empty()) {
-        form = form.text("format", format);
-    }
-
-    let response = openai_http_client()
-        .post(format!("{}/images/edits", image_api_base(request.api_base.as_deref())?))
-        .bearer_auth(request.api_key.trim())
-        .multipart(form)
-        .send()
-        .await
-        .map_err(|error| format!("图片编辑请求失败：{error}"))?;
+    })
+    .await
+    .map_err(|error| openai_network_error_message("图片编辑请求失败", &error))?;
 
     parse_openai_image_response(response, "图片编辑接口请求失败").await
 }
@@ -230,6 +217,128 @@ async fn parse_openai_image_response(
     }
 
     Err("图片接口没有返回图片数据。".to_string())
+}
+
+fn build_openai_edit_form(
+    image_bytes: Vec<u8>,
+    model: String,
+    prompt: String,
+    size: Option<String>,
+    quality: Option<String>,
+    format: Option<String>,
+) -> Result<reqwest::multipart::Form, String> {
+    let image_part = reqwest::multipart::Part::bytes(image_bytes)
+        .file_name("image.png")
+        .mime_str("image/png")
+        .map_err(|error| format!("图片表单构造失败：{error}"))?;
+    let mut form = reqwest::multipart::Form::new()
+        .text("model", model)
+        .part("image", image_part)
+        .text("prompt", prompt)
+        .text("n", "1");
+    if let Some(size) = size {
+        form = form.text("size", size);
+    }
+    if let Some(quality) = quality {
+        form = form.text("quality", quality);
+    }
+    if let Some(format) = format {
+        form = form.text("format", format);
+    }
+    Ok(form)
+}
+
+async fn send_openai_json_with_retry(
+    endpoint: &str,
+    api_key: &str,
+    body: &serde_json::Value,
+) -> Result<reqwest::Response, reqwest::Error> {
+    let client = openai_http_client();
+    let mut last_error = None;
+    for attempt in 1..=OPENAI_IMAGE_RETRY_ATTEMPTS {
+        match client
+            .post(endpoint)
+            .bearer_auth(api_key)
+            .header(reqwest::header::ACCEPT, "application/json")
+            .json(body)
+            .send()
+            .await
+        {
+            Ok(response) => return Ok(response),
+            Err(error) => {
+                if attempt >= OPENAI_IMAGE_RETRY_ATTEMPTS || !is_retryable_reqwest_error(&error) {
+                    return Err(error);
+                }
+                last_error = Some(error);
+                thread::sleep(Duration::from_millis(650 * attempt as u64));
+            }
+        }
+    }
+    Err(last_error.expect("retry loop should have an error"))
+}
+
+async fn send_openai_multipart_with_retry<F>(
+    endpoint: &str,
+    api_key: &str,
+    mut build_form: F,
+) -> Result<reqwest::Response, String>
+where
+    F: FnMut() -> Result<reqwest::multipart::Form, String>,
+{
+    let client = openai_http_client();
+    let mut last_error = None;
+    for attempt in 1..=OPENAI_IMAGE_RETRY_ATTEMPTS {
+        let form = build_form()?;
+        match client
+            .post(endpoint)
+            .bearer_auth(api_key)
+            .header(reqwest::header::ACCEPT, "application/json")
+            .multipart(form)
+            .send()
+            .await
+        {
+            Ok(response) => return Ok(response),
+            Err(error) => {
+                if attempt >= OPENAI_IMAGE_RETRY_ATTEMPTS || !is_retryable_reqwest_error(&error) {
+                    return Err(error.to_string());
+                }
+                last_error = Some(error.to_string());
+                thread::sleep(Duration::from_millis(650 * attempt as u64));
+            }
+        }
+    }
+    Err(last_error.unwrap_or_else(|| "未知网络错误".to_string()))
+}
+
+fn is_retryable_reqwest_error(error: &reqwest::Error) -> bool {
+    if error.is_timeout() || error.is_connect() || error.is_request() {
+        return true;
+    }
+    let message = error.to_string().to_ascii_lowercase();
+    message.contains("connection closed")
+        || message.contains("incomplete message")
+        || message.contains("connection reset")
+        || message.contains("operation timed out")
+        || message.contains("unexpected eof")
+}
+
+fn openai_network_error_message(prefix: &str, error: &str) -> String {
+    let lower = error.to_ascii_lowercase();
+    if lower.contains("connection closed")
+        || lower.contains("incomplete message")
+        || lower.contains("unexpected eof")
+        || lower.contains("connection reset")
+    {
+        return format!(
+            "{prefix}：图片接口连接提前中断，已自动重试 {OPENAI_IMAGE_RETRY_ATTEMPTS} 次仍失败。通常是 QuickRouter 网关或当前网络临时断连导致，请稍后重试，或切换网络/API Base。原始错误：{error}"
+        );
+    }
+    if lower.contains("timed out") || lower.contains("timeout") {
+        return format!(
+            "{prefix}：图片生成等待超时，可能是模型排队或网络不稳定。请稍后重试，或降低生成质量后再试。原始错误：{error}"
+        );
+    }
+    format!("{prefix}：{error}")
 }
 
 fn image_api_base(value: Option<&str>) -> Result<String, String> {
@@ -511,11 +620,13 @@ fn font_from_face(face: &ttf_parser::Face) -> Option<LocalFont> {
             continue;
         };
         match name.name_id {
-            1 => family.get_or_insert(value),
-            2 => style.get_or_insert(value),
-            4 => full_name.get_or_insert(value),
-            6 => postscript_name.get_or_insert(value),
-            16 => typographic_family.get_or_insert(value),
+            1 => prefer_chinese_font_name(&mut family, value),
+            2 => prefer_chinese_font_name(&mut style, value),
+            4 => prefer_chinese_font_name(&mut full_name, value),
+            6 => {
+                postscript_name.get_or_insert(value);
+            }
+            16 => prefer_chinese_font_name(&mut typographic_family, value),
             _ => continue,
         };
     }
@@ -537,6 +648,18 @@ fn font_from_face(face: &ttf_parser::Face) -> Option<LocalFont> {
         postscript_name,
         style,
     })
+}
+
+fn prefer_chinese_font_name(slot: &mut Option<String>, value: String) {
+    match slot {
+        None => *slot = Some(value),
+        Some(current) if !has_chinese_text(current) && has_chinese_text(&value) => *slot = Some(value),
+        _ => {}
+    }
+}
+
+fn has_chinese_text(value: &str) -> bool {
+    value.chars().any(|ch| ('\u{3400}'..='\u{9fff}').contains(&ch))
 }
 
 #[tauri::command]
