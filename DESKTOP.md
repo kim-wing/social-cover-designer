@@ -82,6 +82,8 @@ Hard requirements for every release:
 
 - Increment the app version before building. Tauri only reports an update when the release version is greater than the installed app version.
 - Clear the canvas before packaging. Do not build a release while the app is showing test layers, sample images, or temporary design drafts.
+- For the next macOS packaging pass, generate public `.dmg` downloads for both Apple Silicon and Intel. Keep `.app.tar.gz` and `.sig` for the Tauri updater, preserve the website's automatic OS/architecture detection, and point the detected macOS download URLs to `.dmg` once those DMG assets are uploaded.
+- When an Apple Developer account is available, switch macOS builds from ad-hoc signing to Developer ID signing and notarization before publishing the public DMG.
 - Build signed updater artifacts with the same updater private key:
   - mac x64: `darwin-x86_64`
   - mac Apple Silicon: `darwin-aarch64`
@@ -89,6 +91,8 @@ Hard requirements for every release:
 - Generate `latest.json` after all macOS and Windows artifacts exist.
 - Upload all required assets to the GitHub Release:
   - `latest.json`
+  - mac Apple Silicon `.dmg`
+  - mac Intel `.dmg`
   - mac x64 `.app.tar.gz` and `.sig`
   - mac arm64 `.app.tar.gz` and `.sig`
   - Windows x64 installer `.exe` and `.sig`
@@ -124,6 +128,8 @@ python3 -m http.server 17888 --directory local-update-test/server
 For GitHub Releases, upload these assets to the latest release:
 
 - `local-update-test/server/latest.json`
+- public mac Apple Silicon `.dmg`
+- public mac Intel `.dmg`
 - `local-update-test/server/YOUDESIGN-<version>-mac-x64.app.tar.gz`
 - `local-update-test/server/YOUDESIGN-<version>-mac-x64.app.tar.gz.sig`
 - `local-update-test/server/YOUDESIGN-<version>-mac-arm64.app.tar.gz`

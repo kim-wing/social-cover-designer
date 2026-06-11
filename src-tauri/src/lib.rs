@@ -15,6 +15,7 @@ struct LocalFont {
     full_name: String,
     postscript_name: String,
     style: String,
+    file_name: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -601,13 +602,13 @@ fn collect_fonts_from_file(path: &std::path::Path, fonts: &mut Vec<LocalFont>) {
         let Ok(face) = ttf_parser::Face::parse(&data, index) else {
             continue;
         };
-        if let Some(font) = font_from_face(&face) {
+        if let Some(font) = font_from_face(&face, path) {
             fonts.push(font);
         }
     }
 }
 
-fn font_from_face(face: &ttf_parser::Face) -> Option<LocalFont> {
+fn font_from_face(face: &ttf_parser::Face, path: &std::path::Path) -> Option<LocalFont> {
     let mut family = None;
     let mut typographic_family = None;
     let mut full_name = None;
@@ -647,6 +648,7 @@ fn font_from_face(face: &ttf_parser::Face) -> Option<LocalFont> {
         full_name,
         postscript_name,
         style,
+        file_name: path.file_name().and_then(|name| name.to_str()).unwrap_or("").to_string(),
     })
 }
 

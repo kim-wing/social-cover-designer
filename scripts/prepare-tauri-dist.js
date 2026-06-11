@@ -6,6 +6,7 @@ const dist = path.join(root, "dist");
 
 const entries = [
   "index.html",
+  "build",
   "src",
   "logo",
   "游小侠"

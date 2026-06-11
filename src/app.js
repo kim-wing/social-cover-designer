@@ -299,6 +299,7 @@ const DEFAULT_SHAPE_COLOR = "#fff100";
 const DEFAULT_TEXT_COLOR = "#171411";
 const safeFontKeywords = [
   "字魂", "字小魂", "ZiHun", "ZiXiaoHun",
+  "字制区", "ZiZhiQu", "字体传奇", "ZiTiChuanQi", "字体家", "ZiTiJia", "字体圈", "ZiTiQuan",
   "思源", "Source Han", "Noto Sans CJK", "Noto Serif CJK", "SourceHanSans", "SourceHanSerif", "NotoSansCJK", "NotoSerifCJK",
   "站酷", "ZCOOL", "Zcool",
   "阿里巴巴普惠体", "Alibaba PuHuiTi", "AlibabaPuHuiTi", "Alibaba-PuHuiTi", "AlibabaSans",
@@ -343,6 +344,10 @@ const chineseFontNameMap = [
   [/misans|mi\s*lan|milanting|小米兰亭/i, "小米兰亭"],
   [/harmonyos/i, "鸿蒙 Sans"],
   [/zihun|zixiaohun/i, "字魂"],
+  [/zitichuanqi|字体传奇/i, "字体传奇"],
+  [/zizhiqu|字制区/i, "字制区"],
+  [/zitijia|字体家/i, "字体家"],
+  [/zitiquan|字体圈/i, "字体圈"],
   [/zcool|站酷/i, "站酷"],
   [/youshe|youshebiaotihei/i, "优设标题黑"],
   [/pangmenzhengdao/i, "庞门正道"],
@@ -644,7 +649,7 @@ function isSafeCommercialFontName(fontName) {
 }
 
 function isSafeCommercialFont(font) {
-  return [font.family, font.fullName, font.postscriptName].some(isSafeCommercialFontName);
+  return [font.family, font.fullName, font.postscriptName, font.fileName].some(isSafeCommercialFontName);
 }
 
 function normalizeFontLocalStyle(style) {
@@ -655,10 +660,19 @@ function hasChineseText(value) {
   return /[\u3400-\u9fff]/.test(String(value || ""));
 }
 
+function cleanChineseFontName(value) {
+  return String(value || "")
+    .replace(/\.(ttf|otf|ttc|otc)$/i, "")
+    .replace(/\s*·\s*可商用$/, "")
+    .replace(/\s*[-_]\s*(regular|normal|medium|bold|light|thin|heavy|black|semibold|demibold|extralight|ultralight)$/i, "")
+    .replace(/\s+(regular|normal|medium|bold|light|thin|heavy|black|semibold|demibold|extralight|ultralight)$/i, "")
+    .trim();
+}
+
 function displayFontFamilyName(font) {
-  const candidates = [font.label, font.family, font.fullName, font.postscriptName].filter(Boolean);
+  const candidates = [font.label, font.family, font.fullName, font.fileName, font.postscriptName].filter(Boolean);
   const chinese = candidates.find(hasChineseText);
-  if (chinese) return chinese.replace(/\s*·\s*可商用$/, "").trim();
+  if (chinese) return cleanChineseFontName(chinese);
   const lookup = candidates.join(" ");
   if (/zixiaohun/i.test(lookup)) return "字小魂字体";
   if (/zihun/i.test(lookup)) return "字魂字体";
@@ -716,6 +730,7 @@ function fontMatchesSearch(font, query) {
     font.localStyle,
     font.fullName,
     font.postscriptName,
+    font.fileName,
     font.source === "local" ? "本地字体" : "推荐字体"
   ].some(value => normalizedFontSearchText(value).includes(query));
 }
@@ -6401,31 +6416,34 @@ wire("localFontsBtn", "click", async () => {
   const fontSection = document.getElementById("fontSection");
   fontSection?.classList.remove("needs-local-fonts");
   fontSection?.classList.add("is-reading-fonts");
+  fontStatus.textContent = "读取中";
+  const fonts = [];
+  let desktopError = null;
+  let browserError = null;
+
   try {
     if (window.youdesignDesktop && window.youdesignDesktop.listLocalFonts) {
-      fontStatus.textContent = "读取中";
-      const fonts = await window.youdesignDesktop.listLocalFonts();
-      applyLocalFonts(fonts);
-      return;
+      fonts.push(...await window.youdesignDesktop.listLocalFonts());
     }
   } catch (err) {
-    fontStatus.textContent = "读取失败";
+    desktopError = err;
+  }
+
+  if ("queryLocalFonts" in window) {
+    try {
+      fonts.push(...await window.queryLocalFonts());
+    } catch (err) {
+      browserError = err;
+    }
+  }
+
+  if (!fonts.length) {
+    fontStatus.textContent = browserError ? "授权被拒绝" : desktopError ? "读取失败" : "当前浏览器不支持";
     fontSection?.classList.remove("is-reading-fonts");
     return;
   }
 
-  if (!("queryLocalFonts" in window)) {
-    document.getElementById("fontStatus").textContent = "当前浏览器不支持";
-    fontSection?.classList.remove("is-reading-fonts");
-    return;
-  }
-  try {
-    const fonts = await window.queryLocalFonts();
-    applyLocalFonts(fonts);
-  } catch (err) {
-    document.getElementById("fontStatus").textContent = "授权被拒绝";
-    fontSection?.classList.remove("is-reading-fonts");
-  }
+  applyLocalFonts(fonts);
 });
 
 wire("fontSearch", "input", () => {
@@ -6464,6 +6482,7 @@ function applyLocalFonts(fonts) {
         label: displayFontLabel({ ...f, localStyle, source: "local" }),
         fullName: f.fullName,
         postscriptName: f.postscriptName,
+        fileName: f.fileName,
         localStyle,
         fontStyle: fontStyleFromLocalStyle(localStyle),
         fontWeight: fontWeightFromStyle(localStyle),

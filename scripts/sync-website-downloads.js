@@ -66,6 +66,7 @@ function replaceRequired(content, pattern, replacement, label) {
 
 function updateWebsite(version) {
   const releaseBase = releaseBaseUrl.replace(/\/$/, "");
+  // Next macOS release should point website downloads to public DMG assets once they are generated and uploaded.
   const downloads = {
     "mac-arm": `${releaseBase}/YOUDESIGN-${version}-mac-arm64.app.tar.gz`,
     "mac-intel": `${releaseBase}/YOUDESIGN-${version}-mac-x64.app.tar.gz`,
