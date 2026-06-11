@@ -1886,6 +1886,10 @@ input[type="color"] {
   background: rgba(255, 255, 255, .48);
 }
 
+.dialog-card.is-export-dialog .dialog-actions {
+  justify-content: flex-start;
+}
+
 .dialog-actions .btn {
   min-width: 84px;
 }
@@ -3674,6 +3678,18 @@ select:focus,
   background: #ffffff;
 }
 
+.font-tools.needs-local-fonts,
+.font-tools.is-reading-fonts {
+  border-color: rgba(13, 153, 255, .38);
+}
+
+.font-tools.needs-local-fonts #localFontsBtn,
+.font-tools.is-reading-fonts #localFontsBtn {
+  background: var(--figma-blue-soft);
+  color: #096fb9;
+  animation: breathe 1.45s var(--ease) infinite;
+}
+
 .custom-size-card h3,
 .font-tools-head strong {
   font-size: 12px;
@@ -4015,11 +4031,11 @@ canvas {
 }
 
 #appearanceGroup .inspector-content {
-  gap: 0;
+  gap: 9px;
 }
 
 #appearanceGroup .inspector-content > * + * {
-  margin-top: 9px;
+  margin-top: 0;
 }
 
 .field-grid.four {
@@ -4164,6 +4180,7 @@ canvas {
 .appearance-section {
   display: grid;
   gap: 9px;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
@@ -4249,6 +4266,65 @@ canvas {
   border: 0;
   background: #f1f1f1;
   font-size: 12px;
+  white-space: nowrap;
+}
+
+.toggle-row span,
+.toggle-row input {
+  flex: 0 0 auto;
+}
+
+.toggle-field .toggle-row {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: #f1f1f1;
+  box-shadow: none;
+}
+
+.toggle-field .toggle-row span {
+  color: rgba(29, 29, 31, .9);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.toggle-field .toggle-row input {
+  width: 28px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(29, 29, 31, .18);
+  box-shadow: none;
+}
+
+.toggle-field .toggle-row input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .18);
+  transition: transform .18s var(--ease);
+}
+
+.toggle-field .toggle-row input:checked {
+  background: #111111;
+}
+
+.toggle-field .toggle-row input:checked::after {
+  transform: translateX(10px);
 }
 
 .mini-btn {
@@ -4269,6 +4345,19 @@ canvas {
   padding: 0;
   border: 0;
   background: transparent;
+}
+
+.background-color-field {
+  width: 100%;
+}
+
+.background-color-field .appearance-color-input {
+  grid-template-columns: 34px minmax(0, 1fr);
+}
+
+.background-color-panel .swatches {
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
 }
 
 .color-control {
@@ -4377,6 +4466,58 @@ canvas {
   white-space: nowrap;
 }
 
+.api-key-help {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.api-key-guide-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  width: min(248px, calc(100vw - 32px));
+  padding: 10px 11px;
+  border: 1px solid rgba(29, 29, 31, .08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .14);
+  color: var(--figma-text);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition: opacity .14s var(--ease), transform .14s var(--ease);
+}
+
+.api-key-help:hover .api-key-guide-popover,
+.api-key-help:focus-within .api-key-guide-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.api-key-guide-popover strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--figma-text);
+  font-size: 12px;
+  font-weight: 720;
+  white-space: normal;
+}
+
+.api-key-guide-popover ol {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--figma-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.api-key-guide-popover li {
+  margin: 2px 0;
+}
+
 .compact-check {
   display: inline-flex;
   align-items: center;
@@ -4431,6 +4572,71 @@ canvas {
 
 .prompt-status {
   padding: 0 2px;
+}
+
+.tool-panel,
+.tool-panel .section,
+.prompt-generator,
+.ai-block,
+.ai-block-head,
+.prompt-mode-row,
+.prompt-actions,
+.field-grid,
+.compact-field {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tool-panel {
+  overflow-x: hidden;
+}
+
+.prompt-generator *,
+.prompt-generator *::before,
+.prompt-generator *::after {
+  box-sizing: border-box;
+}
+
+.prompt-generator .field-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.prompt-generator .compact-field input,
+.prompt-generator .compact-field select,
+.prompt-generator .compact-field textarea,
+.prompt-generator .mini-btn {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ai-block-head strong {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.ai-block-head .api-key-help {
+  flex: 0 0 auto;
+}
+
+.ai-block-head .mini-btn {
+  width: auto;
+  max-width: 128px;
+}
+
+.ai-block-head span,
+.prompt-status,
+.compact-check span {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+  .prompt-generator .field-grid,
+  .prompt-mode-row,
+  .ai-generation-actions {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1100px) {

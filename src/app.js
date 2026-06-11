@@ -10,9 +10,8 @@ const IMAGE_API_KEY_REMEMBER_STORAGE = "youdesign-remember-image-api-key";
 const IMAGE_API_BASE_STORAGE = "youdesign-image-api-base";
 const IMAGE_PROMPT_MODE_STORAGE = "youdesign-image-prompt-mode";
 const CUSTOM_IMAGE_PROMPT_STORAGE = "youdesign-custom-image-prompt";
-const UNSPLASH_ACCESS_KEY_STORAGE = "youdesign-unsplash-access-key";
 const UNSPLASH_API_BASE = "https://api.unsplash.com";
-const UNSPLASH_KEY_HELP_URL = "https://unsplash.com/developers";
+const UNSPLASH_ACCESS_KEY = "4qLu4DS2MEWPNO0m152Km2kYyMyysH75wP832l-nkIs";
 const UNSPLASH_UTM_SOURCE = "youdesign";
 const DEFAULT_IMAGE_API_BASE = "https://api.quickrouter.ai/v1";
 const QUICKROUTER_REGISTER_URL = "https://api.quickrouter.ai/register?aff=roL9WF";
@@ -145,7 +144,8 @@ const basiconSvg = {
   verticalText: '<path d="M12 5v14"></path><path d="M8 5h8"></path><path d="M9 19h6"></path>',
   topBadge: '<rect x="5" y="5" width="14" height="14" rx="2"></rect><path d="M8 9h8"></path><path d="M10 13h4"></path>',
   crop: '<path d="M7 3v14h14"></path><path d="M3 7h14v14"></path>',
-  boolean: '<circle cx="9" cy="12" r="5"></circle><circle cx="15" cy="12" r="5"></circle>'
+  boolean: '<circle cx="9" cy="12" r="5"></circle><circle cx="15" cy="12" r="5"></circle>',
+  eyedropper: '<path d="m14.5 4.5 5 5"></path><path d="m13 6 5 5"></path><path d="M16 8 7.5 16.5 4 17.5l1-3.5L13.5 5.5"></path><path d="M6 18h5"></path>'
 };
 
 function basiconsIcon(name) {
@@ -187,7 +187,6 @@ function applyIconSystem() {
     checkUpdateBtn: "refresh",
     installUpdateBtn: "refresh",
     importProjectBtn: "upload",
-    exportProjectBtn: "export",
     exportBtn: "export",
     imageUploadBtn: "upload",
     addTitleBtn: "text",
@@ -233,13 +232,12 @@ function applyIconSystem() {
       el.innerHTML = icon(name);
       return;
     }
-    if (id === "exportBtn" || id === "checkUpdateBtn" || id === "installUpdateBtn" || id === "importProjectBtn" || id === "exportProjectBtn") {
+    if (id === "exportBtn" || id === "checkUpdateBtn" || id === "installUpdateBtn" || id === "importProjectBtn") {
       const label = {
-        exportBtn: "导出图片",
+        exportBtn: "导出",
         checkUpdateBtn: "检查更新",
         installUpdateBtn: "重启安装",
-        importProjectBtn: "导入工程",
-        exportProjectBtn: "导出工程"
+        importProjectBtn: "导入"
       }[id];
       el.innerHTML = `${icon(name)}<span>${label}</span>`;
       return;
@@ -264,6 +262,7 @@ const presets = [
   { platform: "小红书", label: "高清竖版封面", width: 1242, height: 1660 },
   { platform: "小红书", label: "正方形笔记", width: 1080, height: 1080 },
   { platform: "小红书", label: "横版笔记", width: 1440, height: 1080 },
+  { platform: "小红书", label: "横版配图", width: 1200, height: 900 },
   { platform: "微信朋友圈", label: "九宫格单图", width: 1080, height: 1080, recommended: true },
   { platform: "微信朋友圈", label: "竖版海报", width: 1080, height: 1440, recommended: true },
   { platform: "微信朋友圈", label: "长竖图", width: 1080, height: 1920 },
@@ -271,12 +270,26 @@ const presets = [
   { platform: "微信", label: "状态 / 视频封面兼容图", width: 1080, height: 1080 },
   { platform: "公众号", label: "首图", width: 900, height: 383, recommended: true },
   { platform: "公众号", label: "次图", width: 500, height: 500 },
+  { platform: "公众号", label: "内容引导图", width: 900, height: 500 },
+  { platform: "公众号", label: "二维码名片", width: 600, height: 600 },
   { platform: "抖音", label: "竖版视频封面", width: 1080, height: 1920, recommended: true, safe: "上下 UI 可能遮挡" },
   { platform: "抖音", label: "信息流安全封面", width: 1080, height: 1464, safe: "安全展示区" },
   { platform: "抖音", label: "直播封面", width: 1080, height: 1464 },
-  { platform: "视频号", label: "竖版封面", width: 1080, height: 1920 },
-  { platform: "视频号", label: "横版封面", width: 1280, height: 720 },
-  { platform: "B站", label: "视频封面", width: 1146, height: 717, recommended: true }
+  { platform: "抖音", label: "横版视频封面", width: 1920, height: 1080 },
+  { platform: "快手", label: "竖版视频封面", width: 1080, height: 1920, recommended: true },
+  { platform: "快手", label: "横版视频封面", width: 1920, height: 1080 },
+  { platform: "视频号", label: "竖版封面", width: 1080, height: 1260, recommended: true },
+  { platform: "视频号", label: "横版封面", width: 1080, height: 608 },
+  { platform: "B站", label: "视频封面 4:3", width: 1200, height: 900, recommended: true },
+  { platform: "B站", label: "视频封面 16:10", width: 1146, height: 717 },
+  { platform: "B站", label: "动态方图", width: 1080, height: 1080 },
+  { platform: "微博", label: "信息流方图", width: 1080, height: 1080 },
+  { platform: "微博", label: "信息流横图", width: 1200, height: 675 },
+  { platform: "微博", label: "长图海报", width: 1080, height: 1920 },
+  { platform: "通用", label: "方图", width: 1080, height: 1080 },
+  { platform: "通用", label: "竖版 9:16", width: 1080, height: 1920 },
+  { platform: "通用", label: "横版 16:9", width: 1920, height: 1080 },
+  { platform: "通用", label: "社媒竖版 4:5", width: 1080, height: 1350 }
 ];
 
 const swatchColors = ["#fff6d8", "#fff100", "#ff4d23", "#171411", "#f7f7f2", "#2563eb", "#12b981", "#ffe4ec", "#efe7ff", "#d9f99d", "#f8fafc", "#f97316", "#0f172a", "#fef3c7"];
@@ -454,7 +467,7 @@ const onboardingSteps = [
     target: "#unsplashPanel",
     panel: "imageTools",
     title: "免费图库：搜索 Unsplash 图片",
-    text: "这里可以接入 Unsplash 免费图库，填入 Access Key 后按关键词搜索图片。选中图片会自动加入画布，并保留下载记录。"
+    text: "这里可以直接搜索 Unsplash 免费图库。选中图片会自动加入画布，并保留下载记录和摄影师署名。"
   },
   {
     target: "#imageGroup",
@@ -500,7 +513,7 @@ const onboardingSteps = [
   {
     target: ".toolbar",
     title: "导入和导出",
-    text: "顶部可以撤销重做、调整缩放、导入工程、导出工程和导出图片。做完封面后直接点右上角导出图片。"
+    text: "顶部可以撤销重做、调整缩放、导入素材或工程，并从导出里选择图片、SVG 或 Youdesign 工程文件。"
   }
 ];
 let onboardingIndex = 0;
@@ -590,6 +603,26 @@ function imageObject(img, x, y, width, height, src) {
     crop: { left: 0, top: 0, right: 0, bottom: 0 },
     src,
     image: img
+  };
+}
+
+function svgLayerObject(img, x, y, width, height, src, extra = {}) {
+  return {
+    id: uid(),
+    type: "svg",
+    name: extra.name || "SVG 图层",
+    x, y, width, height,
+    rotation: 0,
+    opacity: 1,
+    shadow: 0,
+    shadowColor: "#000000",
+    shadowOpacity: .28,
+    lockAspect: true,
+    src,
+    svgText: extra.svgText || "",
+    svgContent: extra.svgContent || "",
+    svgViewBox: extra.svgViewBox || `0 0 ${width} ${height}`,
+    svgImage: img
   };
 }
 
@@ -760,6 +793,7 @@ function serializableObject(o) {
     maskImage: undefined,
     maskCanvas: undefined,
     maskedRenderCache: undefined,
+    svgImage: undefined,
     children: o.children ? o.children.map(serializableObject) : undefined
   };
 }
@@ -769,6 +803,9 @@ async function hydrateObject(o) {
     o.image = await loadImage(o.src);
     if (o.originalSrc) o.originalImage = await loadImage(o.originalSrc);
     if (o.maskSrc) o.maskImage = await loadImage(o.maskSrc);
+  }
+  if (o.type === "svg" && (o.src || o.svgText)) {
+    o.svgImage = await loadImage(o.src || svgDataUrl(o.svgText));
   }
   if (o.type === "group" && Array.isArray(o.children)) {
     o.children = await Promise.all(o.children.map(hydrateObject));
@@ -782,6 +819,7 @@ function cloneObject(obj, options = {}) {
     id: options.keepIds ? obj.id : uid(),
     name: options.name || obj.name,
     image: obj.image,
+    svgImage: obj.svgImage,
     originalImage: obj.originalImage,
     maskImage: obj.maskImage,
     maskCanvas: obj.maskCanvas
@@ -893,6 +931,17 @@ async function saveExportFile(options) {
   return "";
 }
 
+async function exportYoudesignProject() {
+  await normalizeAllImageSources();
+  const filename = `${state.platform}-${state.label}-${state.width}x${state.height}.youdesign`.replace(/[\\/:\s]+/g, "-");
+  const savedPath = await saveExportFile({
+    filename,
+    text: projectSnapshot(),
+    type: "application/json"
+  });
+  if (savedPath) appAlert(`已导出到：${savedPath}`, "导出完成");
+}
+
 function readTextFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -927,6 +976,7 @@ function showAppDialog(options = {}) {
       if (settled) return;
       settled = true;
       layer.classList.add("hidden");
+      card.classList.remove("is-export-dialog");
       document.removeEventListener("keydown", onKeyDown);
       confirmBtn.onclick = null;
       cancelBtn.onclick = null;
@@ -1120,7 +1170,7 @@ function showOnboardingGuide() {
   requestAnimationFrame(() => els.nextBtn.focus());
 }
 
-function chooseExportImageType() {
+function chooseExportFileType() {
   const layer = document.getElementById("appDialog");
   const card = document.getElementById("appDialogCard");
   const title = document.getElementById("appDialogTitle");
@@ -1135,33 +1185,46 @@ function chooseExportImageType() {
       if (settled) return;
       settled = true;
       layer.classList.add("hidden");
+      card.classList.remove("is-export-dialog");
       document.removeEventListener("keydown", onKeyDown);
       confirmBtn.onclick = null;
       cancelBtn.onclick = null;
       layer.onclick = null;
-      document.getElementById("exportSvgChoiceBtn")?.remove();
+      document.querySelectorAll(".export-extra-choice").forEach(button => button.remove());
+      confirmBtn.parentNode.insertBefore(cancelBtn, confirmBtn);
+      confirmBtn.classList.add("primary");
       if (previousFocus && typeof previousFocus.focus === "function") previousFocus.focus();
       resolve(value);
     };
     const onKeyDown = event => {
       if (event.key === "Escape") close(null);
-      if (event.key === "Enter") close("image/png");
+      if (event.key === "Enter") close("application/youdesign");
     };
     card.classList.remove("is-danger");
+    card.classList.add("is-export-dialog");
     confirmBtn.classList.remove("is-danger");
+    confirmBtn.classList.remove("primary");
     title.textContent = "导出格式";
-    message.textContent = "选择本次导出的文件格式。PNG/JPG 适合位图封面，SVG 适合继续编辑矢量文字和图形。";
+    message.textContent = "选择本次导出的文件格式。PNG/JPG 适合图片发布，SVG 适合继续编辑矢量文字和图形，Youdesign 用来保存可再次导入的工程。";
     mark.innerHTML = icon("export");
     cancelBtn.textContent = "JPG";
     confirmBtn.textContent = "PNG";
     cancelBtn.classList.remove("hidden");
     const svgBtn = document.createElement("button");
-    svgBtn.className = "btn";
+    svgBtn.className = "btn export-extra-choice";
     svgBtn.id = "exportSvgChoiceBtn";
     svgBtn.type = "button";
     svgBtn.textContent = "SVG";
     svgBtn.onclick = () => close("image/svg+xml");
-    confirmBtn.parentNode.insertBefore(svgBtn, confirmBtn);
+    const projectBtn = document.createElement("button");
+    projectBtn.className = "btn primary export-extra-choice";
+    projectBtn.id = "exportYoudesignChoiceBtn";
+    projectBtn.type = "button";
+    projectBtn.textContent = "Youdesign";
+    projectBtn.onclick = () => close("application/youdesign");
+    cancelBtn.parentNode.insertBefore(projectBtn, cancelBtn);
+    cancelBtn.parentNode.insertBefore(svgBtn, cancelBtn);
+    cancelBtn.parentNode.insertBefore(confirmBtn, cancelBtn);
     layer.classList.remove("hidden");
     document.addEventListener("keydown", onKeyDown);
     confirmBtn.onclick = () => close("image/png");
@@ -1169,7 +1232,7 @@ function chooseExportImageType() {
     layer.onclick = event => {
       if (event.target === layer) close(null);
     };
-    requestAnimationFrame(() => confirmBtn.focus());
+    requestAnimationFrame(() => projectBtn.focus());
   });
 }
 
@@ -1376,6 +1439,7 @@ function drawObject(c, obj) {
   if (obj.type === "shape") drawShape(c, obj);
   if (obj.type === "compoundShape") drawCompoundShape(c, obj);
   if (obj.type === "image" && obj.image) drawImage(c, obj);
+  if (obj.type === "svg" && obj.svgImage) drawSvgLayer(c, obj);
   if (obj.type === "group") drawGroup(c, obj);
   c.restore();
 }
@@ -1585,6 +1649,10 @@ function drawImage(c, obj) {
   c.drawImage(image, sx, sy, sw, sh, 0, 0, obj.width, obj.height);
 }
 
+function drawSvgLayer(c, obj) {
+  c.drawImage(obj.svgImage, 0, 0, obj.width, obj.height);
+}
+
 function maskedRenderCanvas(obj, image, maskSource, crop) {
   const width = Math.max(1, Math.round(obj.width));
   const height = Math.max(1, Math.round(obj.height));
@@ -1788,6 +1856,13 @@ function svgImageObject(obj, index) {
   return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><clipPath id="${clipId}"><path d="${clipPath}"></path></clipPath><image href="${svgEscape(obj.src)}" x="${svgNum(imageX)}" y="${svgNum(imageY)}" width="${svgNum(imageW)}" height="${svgNum(imageH)}" preserveAspectRatio="none" clip-path="url(#${clipId})"></image></g>`;
 }
 
+function svgVectorObject(obj) {
+  const content = obj.svgContent || svgInnerContent(obj.svgText);
+  const viewBox = obj.svgViewBox || `0 0 ${svgNum(obj.width)} ${svgNum(obj.height)}`;
+  if (!content) return svgRasterFallbackObject(obj, obj.id);
+  return `<g transform="${svgTransform(obj)}" ${svgObjectStyle(obj)}><svg x="0" y="0" width="${svgNum(obj.width)}" height="${svgNum(obj.height)}" viewBox="${svgEscape(viewBox)}" preserveAspectRatio="none" overflow="visible">${content}</svg></g>`;
+}
+
 function objectToPngDataUrl(obj) {
   const out = document.createElement("canvas");
   out.width = Math.max(1, Math.ceil(obj.width));
@@ -1807,6 +1882,7 @@ function svgObject(obj, index) {
   if (obj.type === "text") return svgTextObject(obj);
   if (obj.type === "shape") return svgShapeObject(obj);
   if (obj.type === "image") return svgImageObject(obj, index);
+  if (obj.type === "svg") return svgVectorObject(obj);
   if (obj.type === "compoundShape") return svgRasterFallbackObject(obj, index);
   if (obj.type === "group") {
     const children = (obj.children || []).map((child, childIndex) => svgObject(child, `${index}-${childIndex}`)).join("");
@@ -2471,7 +2547,7 @@ function addObject(obj) {
 }
 
 function defaultLockAspect(obj) {
-  return obj.lockAspect ?? (obj.type === "image" || obj.kind === "circle");
+  return obj.lockAspect ?? (obj.type === "image" || obj.type === "svg" || obj.kind === "circle");
 }
 
 function resizedRectFromHandle(start, dx, dy, handleName, locked) {
@@ -2952,10 +3028,7 @@ function syncPromptAspectToCanvas() {
   const select = document.getElementById("genAspect");
   if (!select) return;
   const label = canvasAspectLabel();
-  let option = [...select.options].find(item => item.value === label || item.textContent === label);
-  if (!option) {
-    option = [...select.options].find(item => item.dataset.canvasAspect === "true");
-  }
+  let option = select.querySelector("[data-canvas-aspect]");
   if (!option) {
     option = document.createElement("option");
     option.dataset.canvasAspect = "true";
@@ -3164,11 +3237,9 @@ function openExternalLink(url) {
 
 function unsplashEls() {
   return {
-    accessKey: document.getElementById("unsplashAccessKey"),
     query: document.getElementById("unsplashQuery"),
     searchBtn: document.getElementById("unsplashSearchBtn"),
     loadMoreBtn: document.getElementById("unsplashLoadMoreBtn"),
-    keyHelpBtn: document.getElementById("unsplashKeyHelpBtn"),
     results: document.getElementById("unsplashResults"),
     status: document.getElementById("unsplashStatus")
   };
@@ -3266,19 +3337,12 @@ function renderUnsplashResults() {
 
 async function searchUnsplashPhotos({ reset = true } = {}) {
   const els = unsplashEls();
-  const apiKey = els.accessKey.value.trim();
   const query = els.query.value.trim();
-  if (!apiKey) {
-    setUnsplashStatus("请先填写自己的 Unsplash Access Key。", "error");
-    els.accessKey.focus();
-    return;
-  }
   if (!query) {
     setUnsplashStatus("请输入搜索关键词。", "error");
     els.query.focus();
     return;
   }
-  localStorage.setItem(UNSPLASH_ACCESS_KEY_STORAGE, apiKey);
   if (reset) {
     unsplashState.query = query;
     unsplashState.page = 1;
@@ -3293,7 +3357,7 @@ async function searchUnsplashPhotos({ reset = true } = {}) {
   renderUnsplashResults();
   setUnsplashStatus("正在搜索 Unsplash...", "loading");
   try {
-    const payload = await requestUnsplashJson("/search/photos", apiKey, {
+    const payload = await requestUnsplashJson("/search/photos", UNSPLASH_ACCESS_KEY, {
       query: unsplashState.query,
       page: unsplashState.page,
       per_page: 12,
@@ -3304,7 +3368,7 @@ async function searchUnsplashPhotos({ reset = true } = {}) {
     unsplashState.results = reset ? results : [...unsplashState.results, ...results];
     setUnsplashStatus(results.length ? `已加载 ${unsplashState.results.length} 张图片。点击图片加入画布。` : "没有找到图片，换个关键词试试。");
   } catch (error) {
-    const message = error?.message || "Unsplash 搜索失败，请检查 Key、额度或网络。";
+    const message = error?.message || "Unsplash 搜索失败，请检查网络或图库额度。";
     setUnsplashStatus(`搜索失败：${message}`, "error");
   } finally {
     unsplashState.loading = false;
@@ -3326,12 +3390,6 @@ async function trackUnsplashDownload(photo, apiKey) {
 }
 
 async function addUnsplashPhotoToCanvas(photo) {
-  const els = unsplashEls();
-  const apiKey = els.accessKey.value.trim();
-  if (!apiKey) {
-    setUnsplashStatus("请先填写自己的 Unsplash Access Key。", "error");
-    return;
-  }
   const src = photo.urls?.regular || photo.urls?.full || photo.urls?.small;
   if (!src) {
     setUnsplashStatus("这张图片缺少可用地址。", "error");
@@ -3340,7 +3398,7 @@ async function addUnsplashPhotoToCanvas(photo) {
   const attribution = unsplashAttribution(photo);
   setUnsplashStatus("正在记录下载事件，并以 Unsplash 原图链接加入画布...", "loading");
   try {
-    const tracked = await trackUnsplashDownload(photo, apiKey);
+    const tracked = await trackUnsplashDownload(photo, UNSPLASH_ACCESS_KEY);
     await addImageSourceToCanvas(src, {
       name: `Photo by ${attribution.photographerName}`,
       objectPatch: {
@@ -4342,18 +4400,9 @@ function setupPromptGenerator() {
 
 function setupUnsplashLibrary() {
   const els = unsplashEls();
-  if (!els.accessKey || !els.query || !els.searchBtn) return;
-  const savedKey = localStorage.getItem(UNSPLASH_ACCESS_KEY_STORAGE);
-  if (savedKey) {
-    els.accessKey.value = savedKey;
-    setUnsplashStatus("已读取本地保存的 Unsplash Access Key。输入关键词即可搜索。");
-  }
-  els.accessKey.addEventListener("input", event => {
-    localStorage.setItem(UNSPLASH_ACCESS_KEY_STORAGE, event.target.value.trim());
-  });
+  if (!els.query || !els.searchBtn) return;
   els.searchBtn.addEventListener("click", () => searchUnsplashPhotos({ reset: true }));
   els.loadMoreBtn.addEventListener("click", () => searchUnsplashPhotos({ reset: false }));
-  els.keyHelpBtn.addEventListener("click", () => openExternalLink(UNSPLASH_KEY_HELP_URL));
   els.query.addEventListener("keydown", event => {
     if (event.key !== "Enter") return;
     event.preventDefault();
@@ -5223,6 +5272,11 @@ wire("imageInput", "change", async e => {
   }
   document.getElementById("imageUploadMeta").textContent = validation.isSvg ? "正在读取 SVG..." : "正在读取图片...";
   try {
+    if (validation.isSvg) {
+      await importSvgFileAsLayers(file);
+      document.getElementById("imageUploadMeta").textContent = "已按 SVG 矢量图层加入画布";
+      return;
+    }
     const obj = await addImageFileToCanvas(file, {
       x: state.width * .14,
       y: state.height * .22,
@@ -5427,8 +5481,12 @@ wire("exportBtn", "click", async () => {
     await document.fonts.ready;
     await normalizeAllImageSources();
     const scale = Number(document.getElementById("exportScale").value);
-    const type = await chooseExportImageType();
+    const type = await chooseExportFileType();
     if (!type) return;
+    if (type === "application/youdesign") {
+      await exportYoudesignProject();
+      return;
+    }
     if (type === "image/svg+xml") {
       const filename = `${state.platform}-${state.label}-${state.width}x${state.height}.svg`.replace(/[\\/:\s]+/g, "-");
       const savedPath = await saveExportFile({
@@ -5464,20 +5522,131 @@ wire("exportBtn", "click", async () => {
   }
 });
 
-wire("exportProjectBtn", "click", async () => {
-  try {
-    await normalizeAllImageSources();
-    const filename = `${state.platform}-${state.label}-${state.width}x${state.height}.youdesign`.replace(/[\\/:\s]+/g, "-");
-    const savedPath = await saveExportFile({
-      filename,
-      text: projectSnapshot(),
-      type: "application/json"
-    });
-    if (savedPath) appAlert(`已导出到：${savedPath}`, "导出完成");
-  } catch (err) {
-    appAlert(err?.message || String(err) || "请刷新页面后重试。", "导出工程失败", "danger");
+async function importProjectOrAssetFile(file) {
+  const name = String(file?.name || "");
+  const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+  if (ext === "youdesign" || ext === "json" || file.type === "application/json") {
+    if (state.objects.length && !await appConfirm("导入工程会替换当前画布，是否继续？", {
+      title: "导入工程",
+      confirmText: "替换画布",
+      kind: "danger"
+    })) return;
+    const raw = await readTextFile(file);
+    saveHistory();
+    await restore(raw);
+    persist();
+    return;
   }
-});
+  if (ext === "svg" || file.type === "image/svg+xml") {
+    await importSvgFileAsLayers(file);
+    return;
+  }
+  const validation = validateImageImportFile(file);
+  if (validation.ok) {
+    await addImageFileToCanvas(file, {
+      x: state.width * .14,
+      y: state.height * .22,
+      name: name ? name.replace(/\.[^.]+$/, "") : "导入图片"
+    });
+    return;
+  }
+  if (ext === "ai") throw new Error("AI 文件暂不支持直接导入图层。请在 Illustrator 导出为 SVG 后，用导入工程导入 SVG 图层。");
+  if (ext === "psd") throw new Error("PSD 文件暂不支持直接导入图层。请在 Photoshop 导出为 PNG/WebP；如果需要图层，请先导出为 SVG 或分层图片。");
+  throw new Error(validation.message || "暂只支持 .youdesign、JSON、JPG、PNG、WebP、GIF、SVG。");
+}
+
+function svgDataUrl(svgText) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
+}
+
+function svgInnerContent(svgText) {
+  try {
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const svg = doc.documentElement;
+    if (!svg || svg.tagName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) return "";
+    return [...svg.childNodes].map(node => new XMLSerializer().serializeToString(node)).join("");
+  } catch (err) {
+    return "";
+  }
+}
+
+function svgNumber(value, fallback = 0) {
+  const match = String(value || "").match(/-?\d*\.?\d+/);
+  return match ? Number(match[0]) : fallback;
+}
+
+function svgDocumentSize(svg) {
+  const viewBox = String(svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  const width = svgNumber(svg.getAttribute("width"), Number.isFinite(viewBox[2]) ? viewBox[2] : state.width);
+  const height = svgNumber(svg.getAttribute("height"), Number.isFinite(viewBox[3]) ? viewBox[3] : state.height);
+  const vb = viewBox.length === 4 && viewBox.every(Number.isFinite)
+    ? viewBox
+    : [0, 0, Math.max(1, width), Math.max(1, height)];
+  return {
+    width: Math.max(1, width || vb[2] || state.width),
+    height: Math.max(1, height || vb[3] || state.height),
+    viewBox: vb
+  };
+}
+
+function isSvgLayerNode(node) {
+  if (!(node instanceof Element)) return false;
+  const tag = node.tagName.toLowerCase();
+  if (["defs", "style", "title", "desc", "metadata", "script"].includes(tag)) return false;
+  if (node.getAttribute("display") === "none" || node.getAttribute("visibility") === "hidden") return false;
+  return true;
+}
+
+function svgLayerName(node, index) {
+  return node.getAttribute("id") || node.getAttribute("inkscape:label") || node.getAttribute("data-name") || `SVG 图层 ${index + 1}`;
+}
+
+function standaloneSvgForNode(svg, node, size) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width}" height="${size.height}" viewBox="${size.viewBox.join(" ")}">${svgLayerContent(svg, node)}</svg>`;
+}
+
+function svgLayerContent(svg, node) {
+  const serializer = new XMLSerializer();
+  const support = [...svg.children]
+    .filter(child => child !== node && ["defs", "style"].includes(child.tagName.toLowerCase()))
+    .map(child => serializer.serializeToString(child))
+    .join("");
+  const layer = serializer.serializeToString(node);
+  return `${support}${layer}`;
+}
+
+async function importSvgFileAsLayers(file) {
+  const raw = await readTextFile(file);
+  const doc = new DOMParser().parseFromString(raw, "image/svg+xml");
+  if (doc.querySelector("parsererror")) throw new Error("SVG 文件解析失败，请确认文件格式正确。");
+  const svg = doc.documentElement;
+  if (!svg || svg.tagName.toLowerCase() !== "svg") throw new Error("这不是有效的 SVG 文件。");
+  const size = svgDocumentSize(svg);
+  const layerNodes = [...svg.children].filter(isSvgLayerNode);
+  const maxW = state.width * .72;
+  const maxH = state.height * .72;
+  const scale = Math.min(maxW / size.width, maxH / size.height, 1);
+  const width = size.width * scale;
+  const height = size.height * scale;
+  const x = (state.width - width) / 2;
+  const y = (state.height - height) / 2;
+  const imported = [];
+  const nodes = layerNodes.length ? layerNodes : [svg];
+  for (const [index, node] of nodes.entries()) {
+    const svgContent = node === svg ? svgInnerContent(raw) : svgLayerContent(svg, node);
+    const svgText = `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width}" height="${size.height}" viewBox="${size.viewBox.join(" ")}">${svgContent}</svg>`;
+    const src = svgDataUrl(svgText);
+    const img = await loadImage(src);
+    const obj = svgLayerObject(img, x, y, width, height, src, {
+      name: node === svg ? file.name.replace(/\.[^.]+$/, "") || "SVG" : svgLayerName(node, index),
+      svgText,
+      svgContent,
+      svgViewBox: size.viewBox.join(" ")
+    });
+    imported.push(obj);
+  }
+  addObjects(imported, imported[imported.length - 1]);
+}
 
 wire("importProjectBtn", "click", () => document.getElementById("projectInput").click());
 
@@ -5485,20 +5654,9 @@ wire("projectInput", "change", async e => {
   const file = e.target.files[0];
   if (!file) return;
   try {
-    if (state.objects.length && !await appConfirm("导入工程会替换当前画布，是否继续？", {
-      title: "导入工程",
-      confirmText: "替换画布",
-      kind: "danger"
-    })) {
-      e.target.value = "";
-      return;
-    }
-    const raw = await readTextFile(file);
-    saveHistory();
-    await restore(raw);
-    persist();
+    await importProjectOrAssetFile(file);
   } catch (err) {
-    appAlert(err.message || "文件格式不正确", "导入工程失败", "danger");
+    appAlert(err.message || "文件格式不正确", "导入失败", "danger");
   } finally {
     e.target.value = "";
   }
@@ -5506,6 +5664,9 @@ wire("projectInput", "change", async e => {
 
 wire("localFontsBtn", "click", async () => {
   const fontStatus = document.getElementById("fontStatus");
+  const fontSection = document.getElementById("fontSection");
+  fontSection?.classList.remove("needs-local-fonts");
+  fontSection?.classList.add("is-reading-fonts");
   try {
     if (window.youdesignDesktop && window.youdesignDesktop.listLocalFonts) {
       fontStatus.textContent = "读取中";
@@ -5515,11 +5676,13 @@ wire("localFontsBtn", "click", async () => {
     }
   } catch (err) {
     fontStatus.textContent = "读取失败";
+    fontSection?.classList.remove("is-reading-fonts");
     return;
   }
 
   if (!("queryLocalFonts" in window)) {
     document.getElementById("fontStatus").textContent = "当前浏览器不支持";
+    fontSection?.classList.remove("is-reading-fonts");
     return;
   }
   try {
@@ -5527,6 +5690,7 @@ wire("localFontsBtn", "click", async () => {
     applyLocalFonts(fonts);
   } catch (err) {
     document.getElementById("fontStatus").textContent = "授权被拒绝";
+    fontSection?.classList.remove("is-reading-fonts");
   }
 });
 
@@ -5574,6 +5738,7 @@ function applyLocalFonts(fonts) {
     })
     .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
   document.getElementById("fontStatus").textContent = `可商用 ${localFonts.length} 款，过滤 ${fonts.length - safeFonts.length} 款`;
+  document.getElementById("fontSection")?.classList.remove("needs-local-fonts", "is-reading-fonts");
   syncFontSelect();
 }
 
@@ -5893,27 +6058,29 @@ function syncUi(updateValues = true) {
   const isShape = obj.type === "shape";
   const isCompoundShape = obj.type === "compoundShape";
   const isImage = obj.type === "image";
+  const isSvg = obj.type === "svg";
   const isGroup = obj.type === "group";
   const isRect = isShape && obj.kind === "rect";
   const isLine = isShape && obj.kind === "line";
   const isTriangle = isShape && obj.kind === "triangle";
   const isPolygon = isShape && obj.kind === "polygon";
   const isStar = isShape && obj.kind === "star";
-  const hasAppearance = isText || isShape || isCompoundShape || isImage || isGroup;
+  const hasAppearance = isText || isShape || isCompoundShape || isImage || isSvg || isGroup;
   const allText = objects.every(item => item.type === "text");
   const booleanReady = objects.length > 1 && objects.every(item => item.type === "shape" || item.type === "compoundShape");
   document.getElementById("textGroup").classList.toggle("hidden", multi ? !allText : !isText);
   document.getElementById("appearanceGroup").classList.toggle("hidden", multi || !hasAppearance);
   document.getElementById("booleanGroup").classList.toggle("hidden", !booleanReady);
   document.getElementById("imageGroup").classList.toggle("hidden", multi || !isImage);
-  document.getElementById("appearanceFillOpacityRow").classList.toggle("hidden", false);
-  document.getElementById("fillColor").closest(".compact-field").classList.toggle("hidden", isLine || isGroup);
-  document.getElementById("strokeSection").classList.toggle("hidden", isImage || isGroup);
+  const showFillControls = !isImage && !isSvg && !isGroup && !isLine;
+  document.getElementById("appearanceFillOpacityRow").classList.toggle("hidden", !showFillControls);
+  document.getElementById("fillColor").closest(".compact-field").classList.toggle("hidden", !showFillControls);
+  document.getElementById("strokeSection").classList.toggle("hidden", isImage || isSvg || isGroup);
   document.getElementById("strokeDashControl").classList.toggle("hidden", !isLine);
   document.getElementById("shapeRadiusControl").classList.toggle("hidden", !(isRect || isTriangle || isPolygon || isStar));
   document.getElementById("shapeSidesControl").classList.toggle("hidden", !isPolygon);
   document.getElementById("shapeStarPointsControl").classList.toggle("hidden", !isStar);
-  document.getElementById("fillColorLabel").textContent = isShape || isCompoundShape ? "填充颜色" : "文字颜色";
+  document.getElementById("fillColorLabel").textContent = isText ? "文字颜色" : "填充颜色";
   document.getElementById("strokeColorLabel").textContent = isLine ? "线条颜色" : "描边颜色";
   syncAppearanceFillControls(obj);
   syncTransformInputs(obj);
