@@ -25,6 +25,7 @@ const TRANSFORMERS_MODULES = [
 const RMBG_MODEL_ID = "briaai/RMBG-1.4";
 const APP_VERSION = "__YOUDESIGN_APP_VERSION__".startsWith("__") ? "1.0.17" : "__YOUDESIGN_APP_VERSION__";
 const MAX_EXPORT_PIXELS = 64 * 1000 * 1000;
+let autosaveQuotaWarningShown = false;
 
 const iconPaths = {
   add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -102,7 +103,8 @@ const iconPathAliases = {
   verticalText: "text",
   topBadge: "selectAll",
   crop: "image",
-  boolean: "shape"
+  boolean: "shape",
+  eyedropper: "eyedropper"
 };
 
 const basiconSvg = {
@@ -145,7 +147,7 @@ const basiconSvg = {
   topBadge: '<rect x="5" y="5" width="14" height="14" rx="2"></rect><path d="M8 9h8"></path><path d="M10 13h4"></path>',
   crop: '<path d="M7 3v14h14"></path><path d="M3 7h14v14"></path>',
   boolean: '<circle cx="9" cy="12" r="5"></circle><circle cx="15" cy="12" r="5"></circle>',
-  eyedropper: '<path d="m14.5 4.5 5 5"></path><path d="m13 6 5 5"></path><path d="M16 8 7.5 16.5 4 17.5l1-3.5L13.5 5.5"></path><path d="M6 18h5"></path>'
+  eyedropper: '<path fill="currentColor" d="M15.5355 2.80744C17.0976 1.24534 19.6303 1.24534 21.1924 2.80744C22.7545 4.36953 22.7545 6.90219 21.1924 8.46429L18.3638 11.2929L18.7175 11.6466C19.108 12.0371 19.108 12.6703 18.7175 13.0608C18.327 13.4513 17.6938 13.4513 17.3033 13.0608L16.9498 12.7073L10.7351 18.922C10.1767 19.4804 9.46547 19.861 8.6911 20.0159L6.93694 20.3667C6.54976 20.4442 6.19416 20.6345 5.91496 20.9137L4.92894 21.8997C4.53841 22.2902 3.90525 22.2902 3.51472 21.8997L2.10051 20.4855C1.70999 20.095 1.70999 19.4618 2.10051 19.0713L3.08653 18.0852C3.36574 17.806 3.55605 17.4504 3.63348 17.0633L3.98431 15.3091C4.13919 14.5347 4.51981 13.8235 5.07821 13.2651L11.2929 7.05045L10.9393 6.69686C10.5488 6.30634 10.5488 5.67317 10.9393 5.28265C11.3299 4.89212 11.963 4.89212 12.3535 5.28265L12.7069 5.63604L15.5355 2.80744ZM12.7071 8.46466L6.49242 14.6794C6.21322 14.9586 6.02291 15.3142 5.94548 15.7013L5.59464 17.4555C5.43977 18.2299 5.05915 18.9411 4.50075 19.4995C5.05915 18.9411 5.77035 18.5604 6.54471 18.4056L8.29887 18.0547C8.68605 17.9773 9.04165 17.787 9.32085 17.5078L15.5355 11.2931L12.7071 8.46466Z"></path>'
 };
 
 function basiconsIcon(name) {
@@ -293,7 +295,8 @@ const presets = [
 ];
 
 const swatchColors = ["#fff6d8", "#fff100", "#ff4d23", "#171411", "#f7f7f2", "#2563eb", "#12b981", "#ffe4ec", "#efe7ff", "#d9f99d", "#f8fafc", "#f97316", "#0f172a", "#fef3c7"];
-const DEFAULT_SHAPE_COLOR = "#ff4d23";
+const DEFAULT_SHAPE_COLOR = "#fff100";
+const DEFAULT_TEXT_COLOR = "#171411";
 const safeFontKeywords = [
   "字魂", "字小魂", "ZiHun", "ZiXiaoHun",
   "思源", "Source Han", "Noto Sans CJK", "Noto Serif CJK", "SourceHanSans", "SourceHanSerif", "NotoSansCJK", "NotoSerifCJK",
@@ -540,7 +543,7 @@ function text(value, x, y, fontSize, fill, extra = {}) {
     lineHeight: extra.lineHeight || 1.14,
     letterSpacing: extra.letterSpacing || 0,
     fontWeight: extra.fontWeight || 800,
-    fill,
+    fill: fill || DEFAULT_TEXT_COLOR,
     fillOpacity: extra.fillOpacity ?? 1,
     stroke: extra.stroke || "#171411",
     strokeWidth: extra.strokeWidth || 0,
@@ -619,6 +622,11 @@ function svgLayerObject(img, x, y, width, height, src, extra = {}) {
     shadowOpacity: .28,
     lockAspect: true,
     src,
+    fill: extra.fill || "#171411",
+    fillOpacity: extra.fillOpacity ?? 1,
+    stroke: extra.stroke || "#171411",
+    strokeWidth: extra.strokeWidth ?? 0,
+    strokeOpacity: extra.strokeOpacity ?? 1,
     svgText: extra.svgText || "",
     svgContent: extra.svgContent || "",
     svgViewBox: extra.svgViewBox || `0 0 ${width} ${height}`,
@@ -784,8 +792,8 @@ function fileLabel(path) {
   return name.replace(/\.[^.]+$/, "");
 }
 
-function serializableObject(o) {
-  return {
+function serializableObject(o, options = {}) {
+  const copy = {
     ...o,
     image: undefined,
     originalImage: undefined,
@@ -794,8 +802,13 @@ function serializableObject(o) {
     maskCanvas: undefined,
     maskedRenderCache: undefined,
     svgImage: undefined,
-    children: o.children ? o.children.map(serializableObject) : undefined
+    children: o.children ? o.children.map(child => serializableObject(child, options)) : undefined
   };
+  if (options.lightweightAutosave && copy.type === "image") {
+    copy.originalSrc = undefined;
+    copy.maskSrc = undefined;
+  }
+  return copy;
 }
 
 async function hydrateObject(o) {
@@ -805,6 +818,14 @@ async function hydrateObject(o) {
     if (o.maskSrc) o.maskImage = await loadImage(o.maskSrc);
   }
   if (o.type === "svg" && (o.src || o.svgText)) {
+    if (o.svgText && (o.fill == null || o.stroke == null || o.strokeWidth == null)) {
+      const paint = readSvgPaintProperties(o.svgText);
+      if (o.fill == null) o.fill = paint.fill;
+      if (o.fillOpacity == null) o.fillOpacity = paint.fillOpacity;
+      if (o.stroke == null) o.stroke = paint.stroke;
+      if (o.strokeWidth == null) o.strokeWidth = paint.strokeWidth;
+      if (o.strokeOpacity == null) o.strokeOpacity = paint.strokeOpacity;
+    }
     o.svgImage = await loadImage(o.src || svgDataUrl(o.svgText));
   }
   if (o.type === "group" && Array.isArray(o.children)) {
@@ -848,14 +869,14 @@ function saveHistory() {
   state.future = [];
 }
 
-function snapshot() {
+function snapshot(options = {}) {
   return JSON.stringify({
     width: state.width,
     height: state.height,
     platform: state.platform,
     label: state.label,
     background: state.background,
-    objects: state.objects.map(serializableObject)
+    objects: state.objects.map(obj => serializableObject(obj, options))
   });
 }
 
@@ -876,8 +897,42 @@ async function restore(raw) {
   syncUi();
 }
 
+function isStorageQuotaError(error) {
+  return error?.name === "QuotaExceededError"
+    || error?.name === "NS_ERROR_DOM_QUOTA_REACHED"
+    || error?.code === 22
+    || error?.code === 1014
+    || /quota/i.test(error?.message || "");
+}
+
+function reportAutosaveQuotaFallback() {
+  if (autosaveQuotaWarningShown) return;
+  autosaveQuotaWarningShown = true;
+  const message = "本机自动保存空间不足，已改用轻量缓存；当前画面可继续编辑，完整保留请手动导出 Youdesign 工程。";
+  console.warn(message);
+  const maskStatus = document.getElementById("maskStatus");
+  if (maskStatus) setMaskStatus(message, "error");
+}
+
 function persist() {
-  localStorage.setItem(STORAGE_KEY, snapshot());
+  try {
+    localStorage.setItem(STORAGE_KEY, snapshot());
+    return true;
+  } catch (error) {
+    if (!isStorageQuotaError(error)) throw error;
+  }
+
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_KEY, snapshot({ lightweightAutosave: true }));
+    reportAutosaveQuotaFallback();
+    return false;
+  } catch (fallbackError) {
+    if (!isStorageQuotaError(fallbackError)) throw fallbackError;
+    localStorage.removeItem(STORAGE_KEY);
+    reportAutosaveQuotaFallback();
+    return false;
+  }
 }
 
 function projectSnapshot() {
@@ -2860,6 +2915,39 @@ function updateSelected(patch) {
   persist();
 }
 
+async function refreshSvgLayerImage(obj, expectedVersion = obj.svgEditVersion) {
+  if (!obj || obj.type !== "svg") return;
+  const src = svgDataUrl(obj.svgText);
+  const image = await loadImage(src);
+  if (expectedVersion != null && obj.svgEditVersion !== expectedVersion) return;
+  obj.src = src;
+  obj.svgImage = image;
+}
+
+async function updateSelectedSvgAppearance(patch, options = {}) {
+  const obj = selected();
+  if (!obj || obj.type !== "svg") return;
+  if (!options.skipHistory) saveHistory();
+  const editVersion = (obj.svgEditVersion || 0) + 1;
+  obj.svgEditVersion = editVersion;
+  Object.assign(obj, patch);
+  const source = obj.svgText || `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${obj.svgViewBox || `0 0 ${obj.width} ${obj.height}`}">${obj.svgContent || ""}</svg>`;
+  const rewritten = rewriteSvgPaint(source, patch);
+  if (rewritten) {
+    obj.svgText = rewritten.svgText;
+    obj.svgContent = rewritten.svgContent;
+    await refreshSvgLayerImage(obj, editVersion);
+  }
+  renderAll();
+  syncUi(false);
+  syncAppearanceFillControls(obj);
+  syncStrokeSizeControls(obj);
+  syncShadowControls(obj);
+  syncTransformInputs(obj);
+  syncInspectorOutputs();
+  persist();
+}
+
 function wire(id, event, fn) {
   document.getElementById(id).addEventListener(event, fn);
 }
@@ -3918,7 +4006,11 @@ async function removeBackgroundFromSelected() {
       confirmText: "下载并抠图"
     });
   if (!confirmed) return;
-  localStorage.setItem("youdesign-rmbg-download-ok", "1");
+  try {
+    localStorage.setItem("youdesign-rmbg-download-ok", "1");
+  } catch (error) {
+    if (!isStorageQuotaError(error)) throw error;
+  }
   const btn = document.getElementById("removeBgBtn");
   btn.disabled = true;
   setMaskStatus("正在加载 RMBG-1.4 模型，首次使用会稍慢...", "loading");
@@ -4513,12 +4605,12 @@ function addObjects(objects, selectedObj = objects[objects.length - 1]) {
   persist();
 }
 
-wire("addTextBtn", "click", () => addObject(text("输入文字", 120, 260, 42, "#171411", { width: 520, fontWeight: 700 })));
-wire("addTitleBtn", "click", () => addObject(text("输入你的封面标题", 120, 180, 82, "#171411", { stroke: "transparent", strokeWidth: 0 })));
+wire("addTextBtn", "click", () => addObject(text("输入文字", 120, 260, 42, DEFAULT_TEXT_COLOR, { width: 520, fontWeight: 700 })));
+wire("addTitleBtn", "click", () => addObject(text("输入你的封面标题", 120, 180, 82, DEFAULT_TEXT_COLOR, { stroke: "transparent", strokeWidth: 0 })));
 wire("addSubtitleBtn", "click", () => addObject(text("这里填写补充说明", 124, 330, 38, "#6e6e73", { width: 640, fontWeight: 700 })));
 wire("addBigNumberBtn", "click", () => addObject(text("07", 108, 190, 176, "#fff100", { width: 360, fontWeight: 900, stroke: "#1d1d1f", strokeWidth: 4, lockAspect: true })));
 wire("addVerticalTextBtn", "click", () => {
-  const obj = text("旅\n行\n攻\n略", state.width - 170, 188, 50, "#171411", { width: 88, fontWeight: 900, align: "center", lockAspect: true });
+  const obj = text("旅\n行\n攻\n略", state.width - 170, 188, 50, DEFAULT_TEXT_COLOR, { width: 88, fontWeight: 900, align: "center", lockAspect: true });
   obj.name = "竖排字";
   addObject(obj);
 });
@@ -4566,6 +4658,353 @@ function normalizeHexColor(value) {
     return `#${withHash[1]}${withHash[1]}${withHash[2]}${withHash[2]}${withHash[3]}${withHash[3]}`.toLowerCase();
   }
   return null;
+}
+
+function hexToRgb(value) {
+  const hex = normalizeHexColor(value) || "#000000";
+  const number = Number.parseInt(hex.slice(1), 16);
+  return {
+    r: (number >> 16) & 255,
+    g: (number >> 8) & 255,
+    b: number & 255
+  };
+}
+
+function rgbToHex(r, g, b) {
+  const toHex = value => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function hexToHsv(value) {
+  const { r, g, b } = hexToRgb(value);
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const delta = max - min;
+  let h = 0;
+  if (delta) {
+    if (max === rn) h = ((gn - bn) / delta) % 6;
+    else if (max === gn) h = (bn - rn) / delta + 2;
+    else h = (rn - gn) / delta + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return {
+    h,
+    s: max ? delta / max : 0,
+    v: max
+  };
+}
+
+function hsvToHex(h, s, v) {
+  const c = v * s;
+  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = v - c;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (h < 60) [r, g, b] = [c, x, 0];
+  else if (h < 120) [r, g, b] = [x, c, 0];
+  else if (h < 180) [r, g, b] = [0, c, x];
+  else if (h < 240) [r, g, b] = [0, x, c];
+  else if (h < 300) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  return rgbToHex((r + m) * 255, (g + m) * 255, (b + m) * 255);
+}
+
+function setNativeColorInputValue(input, color) {
+  const normalized = normalizeHexColor(color);
+  if (!input || !normalized) return;
+  input.value = normalized;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function syncCustomColorButton(input, color = input?.value) {
+  const normalized = normalizeHexColor(color);
+  const button = input?.previousElementSibling?.classList?.contains("color-swatch-button")
+    ? input.previousElementSibling
+    : null;
+  if (button && normalized) button.style.setProperty("--field-color", normalized);
+}
+
+function setupCustomColorPickers() {
+  const colorInputs = [...document.querySelectorAll('.appearance-color-input input[type="color"]')];
+  if (!colorInputs.length) return;
+  const popover = document.createElement("div");
+  popover.className = "custom-color-popover hidden";
+  popover.innerHTML = `
+    <div class="custom-color-plane" id="customColorPlane"><span class="custom-color-cursor" id="customColorCursor"></span></div>
+    <div class="custom-color-controls">
+      <button class="custom-eyedropper-btn" id="customColorEyedropper" type="button" title="吸取画板颜色">${icon("eyedropper")}</button>
+      <span class="custom-color-preview" id="customColorPreview"></span>
+      <input class="custom-hue-range" id="customHueRange" type="range" min="0" max="360" step="1" value="0" aria-label="色相">
+    </div>
+    <div class="custom-rgb-row">
+      <label><input id="customColorR" type="number" min="0" max="255" step="1"><span>R</span></label>
+      <label><input id="customColorG" type="number" min="0" max="255" step="1"><span>G</span></label>
+      <label><input id="customColorB" type="number" min="0" max="255" step="1"><span>B</span></label>
+    </div>
+  `;
+  document.body.appendChild(popover);
+  const loupe = document.createElement("div");
+  loupe.className = "canvas-eyedropper-loupe hidden";
+  loupe.innerHTML = `
+    <canvas width="132" height="132" aria-hidden="true"></canvas>
+    <span class="canvas-eyedropper-label">R:0 G:0 B:0 #000000</span>
+  `;
+  document.body.appendChild(loupe);
+
+  const plane = popover.querySelector("#customColorPlane");
+  const cursor = popover.querySelector("#customColorCursor");
+  const preview = popover.querySelector("#customColorPreview");
+  const hueRange = popover.querySelector("#customHueRange");
+  const eyedropper = popover.querySelector("#customColorEyedropper");
+  const loupeCanvas = loupe.querySelector("canvas");
+  const loupeCtx = loupeCanvas.getContext("2d");
+  const loupeLabel = loupe.querySelector(".canvas-eyedropper-label");
+  const rgbInputs = {
+    r: popover.querySelector("#customColorR"),
+    g: popover.querySelector("#customColorG"),
+    b: popover.querySelector("#customColorB")
+  };
+  let activeInput = null;
+  let activeButton = null;
+  let samplingInput = null;
+  let samplingButton = null;
+  let canvasSampling = false;
+  let hsv = { h: 0, s: 0, v: 1 };
+  let planePointerDown = false;
+
+  const applyColor = (color, input = activeInput) => {
+    const normalized = normalizeHexColor(color);
+    if (!normalized || !input) return;
+    hsv = hexToHsv(normalized);
+    setNativeColorInputValue(input, normalized);
+    if (input === activeInput) syncPopover(normalized);
+    else syncCustomColorButton(input, normalized);
+  };
+
+  function syncPopover(color = activeInput?.value || "#ffffff") {
+    const normalized = normalizeHexColor(color) || "#ffffff";
+    const pureHue = hsvToHex(hsv.h, 1, 1);
+    const { r, g, b } = hexToRgb(normalized);
+    plane.style.setProperty("--picker-hue", pureHue);
+    cursor.style.left = `${hsv.s * 100}%`;
+    cursor.style.top = `${(1 - hsv.v) * 100}%`;
+    preview.style.background = normalized;
+    hueRange.value = String(Math.round(hsv.h));
+    rgbInputs.r.value = r;
+    rgbInputs.g.value = g;
+    rgbInputs.b.value = b;
+    syncCustomColorButton(activeInput, normalized);
+  }
+
+  function openPicker(input, button) {
+    activeInput = input;
+    activeButton = button;
+    hsv = hexToHsv(input.value || "#ffffff");
+    const rect = button.getBoundingClientRect();
+    popover.classList.remove("hidden");
+    popover.style.left = `${Math.min(window.innerWidth - 280, Math.max(8, rect.left))}px`;
+    popover.style.top = `${Math.min(window.innerHeight - 252, rect.bottom + 8)}px`;
+    syncPopover(input.value);
+  }
+
+  function closePicker() {
+    popover.classList.add("hidden");
+    activeInput = null;
+    activeButton = null;
+    planePointerDown = false;
+  }
+
+  function canvasSampleFromEvent(event) {
+    const rect = canvas.getBoundingClientRect();
+    if (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    ) return null;
+    const x = Math.min(canvas.width - 1, Math.max(0, Math.round((event.clientX - rect.left) / rect.width * canvas.width)));
+    const y = Math.min(canvas.height - 1, Math.max(0, Math.round((event.clientY - rect.top) / rect.height * canvas.height)));
+    try {
+      const [r, g, b] = ctx.getImageData(x, y, 1, 1).data;
+      return { x, y, r, g, b, hex: rgbToHex(r, g, b) };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function drawLoupe(sample, event) {
+    if (!sample || !loupeCtx) {
+      loupe.classList.add("hidden");
+      return;
+    }
+    const size = loupeCanvas.width;
+    const sourceSize = 22;
+    const sx = Math.min(canvas.width - sourceSize, Math.max(0, sample.x - sourceSize / 2));
+    const sy = Math.min(canvas.height - sourceSize, Math.max(0, sample.y - sourceSize / 2));
+    loupeCtx.clearRect(0, 0, size, size);
+    loupeCtx.imageSmoothingEnabled = false;
+    loupeCtx.drawImage(canvas, sx, sy, sourceSize, sourceSize, 0, 0, size, size);
+    loupeCtx.strokeStyle = "rgba(0, 0, 0, .14)";
+    loupeCtx.lineWidth = 1;
+    for (let p = 0; p <= size; p += size / sourceSize) {
+      loupeCtx.beginPath();
+      loupeCtx.moveTo(p, 0);
+      loupeCtx.lineTo(p, size);
+      loupeCtx.stroke();
+      loupeCtx.beginPath();
+      loupeCtx.moveTo(0, p);
+      loupeCtx.lineTo(size, p);
+      loupeCtx.stroke();
+    }
+    const center = size / 2;
+    loupeCtx.fillStyle = sample.hex;
+    loupeCtx.fillRect(center - 7, center - 7, 14, 14);
+    loupeCtx.strokeStyle = "#ffffff";
+    loupeCtx.lineWidth = 2;
+    loupeCtx.strokeRect(center - 8, center - 8, 16, 16);
+    loupeCtx.strokeStyle = "rgba(0, 0, 0, .84)";
+    loupeCtx.lineWidth = 1;
+    loupeCtx.strokeRect(center - 9, center - 9, 18, 18);
+    loupeLabel.textContent = `R:${sample.r} G:${sample.g} B:${sample.b} ${sample.hex.toUpperCase()}`;
+    loupe.classList.remove("hidden");
+    const loupeRect = loupe.getBoundingClientRect();
+    let left = event.clientX - loupeRect.width / 2;
+    let top = event.clientY - loupeRect.height / 2;
+    loupe.style.left = `${Math.max(8, left)}px`;
+    loupe.style.top = `${Math.max(8, top)}px`;
+  }
+
+  function updateCanvasSampling(event) {
+    if (!canvasSampling) return null;
+    const sample = canvasSampleFromEvent(event);
+    drawLoupe(sample, event);
+    return sample;
+  }
+
+  function stopCanvasSampling({ reopen = false } = {}) {
+    if (!canvasSampling) return;
+    canvasSampling = false;
+    loupe.classList.add("hidden");
+    document.body.classList.remove("is-canvas-eyedropper");
+    const input = samplingInput;
+    const button = samplingButton;
+    samplingInput = null;
+    samplingButton = null;
+    if (reopen && input && button) openPicker(input, button);
+  }
+
+  function startCanvasSampling() {
+    if (!activeInput) return;
+    samplingInput = activeInput;
+    samplingButton = activeButton;
+    canvasSampling = true;
+    popover.classList.add("hidden");
+    document.body.classList.add("is-canvas-eyedropper");
+  }
+
+  function setFromPlaneEvent(event) {
+    if (!activeInput) return;
+    const rect = plane.getBoundingClientRect();
+    hsv.s = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    hsv.v = 1 - Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+    applyColor(hsvToHex(hsv.h, hsv.s, hsv.v));
+  }
+
+  colorInputs.forEach(input => {
+    input.classList.add("native-color-input");
+    input.tabIndex = -1;
+    input.setAttribute("aria-hidden", "true");
+    const button = document.createElement("button");
+    button.className = "color-swatch-button";
+    button.type = "button";
+    button.title = "打开色板";
+    button.setAttribute("aria-label", "打开色板");
+    button.style.setProperty("--field-color", normalizeHexColor(input.value) || "#ffffff");
+    input.parentNode.insertBefore(button, input);
+    syncCustomColorButton(input);
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (activeInput === input && !popover.classList.contains("hidden")) closePicker();
+      else openPicker(input, button);
+    });
+    input.addEventListener("input", () => {
+      const normalized = normalizeHexColor(input.value);
+      syncCustomColorButton(input, normalized);
+      if (activeInput === input) {
+        hsv = hexToHsv(normalized || input.value);
+        syncPopover(normalized || input.value);
+      }
+    });
+  });
+
+  plane.addEventListener("pointerdown", event => {
+    planePointerDown = true;
+    plane.setPointerCapture(event.pointerId);
+    setFromPlaneEvent(event);
+  });
+  plane.addEventListener("pointermove", event => {
+    if (planePointerDown) setFromPlaneEvent(event);
+  });
+  plane.addEventListener("pointerup", () => {
+    planePointerDown = false;
+  });
+  hueRange.addEventListener("input", event => {
+    hsv.h = Number(event.target.value || 0);
+    applyColor(hsvToHex(hsv.h, hsv.s, hsv.v));
+  });
+  Object.entries(rgbInputs).forEach(([key, input]) => {
+    input.addEventListener("input", () => {
+      const next = {
+        r: key === "r" ? Number(input.value || 0) : Number(rgbInputs.r.value || 0),
+        g: key === "g" ? Number(input.value || 0) : Number(rgbInputs.g.value || 0),
+        b: key === "b" ? Number(input.value || 0) : Number(rgbInputs.b.value || 0)
+      };
+      applyColor(rgbToHex(next.r, next.g, next.b));
+    });
+  });
+  eyedropper.disabled = false;
+  eyedropper.addEventListener("click", event => {
+    event.preventDefault();
+    event.stopPropagation();
+    startCanvasSampling();
+  });
+  canvas.addEventListener("pointermove", event => {
+    updateCanvasSampling(event);
+  }, true);
+  canvas.addEventListener("pointerleave", () => {
+    if (canvasSampling) loupe.classList.add("hidden");
+  }, true);
+  canvas.addEventListener("pointerdown", event => {
+    if (!canvasSampling) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const sample = updateCanvasSampling(event);
+    if (sample && samplingInput) applyColor(sample.hex, samplingInput);
+    stopCanvasSampling({ reopen: true });
+  }, true);
+  stage.addEventListener("pointerdown", event => {
+    if (!canvasSampling || event.target === canvas) return;
+    event.preventDefault();
+    event.stopPropagation();
+    stopCanvasSampling({ reopen: true });
+  });
+  document.addEventListener("pointerdown", event => {
+    if (popover.classList.contains("hidden")) return;
+    if (popover.contains(event.target) || event.target.closest(".color-swatch-button")) return;
+    closePicker();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    if (canvasSampling) stopCanvasSampling({ reopen: true });
+    else closePicker();
+  });
 }
 
 function hexToRgba(value, alpha = 1) {
@@ -4644,6 +5083,7 @@ function syncBackgroundColorUi(color = state.background) {
   const hexInput = document.getElementById("backgroundHex");
   const preview = document.getElementById("backgroundColorPreview");
   if (colorInput) colorInput.value = normalized;
+  syncCustomColorButton(colorInput, normalized);
   if (hexInput) hexInput.value = normalized.toUpperCase();
   if (preview) preview.style.setProperty("--preview-color", normalized);
   document.querySelectorAll("#swatches .swatch").forEach(button => {
@@ -4665,11 +5105,13 @@ function syncAppearanceFillControls(obj = selected()) {
   const endColorText = document.getElementById("gradientEndColorText");
   const angle = document.getElementById("gradientAngle");
   if (fillColor) fillColor.value = fill;
+  syncCustomColorButton(fillColor, fill);
   if (fillColorText) fillColorText.value = fill.toUpperCase();
   if (fillMode) fillMode.value = mode;
   if (panel) panel.classList.toggle("hidden", !(obj.type === "shape" && obj.kind !== "line"));
   if (controls) controls.classList.toggle("hidden", mode !== "gradient");
   if (endColor) endColor.value = end;
+  syncCustomColorButton(endColor, end);
   if (endColorText) endColorText.value = end.toUpperCase();
   if (angle) angle.value = Math.round(obj.gradientAngle ?? 90);
 }
@@ -4683,6 +5125,7 @@ function syncShadowControls(obj = selected()) {
   const rangeInput = document.getElementById("shadowRange");
   const opacityInput = document.getElementById("shadowOpacity");
   if (colorInput) colorInput.value = color;
+  syncCustomColorButton(colorInput, color);
   if (textInput) textInput.value = color.toUpperCase();
   if (sizeInput) sizeInput.value = Math.round(obj.shadow || 0);
   if (rangeInput) rangeInput.value = Math.round(obj.shadow || 0);
@@ -4727,6 +5170,10 @@ function syncImageAttribution(obj = selected()) {
 function updateSelectedAppearance(patch) {
   const obj = selected();
   if (!obj) return;
+  if (obj.type === "svg" && ("fill" in patch || "fillOpacity" in patch || "stroke" in patch || "strokeWidth" in patch || "strokeOpacity" in patch)) {
+    updateSelectedSvgAppearance(patch);
+    return;
+  }
   saveHistory();
   updateSelected(patch);
   syncAppearanceFillControls(obj);
@@ -4804,7 +5251,7 @@ wire("booleanIntersectBtn", "click", () => booleanShapeObjects("intersect"));
 wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
 
 ["posX", "posY", "objWidth", "objHeight", "rotation", "fontFamily", "fontSize", "letterSpacing", "lineHeight", "fillColor", "fillOpacity", "strokeColor", "strokeWidth", "strokeWidthRange", "strokeOpacity", "shapeRadius", "shapeSides", "shapeStarPoints", "opacity", "shadow", "shadowRange", "shadowColor", "shadowOpacity", "lockAspect"].forEach(id => {
-  const handler = e => {
+  const handler = async e => {
     const obj = selected();
     if (!obj) return;
     const keyMap = {
@@ -4852,6 +5299,10 @@ wire("booleanExcludeBtn", "click", () => booleanShapeObjects("exclude"));
       return;
     }
     const patch = { [keyMap[id]]: value };
+    if (obj.type === "svg" && ["fillColor", "fillOpacity", "strokeColor", "strokeWidth", "strokeWidthRange", "strokeOpacity"].includes(id)) {
+      await updateSelectedSvgAppearance(patch, { skipHistory: true });
+      return;
+    }
     if ((id === "objWidth" || id === "objHeight") && defaultLockAspect(obj)) {
       const ratio = Math.max(.05, obj.width / Math.max(1, obj.height));
       if (id === "objWidth") patch.height = obj.kind === "circle" ? value : Math.max(1, value / ratio);
@@ -5570,16 +6021,152 @@ function svgInnerContent(svgText) {
   }
 }
 
+const SVG_PAINTABLE_TAGS = new Set([
+  "svg", "g", "path", "rect", "circle", "ellipse", "polygon", "polyline", "line", "text", "tspan", "use"
+]);
+
+const SVG_NON_PAINT_ANCESTORS = [
+  "defs", "clipPath", "mask", "pattern", "linearGradient", "radialGradient", "filter", "marker", "symbol", "style"
+].join(",");
+
+function cssColorToHex(value) {
+  const raw = String(value || "").trim();
+  if (!raw || /^(none|transparent|currentColor|inherit|initial|unset)$/i.test(raw) || raw.startsWith("url(")) return null;
+  const normalized = normalizeHexColor(raw);
+  if (normalized) return normalized;
+  const rgb = raw.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+  if (rgb) return rgbToHex(Number(rgb[1]), Number(rgb[2]), Number(rgb[3]));
+  const named = { black: "#000000", white: "#ffffff", red: "#ff0000", green: "#008000", blue: "#0000ff" };
+  return named[raw.toLowerCase()] || null;
+}
+
+function svgStyleValue(node, property) {
+  return node.style?.getPropertyValue(property) || "";
+}
+
+function svgPaintValue(node, property) {
+  return svgStyleValue(node, property) || node.getAttribute(property) || "";
+}
+
+function isSvgPaintableElement(node) {
+  if (!(node instanceof Element)) return false;
+  const tag = node.tagName.toLowerCase();
+  if (!SVG_PAINTABLE_TAGS.has(tag)) return false;
+  if (tag !== "svg" && node.closest?.(SVG_NON_PAINT_ANCESTORS)) return false;
+  return true;
+}
+
+function svgPaintTargets(svg) {
+  const nodes = [svg, ...svg.querySelectorAll("*")].filter(isSvgPaintableElement);
+  return nodes.length ? nodes : [svg];
+}
+
+function svgShouldApplyFill(node) {
+  const fill = svgPaintValue(node, "fill").trim();
+  return !/^none$/i.test(fill);
+}
+
+function svgSetStyle(node, property, value) {
+  if (!node.style) {
+    node.setAttribute(property, value);
+    return;
+  }
+  node.style.setProperty(property, value);
+}
+
+function svgSerializeDocument(doc) {
+  const svg = doc.documentElement;
+  const serializer = new XMLSerializer();
+  return {
+    svgText: serializer.serializeToString(svg),
+    svgContent: [...svg.childNodes].map(node => serializer.serializeToString(node)).join("")
+  };
+}
+
+function parseSvgDocument(svgText) {
+  const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+  const svg = doc.documentElement;
+  if (!svg || svg.tagName.toLowerCase() !== "svg" || doc.querySelector("parsererror")) return null;
+  sanitizeSvgDocument(doc);
+  return doc;
+}
+
+function sanitizeSvgDocument(doc) {
+  doc.querySelectorAll("script, foreignObject, iframe, object, embed").forEach(node => node.remove());
+  doc.querySelectorAll("*").forEach(node => {
+    [...node.attributes].forEach(attr => {
+      const name = attr.name.toLowerCase();
+      const value = String(attr.value || "").trim();
+      if (name.startsWith("on") || /^javascript:/i.test(value)) node.removeAttribute(attr.name);
+    });
+  });
+}
+
+function readSvgPaintProperties(svgText) {
+  const doc = parseSvgDocument(svgText);
+  if (!doc) return {};
+  const targets = svgPaintTargets(doc.documentElement);
+  const fillNode = targets.find(node => svgShouldApplyFill(node) && cssColorToHex(svgPaintValue(node, "fill")));
+  const strokeNode = targets.find(node => cssColorToHex(svgPaintValue(node, "stroke")));
+  const strokeWidthNode = targets.find(node => Number.parseFloat(svgPaintValue(node, "stroke-width")) > 0);
+  const fillOpacityNode = targets.find(node => Number.isFinite(Number.parseFloat(svgPaintValue(node, "fill-opacity"))));
+  const strokeOpacityNode = targets.find(node => Number.isFinite(Number.parseFloat(svgPaintValue(node, "stroke-opacity"))));
+  const strokeWidth = Number.parseFloat(svgPaintValue(strokeWidthNode || doc.documentElement, "stroke-width"));
+  return {
+    fill: cssColorToHex(svgPaintValue(fillNode || doc.documentElement, "fill")) || "#000000",
+    fillOpacity: clamp01(Number.parseFloat(svgPaintValue(fillOpacityNode || doc.documentElement, "fill-opacity")), 1),
+    stroke: cssColorToHex(svgPaintValue(strokeNode || doc.documentElement, "stroke")) || "#171411",
+    strokeWidth: Number.isFinite(strokeWidth) && strokeWidth > 0 ? strokeWidth : 0,
+    strokeOpacity: clamp01(Number.parseFloat(svgPaintValue(strokeOpacityNode || doc.documentElement, "stroke-opacity")), 1)
+  };
+}
+
+function rewriteSvgPaint(svgText, patch) {
+  const doc = parseSvgDocument(svgText);
+  if (!doc) return null;
+  const targets = svgPaintTargets(doc.documentElement);
+  const fill = normalizeHexColor(patch.fill);
+  const stroke = normalizeHexColor(patch.stroke);
+  const hasFillOpacity = patch.fillOpacity != null;
+  const hasStrokeOpacity = patch.strokeOpacity != null;
+  const hasStrokeWidth = patch.strokeWidth != null;
+  const strokeWidth = Math.max(0, Number(patch.strokeWidth || 0));
+
+  targets.forEach(node => {
+    if (fill && svgShouldApplyFill(node)) svgSetStyle(node, "fill", fill);
+    if (hasFillOpacity && svgShouldApplyFill(node)) svgSetStyle(node, "fill-opacity", String(clamp01(patch.fillOpacity, 1)));
+    if (stroke) svgSetStyle(node, "stroke", stroke);
+    if (hasStrokeOpacity) svgSetStyle(node, "stroke-opacity", String(clamp01(patch.strokeOpacity, 1)));
+    if (hasStrokeWidth) {
+      svgSetStyle(node, "stroke-width", String(strokeWidth));
+      if (strokeWidth <= 0) svgSetStyle(node, "stroke", "none");
+      else if (!cssColorToHex(svgPaintValue(node, "stroke"))) svgSetStyle(node, "stroke", stroke || "#171411");
+    }
+  });
+
+  return svgSerializeDocument(doc);
+}
+
 function svgNumber(value, fallback = 0) {
   const match = String(value || "").match(/-?\d*\.?\d+/);
   return match ? Number(match[0]) : fallback;
 }
 
+function svgLengthNumber(value) {
+  const raw = String(value || "").trim();
+  if (!raw || raw.includes("%")) return null;
+  const match = raw.match(/^(-?\d*\.?\d+)(px)?$/i);
+  if (!match) return null;
+  const number = Number(match[1]);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
 function svgDocumentSize(svg) {
   const viewBox = String(svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
-  const width = svgNumber(svg.getAttribute("width"), Number.isFinite(viewBox[2]) ? viewBox[2] : state.width);
-  const height = svgNumber(svg.getAttribute("height"), Number.isFinite(viewBox[3]) ? viewBox[3] : state.height);
-  const vb = viewBox.length === 4 && viewBox.every(Number.isFinite)
+  const hasViewBox = viewBox.length === 4 && viewBox.every(Number.isFinite) && viewBox[2] > 0 && viewBox[3] > 0;
+  const width = svgLengthNumber(svg.getAttribute("width")) || (hasViewBox ? viewBox[2] : state.width);
+  const height = svgLengthNumber(svg.getAttribute("height")) || (hasViewBox ? viewBox[3] : state.height);
+  const vb = hasViewBox
     ? viewBox
     : [0, 0, Math.max(1, width), Math.max(1, height)];
   return {
@@ -5589,10 +6176,91 @@ function svgDocumentSize(svg) {
   };
 }
 
+function svgRootAttributeText(svg) {
+  const skip = new Set(["width", "height", "viewbox", "x", "y"]);
+  const attrs = [...svg.attributes]
+    .filter(attr => !skip.has(attr.name.toLowerCase()))
+    .map(attr => `${attr.name}="${svgEscape(attr.value)}"`);
+  if (!attrs.some(attr => attr.startsWith("xmlns="))) attrs.unshift('xmlns="http://www.w3.org/2000/svg"');
+  return attrs.length ? ` ${attrs.join(" ")}` : "";
+}
+
+function svgBoxFromClientRect(rootRect, nodeRect, size) {
+  if (!rootRect.width || !rootRect.height || !nodeRect.width || !nodeRect.height) return null;
+  const [vx, vy, vw, vh] = size.viewBox;
+  const x = vx + (nodeRect.left - rootRect.left) / rootRect.width * vw;
+  const y = vy + (nodeRect.top - rootRect.top) / rootRect.height * vh;
+  const width = nodeRect.width / rootRect.width * vw;
+  const height = nodeRect.height / rootRect.height * vh;
+  if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
+  return { x, y, width, height };
+}
+
+function svgNodePath(svg, node) {
+  if (node === svg) return [];
+  const path = [];
+  let current = node;
+  while (current && current !== svg) {
+    const parent = current.parentElement;
+    if (!parent) return null;
+    path.unshift([...parent.children].indexOf(current));
+    current = parent;
+  }
+  return current === svg ? path : null;
+}
+
+function svgNodeAtPath(svg, path) {
+  let current = svg;
+  for (const index of path || []) {
+    current = current?.children?.[index];
+    if (!current) return null;
+  }
+  return current;
+}
+
+function measureSvgLayerBounds(svg, layerNodes, size) {
+  if (!document.body || !layerNodes.length) return new Map();
+  const bounds = new Map();
+  const clone = svg.cloneNode(true);
+  clone.setAttribute("width", String(size.width));
+  clone.setAttribute("height", String(size.height));
+  clone.setAttribute("viewBox", size.viewBox.join(" "));
+  clone.style.position = "fixed";
+  clone.style.left = "-10000px";
+  clone.style.top = "-10000px";
+  clone.style.width = `${size.width}px`;
+  clone.style.height = `${size.height}px`;
+  clone.style.opacity = "0";
+  clone.style.pointerEvents = "none";
+  clone.style.overflow = "visible";
+  document.body.appendChild(clone);
+  try {
+    const rootRect = clone.getBoundingClientRect();
+    layerNodes.forEach(node => {
+      if (node === svg) {
+        bounds.set(node, { x: size.viewBox[0], y: size.viewBox[1], width: size.viewBox[2], height: size.viewBox[3] });
+        return;
+      }
+      const cloneNode = svgNodeAtPath(clone, svgNodePath(svg, node));
+      if (!cloneNode) return;
+      const nodeRect = cloneNode.getBoundingClientRect();
+      const box = svgBoxFromClientRect(rootRect, nodeRect, size);
+      if (box) bounds.set(node, box);
+    });
+  } finally {
+    clone.remove();
+  }
+  return bounds;
+}
+
+const SVG_LAYER_CONTAINER_TAGS = new Set(["svg", "g", "a", "switch", "symbol"]);
+const SVG_SUPPORT_TAGS = new Set(["defs", "style", "title", "desc", "metadata", "script"]);
+const MAX_SVG_IMPORT_LAYERS = 96;
+
 function isSvgLayerNode(node) {
   if (!(node instanceof Element)) return false;
   const tag = node.tagName.toLowerCase();
-  if (["defs", "style", "title", "desc", "metadata", "script"].includes(tag)) return false;
+  if (SVG_SUPPORT_TAGS.has(tag)) return false;
   if (node.getAttribute("display") === "none" || node.getAttribute("visibility") === "hidden") return false;
   return true;
 }
@@ -5601,28 +6269,82 @@ function svgLayerName(node, index) {
   return node.getAttribute("id") || node.getAttribute("inkscape:label") || node.getAttribute("data-name") || `SVG 图层 ${index + 1}`;
 }
 
-function standaloneSvgForNode(svg, node, size) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width}" height="${size.height}" viewBox="${size.viewBox.join(" ")}">${svgLayerContent(svg, node)}</svg>`;
+function svgExplicitLayerName(node) {
+  return node.getAttribute("inkscape:label") || node.getAttribute("data-name") || node.getAttribute("id") || "";
+}
+
+function svgIsContainerNode(node) {
+  return node instanceof Element && SVG_LAYER_CONTAINER_TAGS.has(node.tagName.toLowerCase());
+}
+
+function svgLayerNodes(svg) {
+  const collect = (node, depth = 0) => {
+    const children = [...node.children].filter(isSvgLayerNode);
+    if (!svgIsContainerNode(node) || !children.length) return node === svg ? [] : [node];
+
+    if (node === svg) {
+      const nested = children.flatMap(child => collect(child, depth + 1));
+      return nested.length ? nested : children;
+    }
+
+    const namedChildren = children.filter(child => svgExplicitLayerName(child));
+    if (namedChildren.length >= 2) {
+      const nested = namedChildren.flatMap(child => collect(child, depth + 1));
+      if (nested.length) return nested;
+    }
+
+    if (children.length === 1 && svgIsContainerNode(children[0]) && !svgExplicitLayerName(node)) {
+      const nested = collect(children[0], depth + 1);
+      if (nested.length) return nested;
+    }
+
+    return [node];
+  };
+  const nodes = collect(svg);
+  if (!nodes.length) return [svg];
+  if (nodes.length <= MAX_SVG_IMPORT_LAYERS) return nodes;
+  const topLevel = [...svg.children].filter(isSvgLayerNode);
+  if (topLevel.length && topLevel.length <= MAX_SVG_IMPORT_LAYERS) {
+    console.warn(`SVG 拆分图层过多（${nodes.length}），已降级为顶层 ${topLevel.length} 个图层。`);
+    return topLevel;
+  }
+  console.warn(`SVG 拆分图层过多（${nodes.length}），已作为单个 SVG 图层导入。`);
+  return [svg];
+}
+
+function standaloneSvgForNode(svg, node, size, box = null) {
+  const viewBox = box
+    ? [box.x, box.y, box.width, box.height]
+    : size.viewBox;
+  const width = box ? box.width : size.width;
+  const height = box ? box.height : size.height;
+  return `<svg${svgRootAttributeText(svg)} width="${svgNum(width)}" height="${svgNum(height)}" viewBox="${viewBox.map(svgNum).join(" ")}">${svgLayerContent(svg, node)}</svg>`;
 }
 
 function svgLayerContent(svg, node) {
   const serializer = new XMLSerializer();
-  const support = [...svg.children]
-    .filter(child => child !== node && ["defs", "style"].includes(child.tagName.toLowerCase()))
+  const support = [...svg.querySelectorAll("defs, style")]
+    .filter(child => child !== node && !node.contains(child))
     .map(child => serializer.serializeToString(child))
     .join("");
-  const layer = serializer.serializeToString(node);
+  let layerNode = node.cloneNode(true);
+  let current = node.parentElement;
+  while (current && current !== svg) {
+    const clone = current.cloneNode(false);
+    clone.appendChild(layerNode);
+    layerNode = clone;
+    current = current.parentElement;
+  }
+  const layer = serializer.serializeToString(layerNode);
   return `${support}${layer}`;
 }
 
 async function importSvgFileAsLayers(file) {
   const raw = await readTextFile(file);
-  const doc = new DOMParser().parseFromString(raw, "image/svg+xml");
-  if (doc.querySelector("parsererror")) throw new Error("SVG 文件解析失败，请确认文件格式正确。");
+  const doc = parseSvgDocument(raw);
+  if (!doc) throw new Error("SVG 文件解析失败，请确认文件格式正确。");
   const svg = doc.documentElement;
-  if (!svg || svg.tagName.toLowerCase() !== "svg") throw new Error("这不是有效的 SVG 文件。");
   const size = svgDocumentSize(svg);
-  const layerNodes = [...svg.children].filter(isSvgLayerNode);
   const maxW = state.width * .72;
   const maxH = state.height * .72;
   const scale = Math.min(maxW / size.width, maxH / size.height, 1);
@@ -5631,17 +6353,29 @@ async function importSvgFileAsLayers(file) {
   const x = (state.width - width) / 2;
   const y = (state.height - height) / 2;
   const imported = [];
-  const nodes = layerNodes.length ? layerNodes : [svg];
+  const nodes = svgLayerNodes(svg);
+  const layerBounds = measureSvgLayerBounds(svg, nodes, size);
+  const sanitizedSvgContent = svgSerializeDocument(doc).svgContent;
   for (const [index, node] of nodes.entries()) {
-    const svgContent = node === svg ? svgInnerContent(raw) : svgLayerContent(svg, node);
-    const svgText = `<svg xmlns="http://www.w3.org/2000/svg" width="${size.width}" height="${size.height}" viewBox="${size.viewBox.join(" ")}">${svgContent}</svg>`;
+    const svgContent = node === svg ? sanitizedSvgContent : svgLayerContent(svg, node);
+    const box = layerBounds.get(node) || { x: size.viewBox[0], y: size.viewBox[1], width: size.viewBox[2], height: size.viewBox[3] };
+    const layerViewBox = [box.x, box.y, box.width, box.height];
+    const layerWidth = Math.max(1, box.width * scale);
+    const layerHeight = Math.max(1, box.height * scale);
+    const layerX = x + (box.x - size.viewBox[0]) * scale;
+    const layerY = y + (box.y - size.viewBox[1]) * scale;
+    const svgText = node === svg
+      ? `<svg${svgRootAttributeText(svg)} width="${svgNum(size.width)}" height="${svgNum(size.height)}" viewBox="${size.viewBox.map(svgNum).join(" ")}">${svgContent}</svg>`
+      : standaloneSvgForNode(svg, node, size, box);
     const src = svgDataUrl(svgText);
     const img = await loadImage(src);
-    const obj = svgLayerObject(img, x, y, width, height, src, {
+    const paint = readSvgPaintProperties(svgText);
+    const obj = svgLayerObject(img, layerX, layerY, layerWidth, layerHeight, src, {
       name: node === svg ? file.name.replace(/\.[^.]+$/, "") || "SVG" : svgLayerName(node, index),
       svgText,
       svgContent,
-      svgViewBox: size.viewBox.join(" ")
+      svgViewBox: layerViewBox.map(svgNum).join(" "),
+      ...paint
     });
     imported.push(obj);
   }
@@ -6072,15 +6806,15 @@ function syncUi(updateValues = true) {
   document.getElementById("appearanceGroup").classList.toggle("hidden", multi || !hasAppearance);
   document.getElementById("booleanGroup").classList.toggle("hidden", !booleanReady);
   document.getElementById("imageGroup").classList.toggle("hidden", multi || !isImage);
-  const showFillControls = !isImage && !isSvg && !isGroup && !isLine;
+  const showFillControls = !isImage && !isGroup && !isLine;
   document.getElementById("appearanceFillOpacityRow").classList.toggle("hidden", !showFillControls);
   document.getElementById("fillColor").closest(".compact-field").classList.toggle("hidden", !showFillControls);
-  document.getElementById("strokeSection").classList.toggle("hidden", isImage || isSvg || isGroup);
+  document.getElementById("strokeSection").classList.toggle("hidden", isImage || isGroup);
   document.getElementById("strokeDashControl").classList.toggle("hidden", !isLine);
   document.getElementById("shapeRadiusControl").classList.toggle("hidden", !(isRect || isTriangle || isPolygon || isStar));
   document.getElementById("shapeSidesControl").classList.toggle("hidden", !isPolygon);
   document.getElementById("shapeStarPointsControl").classList.toggle("hidden", !isStar);
-  document.getElementById("fillColorLabel").textContent = isText ? "文字颜色" : "填充颜色";
+  document.getElementById("fillColorLabel").textContent = isText ? "文字颜色" : isSvg ? "SVG 颜色" : "填充颜色";
   document.getElementById("strokeColorLabel").textContent = isLine ? "线条颜色" : "描边颜色";
   syncAppearanceFillControls(obj);
   syncTransformInputs(obj);
@@ -6093,6 +6827,7 @@ function syncUi(updateValues = true) {
   document.getElementById("fillColor").value = obj.fill || "#171411";
   document.getElementById("fillOpacity").value = Math.round(fillOpacity(obj) * 100);
   document.getElementById("strokeColor").value = obj.stroke || "#171411";
+  syncCustomColorButton(document.getElementById("strokeColor"), obj.stroke || "#171411");
   document.getElementById("strokeColorText").value = (normalizeHexColor(obj.stroke) || "#171411").toUpperCase();
   syncStrokeSizeControls(obj);
   document.getElementById("strokeDashToggle").checked = !!obj.strokeDash;
@@ -6383,6 +7118,7 @@ async function init() {
   setupMaskTools();
   setupToolPanelHover();
   setupUpdateUi();
+  setupCustomColorPickers();
   syncFontSelect();
   renderSwatches();
   loadLogoAssets();
