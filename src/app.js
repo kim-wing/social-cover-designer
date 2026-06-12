@@ -1404,11 +1404,149 @@ function toggleSelection(id) {
 
 function selectionBounds(objects = selectedObjects()) {
   if (!objects.length) return null;
-  const left = Math.min(...objects.map(o => o.x));
-  const top = Math.min(...objects.map(o => o.y));
-  const right = Math.max(...objects.map(o => o.x + o.width));
-  const bottom = Math.max(...objects.map(o => o.y + o.height));
+  const points = objects.flatMap(o => Object.values(objectCornerPoints(o)));
+  const left = Math.min(...points.map(point => point.x));
+  const top = Math.min(...points.map(point => point.y));
+  const right = Math.max(...points.map(point => point.x));
+  const bottom = Math.max(...points.map(point => point.y));
   return { x: left, y: top, width: right - left, height: bottom - top, right, bottom };
+}
+
+function objectCenter(obj) {
+  return { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 };
+}
+
+function rotatePointAround(point, center, rotation = 0) {
+  const angle = rotation * Math.PI / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+  return {
+    x: center.x + dx * cos - dy * sin,
+    y: center.y + dx * sin + dy * cos
+  };
+}
+
+function rotateVector(vector, rotation = 0) {
+  const angle = rotation * Math.PI / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return {
+    x: vector.x * cos - vector.y * sin,
+    y: vector.x * sin + vector.y * cos
+  };
+}
+
+function objectLocalPointToWorld(obj, point, width = obj.width, height = obj.height) {
+  const center = { x: obj.x + width / 2, y: obj.y + height / 2 };
+  const rotated = rotateVector({ x: point.x - width / 2, y: point.y - height / 2 }, obj.rotation || 0);
+  return { x: center.x + rotated.x, y: center.y + rotated.y };
+}
+
+function objectOriginFromWorldLocalPoint(worldPoint, point, width, height, rotation = 0) {
+  const rotated = rotateVector({ x: point.x - width / 2, y: point.y - height / 2 }, rotation);
+  const center = { x: worldPoint.x - rotated.x, y: worldPoint.y - rotated.y };
+  return { x: center.x - width / 2, y: center.y - height / 2 };
+}
+
+function cropFixedAnchors(handleName, start, nextWidth, nextHeight) {
+  return {
+    fixed: {
+      x: handleName.includes("w") ? start.width : handleName.includes("e") ? 0 : start.width / 2,
+      y: handleName.includes("n") ? start.height : handleName.includes("s") ? 0 : start.height / 2
+    },
+    next: {
+      x: handleName.includes("w") ? nextWidth : handleName.includes("e") ? 0 : nextWidth / 2,
+      y: handleName.includes("n") ? nextHeight : handleName.includes("s") ? 0 : nextHeight / 2
+    }
+  };
+}
+
+function resizeRectFromLocalHandle(start, dx, dy, handleName, locked) {
+  const minSize = 28;
+  const east = handleName.includes("e");
+  const west = handleName.includes("w");
+  const south = handleName.includes("s");
+  const north = handleName.includes("n");
+  const anchor = {
+    x: east ? 0 : start.width,
+    y: south ? 0 : start.height
+  };
+  let dragX = west ? dx : start.width + dx;
+  let dragY = north ? dy : start.height + dy;
+  if (east) dragX = Math.max(anchor.x + minSize, dragX);
+  if (west) dragX = Math.min(anchor.x - minSize, dragX);
+  if (south) dragY = Math.max(anchor.y + minSize, dragY);
+  if (north) dragY = Math.min(anchor.y - minSize, dragY);
+  if (locked) {
+    const ratio = Math.max(.05, start.width / Math.max(1, start.height));
+    let nextW = Math.abs(dragX - anchor.x);
+    let nextH = Math.abs(dragY - anchor.y);
+    if (Math.abs(dx) >= Math.abs(dy)) nextH = nextW / ratio;
+    else nextW = nextH * ratio;
+    dragX = anchor.x + (east ? nextW : -nextW);
+    dragY = anchor.y + (south ? nextH : -nextH);
+  }
+  const left = Math.min(anchor.x, dragX);
+  const top = Math.min(anchor.y, dragY);
+  return {
+    left,
+    top,
+    width: Math.max(minSize, Math.abs(dragX - anchor.x)),
+    height: Math.max(minSize, Math.abs(dragY - anchor.y)),
+    anchor
+  };
+}
+
+function applyRotatedResizeFromDeltas(obj, start, dx, dy, handleName, locked) {
+  const rotation = start.rotation || 0;
+  const localDelta = rotateVector({ x: dx, y: dy }, -rotation);
+  const rect = resizeRectFromLocalHandle(start, localDelta.x, localDelta.y, handleName, locked);
+  const anchorWorld = objectLocalPointToWorld(start, rect.anchor);
+  const nextAnchor = { x: rect.anchor.x - rect.left, y: rect.anchor.y - rect.top };
+  const nextOrigin = objectOriginFromWorldLocalPoint(anchorWorld, nextAnchor, rect.width, rect.height, rotation);
+  obj.x = nextOrigin.x;
+  obj.y = nextOrigin.y;
+  obj.width = rect.width;
+  obj.height = rect.height;
+}
+
+function applyCropResizeFromDeltas(obj, start, crop, handleName, leftDelta, rightDelta, topDelta, bottomDelta) {
+  const rotation = start.rotation || 0;
+  const nextWidth = Math.max(28, start.width + rightDelta - leftDelta);
+  const nextHeight = Math.max(28, start.height + bottomDelta - topDelta);
+  const anchors = cropFixedAnchors(handleName, start, nextWidth, nextHeight);
+  const anchorWorld = objectLocalPointToWorld(start, anchors.fixed);
+  const nextOrigin = objectOriginFromWorldLocalPoint(anchorWorld, anchors.next, nextWidth, nextHeight, rotation);
+  obj.x = nextOrigin.x;
+  obj.y = nextOrigin.y;
+  obj.width = nextWidth;
+  obj.height = nextHeight;
+  obj.crop = normalizeCrop(crop);
+}
+
+function objectCornerPoints(obj) {
+  const center = objectCenter(obj);
+  const corners = {
+    nw: { x: obj.x, y: obj.y },
+    ne: { x: obj.x + obj.width, y: obj.y },
+    se: { x: obj.x + obj.width, y: obj.y + obj.height },
+    sw: { x: obj.x, y: obj.y + obj.height }
+  };
+  return Object.fromEntries(
+    Object.entries(corners).map(([name, point]) => [name, rotatePointAround(point, center, obj.rotation || 0)])
+  );
+}
+
+function offsetPointFromCenter(point, center, distance) {
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+  const length = Math.hypot(dx, dy) || 1;
+  return {
+    x: point.x + dx / length * distance,
+    y: point.y + dy / length * distance
+  };
 }
 
 function renderAll(exporting = false, scale = 1, targetCtx = ctx) {
@@ -2246,13 +2384,17 @@ function renderSelectionOverlay() {
   selectionOverlay.innerHTML = "";
   if (!objects.length) return;
   const scale = canvas.getBoundingClientRect().width / state.width;
-  const makeBox = (bounds, className = "selection-box", label = "") => {
+  const makeBox = (bounds, className = "selection-box", label = "", options = {}) => {
     const box = document.createElement("div");
     box.className = className;
     box.style.left = `${bounds.x * scale}px`;
     box.style.top = `${bounds.y * scale}px`;
     box.style.width = `${bounds.width * scale}px`;
     box.style.height = `${bounds.height * scale}px`;
+    if (options.rotation) {
+      box.style.transform = `rotate(${options.rotation}deg)`;
+      box.style.transformOrigin = "50% 50%";
+    }
     if (label) {
       const tag = document.createElement("span");
       tag.className = "selection-label";
@@ -2261,7 +2403,7 @@ function renderSelectionOverlay() {
     }
     selectionOverlay.appendChild(box);
   };
-  objects.forEach(obj => makeBox(obj, "selection-box", obj.name || "图层"));
+  objects.forEach(obj => makeBox(obj, "selection-box", obj.name || "图层", { rotation: obj.rotation || 0 }));
   if (swipeSelect.active && swipeSelect.start && swipeSelect.current) {
     const left = Math.min(swipeSelect.start.x, swipeSelect.current.x);
     const top = Math.min(swipeSelect.start.y, swipeSelect.current.y);
@@ -2276,28 +2418,36 @@ function renderSelectionOverlay() {
   }
   const bounds = selectionBounds(objects);
   if (!bounds) return;
+  const singleObject = objects.length === 1 ? objects[0] : null;
   const rotateOffset = 12;
-  const handlePoints = [
-    { mode: "resize", name: "nw", x: bounds.x, y: bounds.y },
-    { mode: "resize", name: "ne", x: bounds.x + bounds.width, y: bounds.y },
-    { mode: "resize", name: "sw", x: bounds.x, y: bounds.y + bounds.height },
-    { mode: "resize", name: "se", x: bounds.x + bounds.width, y: bounds.y + bounds.height },
-    { mode: "rotate", name: "nw", x: bounds.x, y: bounds.y, offsetX: -rotateOffset, offsetY: -rotateOffset },
-    { mode: "rotate", name: "ne", x: bounds.x + bounds.width, y: bounds.y, offsetX: rotateOffset, offsetY: -rotateOffset },
-    { mode: "rotate", name: "sw", x: bounds.x, y: bounds.y + bounds.height, offsetX: -rotateOffset, offsetY: rotateOffset },
-    { mode: "rotate", name: "se", x: bounds.x + bounds.width, y: bounds.y + bounds.height, offsetX: rotateOffset, offsetY: rotateOffset }
-  ];
+  const handlePoints = singleObject
+    ? (() => {
+        const corners = objectCornerPoints(singleObject);
+        const center = objectCenter(singleObject);
+        return [
+          ...["nw", "ne", "sw", "se"].map(name => ({ mode: "resize", name, ...corners[name] })),
+          ...["nw", "ne", "sw", "se"].map(name => ({ mode: "rotate", name, ...offsetPointFromCenter(corners[name], center, rotateOffset / Math.max(.01, scale)) }))
+        ];
+      })()
+    : [
+        { mode: "resize", name: "nw", x: bounds.x, y: bounds.y },
+        { mode: "resize", name: "ne", x: bounds.x + bounds.width, y: bounds.y },
+        { mode: "resize", name: "sw", x: bounds.x, y: bounds.y + bounds.height },
+        { mode: "resize", name: "se", x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+        { mode: "rotate", name: "nw", x: bounds.x, y: bounds.y, offsetX: -rotateOffset, offsetY: -rotateOffset },
+        { mode: "rotate", name: "ne", x: bounds.x + bounds.width, y: bounds.y, offsetX: rotateOffset, offsetY: -rotateOffset },
+        { mode: "rotate", name: "sw", x: bounds.x, y: bounds.y + bounds.height, offsetX: -rotateOffset, offsetY: rotateOffset },
+        { mode: "rotate", name: "se", x: bounds.x + bounds.width, y: bounds.y + bounds.height, offsetX: rotateOffset, offsetY: rotateOffset }
+      ];
   if (cropEditor.active && objects.length === 1 && objects[0].id === cropEditor.objectId) {
-    const left = objects[0].x;
-    const top = objects[0].y;
-    const right = objects[0].x + objects[0].width;
-    const bottom = objects[0].y + objects[0].height;
+    const corners = objectCornerPoints(objects[0]);
+    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     handlePoints.length = 0;
     [
-      ["nw", left, top], ["n", (left + right) / 2, top], ["ne", right, top],
-      ["e", right, (top + bottom) / 2], ["se", right, bottom], ["s", (left + right) / 2, bottom],
-      ["sw", left, bottom], ["w", left, (top + bottom) / 2]
-    ].forEach(([name, x, y]) => handlePoints.push({ mode: "crop", name, x, y }));
+      ["nw", corners.nw], ["n", mid(corners.nw, corners.ne)], ["ne", corners.ne],
+      ["e", mid(corners.ne, corners.se)], ["se", corners.se], ["s", mid(corners.sw, corners.se)],
+      ["sw", corners.sw], ["w", mid(corners.nw, corners.sw)]
+    ].forEach(([name, point]) => handlePoints.push({ mode: "crop", name, ...point }));
   }
   handlePoints.forEach(point => {
     const handle = document.createElement("button");
@@ -2333,7 +2483,8 @@ function toLocalPoint(event) {
 function hitTest(point) {
   for (let i = state.objects.length - 1; i >= 0; i--) {
     const obj = state.objects[i];
-    if (point.x >= obj.x && point.x <= obj.x + obj.width && point.y >= obj.y && point.y <= obj.y + obj.height) return obj;
+    const local = rotatePointAround(point, objectCenter(obj), -(obj.rotation || 0));
+    if (local.x >= obj.x && local.x <= obj.x + obj.width && local.y >= obj.y && local.y <= obj.y + obj.height) return obj;
   }
   return null;
 }
@@ -2350,15 +2501,11 @@ function hitHandle(point, obj) {
   if (!obj) return null;
   const scale = canvas.getBoundingClientRect().width / state.width;
   const rotateOffset = 12 / Math.max(.01, scale);
+  const corners = objectCornerPoints(obj);
+  const center = objectCenter(obj);
   const handles = [
-    { mode: "resize", name: "nw", x: obj.x, y: obj.y },
-    { mode: "resize", name: "ne", x: obj.x + obj.width, y: obj.y },
-    { mode: "resize", name: "sw", x: obj.x, y: obj.y + obj.height },
-    { mode: "resize", name: "se", x: obj.x + obj.width, y: obj.y + obj.height },
-    { mode: "rotate", name: "nw", x: obj.x - rotateOffset, y: obj.y - rotateOffset },
-    { mode: "rotate", name: "ne", x: obj.x + obj.width + rotateOffset, y: obj.y - rotateOffset },
-    { mode: "rotate", name: "sw", x: obj.x - rotateOffset, y: obj.y + obj.height + rotateOffset },
-    { mode: "rotate", name: "se", x: obj.x + obj.width + rotateOffset, y: obj.y + obj.height + rotateOffset }
+    ...["nw", "ne", "sw", "se"].map(name => ({ mode: "resize", name, ...corners[name] })),
+    ...["nw", "ne", "sw", "se"].map(name => ({ mode: "rotate", name, ...offsetPointFromCenter(corners[name], center, rotateOffset) }))
   ];
   return handles.find(h => Math.hypot(point.x - h.x, point.y - h.y) < 12 / Math.max(.01, scale));
 }
@@ -2430,7 +2577,7 @@ canvas.addEventListener("pointerdown", async e => {
   const handle = hitHandle(p, obj);
   if (handle) {
     const objects = selectedObjects();
-    state.dragging = { mode: handle.mode, start: p, obj: cloneObject(obj, { keepIds: true }), objects: objects.map(o => cloneObject(o, { keepIds: true })), bounds: selectionBounds(objects), saved: false };
+    state.dragging = { mode: handle.mode, name: handle.name, start: p, obj: cloneObject(obj, { keepIds: true }), objects: objects.map(o => cloneObject(o, { keepIds: true })), bounds: selectionBounds(objects), saved: false };
     canvas.setPointerCapture(e.pointerId);
     renderAll();
     syncUi();
@@ -2690,11 +2837,15 @@ function resizedRectFromHandle(start, dx, dy, handleName, locked) {
 
 function resizeObject(obj, start, dx, dy, invertLock = false, handleName = "se") {
   const locked = invertLock ? !defaultLockAspect(obj) : defaultLockAspect(obj);
-  const rect = resizedRectFromHandle(start, dx, dy, handleName, locked);
-  obj.x = rect.x;
-  obj.y = rect.y;
-  obj.width = rect.width;
-  obj.height = rect.height;
+  if (start.rotation) {
+    applyRotatedResizeFromDeltas(obj, start, dx, dy, handleName, locked);
+  } else {
+    const rect = resizedRectFromHandle(start, dx, dy, handleName, locked);
+    obj.x = rect.x;
+    obj.y = rect.y;
+    obj.width = rect.width;
+    obj.height = rect.height;
+  }
   if (obj.type === "group" && obj.children && start.children) {
     const sx = obj.width / Math.max(1, start.width);
     const sy = obj.height / Math.max(1, start.height);
@@ -2734,6 +2885,8 @@ function resizeObjects(objects, starts, bounds, dx, dy, invertLock = false, hand
 
 function cropObjectFromDrag(obj, start, handleName, dx, dy) {
   const crop = normalizeCrop(start.crop);
+  const rotation = start.rotation || 0;
+  const localDelta = rotateVector({ x: dx, y: dy }, -rotation);
   const minSize = 28;
   const visibleXPct = Math.max(1, 100 - crop.left - crop.right);
   const visibleYPct = Math.max(1, 100 - crop.top - crop.bottom);
@@ -2744,7 +2897,7 @@ function cropObjectFromDrag(obj, start, handleName, dx, dy) {
   let bottomDelta = 0;
   if (handleName.includes("w")) {
     leftDelta = clamp(
-      dx,
+      localDelta.x,
       -crop.left / visibleXPct * start.width,
       start.width - minSize
     );
@@ -2752,7 +2905,7 @@ function cropObjectFromDrag(obj, start, handleName, dx, dy) {
   }
   if (handleName.includes("e")) {
     rightDelta = clamp(
-      dx,
+      localDelta.x,
       minSize - start.width,
       crop.right / visibleXPct * start.width
     );
@@ -2760,7 +2913,7 @@ function cropObjectFromDrag(obj, start, handleName, dx, dy) {
   }
   if (handleName.includes("n")) {
     topDelta = clamp(
-      dy,
+      localDelta.y,
       -crop.top / visibleYPct * start.height,
       start.height - minSize
     );
@@ -2768,48 +2921,48 @@ function cropObjectFromDrag(obj, start, handleName, dx, dy) {
   }
   if (handleName.includes("s")) {
     bottomDelta = clamp(
-      dy,
+      localDelta.y,
       minSize - start.height,
       crop.bottom / visibleYPct * start.height
     );
     crop.bottom -= bottomDelta / Math.max(1, start.height) * visibleYPct;
   }
-  obj.x = start.x + leftDelta;
-  obj.y = start.y + topDelta;
-  obj.width = Math.max(minSize, start.width + rightDelta - leftDelta);
-  obj.height = Math.max(minSize, start.height + bottomDelta - topDelta);
-  obj.crop = normalizeCrop(crop);
+  applyCropResizeFromDeltas(obj, start, crop, handleName, leftDelta, rightDelta, topDelta, bottomDelta);
   syncCropControls(obj);
 }
 
 function setCropSideWithoutStretch(obj, side, value) {
   const crop = normalizeCrop(obj.crop);
+  const start = { ...obj, crop: { ...crop } };
   const target = Math.max(0, Math.min(90, Number(value) || 0));
   const visibleXPct = Math.max(1, 100 - crop.left - crop.right);
   const visibleYPct = Math.max(1, 100 - crop.top - crop.bottom);
+  let handleName = "";
+  let leftDelta = 0;
+  let rightDelta = 0;
+  let topDelta = 0;
+  let bottomDelta = 0;
   if (side === "left") {
-    const delta = (target - crop.left) / visibleXPct * obj.width;
-    obj.x += delta;
-    obj.width = Math.max(28, obj.width - delta);
+    leftDelta = (target - crop.left) / visibleXPct * start.width;
+    handleName = "w";
     crop.left = target;
   }
   if (side === "right") {
-    const delta = (target - crop.right) / visibleXPct * obj.width;
-    obj.width = Math.max(28, obj.width - delta);
+    rightDelta = -(target - crop.right) / visibleXPct * start.width;
+    handleName = "e";
     crop.right = target;
   }
   if (side === "top") {
-    const delta = (target - crop.top) / visibleYPct * obj.height;
-    obj.y += delta;
-    obj.height = Math.max(28, obj.height - delta);
+    topDelta = (target - crop.top) / visibleYPct * start.height;
+    handleName = "n";
     crop.top = target;
   }
   if (side === "bottom") {
-    const delta = (target - crop.bottom) / visibleYPct * obj.height;
-    obj.height = Math.max(28, obj.height - delta);
+    bottomDelta = -(target - crop.bottom) / visibleYPct * start.height;
+    handleName = "s";
     crop.bottom = target;
   }
-  obj.crop = normalizeCrop(crop);
+  if (handleName) applyCropResizeFromDeltas(obj, start, crop, handleName, leftDelta, rightDelta, topDelta, bottomDelta);
 }
 
 function shapePartForBoolean(obj, bounds) {
@@ -6308,6 +6461,7 @@ function measureSvgLayerBounds(svg, layerNodes, size) {
 
 const SVG_LAYER_CONTAINER_TAGS = new Set(["svg", "g", "a", "switch", "symbol"]);
 const SVG_SUPPORT_TAGS = new Set(["defs", "style", "title", "desc", "metadata", "script"]);
+const SVG_LAYER_LEAF_TAGS = new Set(["path", "rect", "circle", "ellipse", "polygon", "polyline", "line", "text", "image", "use"]);
 const MAX_SVG_IMPORT_LAYERS = 96;
 
 function isSvgLayerNode(node) {
@@ -6319,37 +6473,40 @@ function isSvgLayerNode(node) {
 }
 
 function svgLayerName(node, index) {
-  return node.getAttribute("id") || node.getAttribute("inkscape:label") || node.getAttribute("data-name") || `SVG 图层 ${index + 1}`;
-}
-
-function svgExplicitLayerName(node) {
-  return node.getAttribute("inkscape:label") || node.getAttribute("data-name") || node.getAttribute("id") || "";
+  const explicit = node.getAttribute("id") || node.getAttribute("inkscape:label") || node.getAttribute("data-name");
+  if (explicit) return explicit;
+  const tag = node.tagName?.toLowerCase?.() || "";
+  const names = {
+    path: "路径",
+    rect: "矩形",
+    circle: "圆形",
+    ellipse: "椭圆",
+    polygon: "多边形",
+    polyline: "折线",
+    line: "线条",
+    text: "文字",
+    image: "图片",
+    use: "引用"
+  };
+  return `${names[tag] || "SVG 图层"} ${index + 1}`;
 }
 
 function svgIsContainerNode(node) {
   return node instanceof Element && SVG_LAYER_CONTAINER_TAGS.has(node.tagName.toLowerCase());
 }
 
+function svgIsLeafLayerNode(node) {
+  return node instanceof Element && SVG_LAYER_LEAF_TAGS.has(node.tagName.toLowerCase());
+}
+
 function svgLayerNodes(svg) {
-  const collect = (node, depth = 0) => {
+  const collect = node => {
+    if (svgIsLeafLayerNode(node)) return [node];
     const children = [...node.children].filter(isSvgLayerNode);
     if (!svgIsContainerNode(node) || !children.length) return node === svg ? [] : [node];
 
-    if (node === svg) {
-      const nested = children.flatMap(child => collect(child, depth + 1));
-      return nested.length ? nested : children;
-    }
-
-    const namedChildren = children.filter(child => svgExplicitLayerName(child));
-    if (namedChildren.length >= 2) {
-      const nested = namedChildren.flatMap(child => collect(child, depth + 1));
-      if (nested.length) return nested;
-    }
-
-    if (children.length === 1 && svgIsContainerNode(children[0]) && !svgExplicitLayerName(node)) {
-      const nested = collect(children[0], depth + 1);
-      if (nested.length) return nested;
-    }
+    const nested = children.flatMap(collect);
+    if (nested.length) return nested;
 
     return [node];
   };
