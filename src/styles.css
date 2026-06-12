@@ -4643,6 +4643,7 @@ body.is-canvas-eyedropper canvas {
 }
 
 .ai-account-block {
+  position: relative;
   background: #f7f7f7;
 }
 
@@ -4654,17 +4655,18 @@ body.is-canvas-eyedropper canvas {
 }
 
 .api-key-help {
-  position: relative;
+  position: static;
   flex: 0 0 auto;
   min-width: 0;
 }
 
 .api-key-guide-popover {
   position: absolute;
-  top: calc(100% + 6px);
+  top: 44px;
+  left: 0;
   right: 0;
   z-index: 30;
-  width: min(248px, calc(100vw - 32px));
+  width: auto;
   padding: 10px 11px;
   border: 1px solid rgba(29, 29, 31, .08);
   border-radius: 8px;
@@ -4724,11 +4726,35 @@ body.is-canvas-eyedropper canvas {
 .prompt-mode-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(0, 113, 227, .16);
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(0, 113, 227, .08), rgba(0, 113, 227, .035));
 }
 
 .prompt-mode-row .mini-btn {
   min-width: 0;
+  min-height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(29, 29, 31, .68);
+  box-shadow: none;
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.prompt-mode-row .mini-btn:hover {
+  background: rgba(255, 255, 255, .56);
+  color: var(--figma-text);
+  box-shadow: none;
+}
+
+.prompt-mode-row .mini-btn.active {
+  background: #ffffff;
+  color: var(--figma-blue);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .08), 0 0 0 1px rgba(0, 113, 227, .16);
 }
 
 .ai-actions {

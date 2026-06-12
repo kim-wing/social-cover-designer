@@ -10,6 +10,7 @@ const IMAGE_API_KEY_REMEMBER_STORAGE = "youdesign-remember-image-api-key";
 const IMAGE_API_BASE_STORAGE = "youdesign-image-api-base";
 const IMAGE_PROMPT_MODE_STORAGE = "youdesign-image-prompt-mode";
 const CUSTOM_IMAGE_PROMPT_STORAGE = "youdesign-custom-image-prompt";
+const LOCAL_FONT_CACHE_STORAGE = "youdesign-local-font-cache-v1";
 const UNSPLASH_API_BASE = "https://api.unsplash.com";
 const UNSPLASH_ACCESS_KEY = "4qLu4DS2MEWPNO0m152Km2kYyMyysH75wP832l-nkIs";
 const UNSPLASH_UTM_SOURCE = "youdesign";
@@ -643,13 +644,49 @@ function isUnsplashImageObject(obj) {
   return obj?.type === "image" && obj.unsplash?.id;
 }
 
+function isZihunFontCode(fontName) {
+  return String(fontName || "")
+    .split(/[\s/_\-.]+/)
+    .some(token => /^zh[a-z0-9]{3,}$/i.test(token));
+}
+
 function isSafeCommercialFontName(fontName) {
   const normalized = String(fontName || "").toLowerCase();
-  return safeFontKeywords.some(keyword => normalized.includes(String(keyword).toLowerCase()));
+  return isZihunFontCode(fontName) || safeFontKeywords.some(keyword => normalized.includes(String(keyword).toLowerCase()));
 }
 
 function isSafeCommercialFont(font) {
   return [font.family, font.fullName, font.postscriptName, font.fileName].some(isSafeCommercialFontName);
+}
+
+function normalizeFontField(value) {
+  const text = String(value ?? "").trim();
+  return /^(undefined|null)$/i.test(text) ? "" : text;
+}
+
+function normalizeLocalFontRecord(font) {
+  const family = normalizeFontField(font.family);
+  const fullName = normalizeFontField(font.fullName);
+  const postscriptName = normalizeFontField(font.postscriptName);
+  const fileName = normalizeFontField(font.fileName);
+  return {
+    ...font,
+    family: family || fullName || postscriptName || cleanChineseFontName(fileName) || "本地字体",
+    fullName,
+    postscriptName,
+    fileName,
+    style: normalizeFontField(font.style)
+  };
+}
+
+function fontRecordScore(font) {
+  return [
+    hasChineseText(font.family),
+    hasChineseText(font.fullName),
+    hasChineseText(font.fileName),
+    !!font.fileName,
+    font.family && font.family !== font.postscriptName
+  ].reduce((score, flag, index) => score + (flag ? 1 << (5 - index) : 0), 0);
 }
 
 function normalizeFontLocalStyle(style) {
@@ -676,6 +713,7 @@ function displayFontFamilyName(font) {
   const lookup = candidates.join(" ");
   if (/zixiaohun/i.test(lookup)) return "字小魂字体";
   if (/zihun/i.test(lookup)) return "字魂字体";
+  if (/\bzh[a-z0-9]{3,}\b/i.test(lookup)) return "字魂字体";
   const matched = chineseFontNameMap.find(([pattern]) => pattern.test(lookup));
   return matched ? matched[1] : font.family;
 }
@@ -6464,13 +6502,62 @@ document.addEventListener("keydown", event => {
 window.addEventListener("resize", positionFontComboboxPopover);
 document.addEventListener("scroll", positionFontComboboxPopover, true);
 
-function applyLocalFonts(fonts) {
+function sanitizeCachedLocalFont(font) {
+  const family = normalizeFontField(font.family);
+  if (!family) return null;
+  const localStyle = normalizeFontLocalStyle(font.localStyle || font.style || "");
+  return {
+    family,
+    label: normalizeFontField(font.label) || displayFontLabel({ ...font, family, localStyle, source: "local" }),
+    fullName: normalizeFontField(font.fullName),
+    postscriptName: normalizeFontField(font.postscriptName),
+    fileName: normalizeFontField(font.fileName),
+    localStyle,
+    fontStyle: font.fontStyle || fontStyleFromLocalStyle(localStyle),
+    fontWeight: Number(font.fontWeight) || fontWeightFromStyle(localStyle),
+    source: "local"
+  };
+}
+
+function saveLocalFontCache(totalCount, filteredCount) {
+  try {
+    localStorage.setItem(LOCAL_FONT_CACHE_STORAGE, JSON.stringify({
+      version: 1,
+      savedAt: Date.now(),
+      totalCount,
+      filteredCount,
+      fonts: localFonts.map(sanitizeCachedLocalFont).filter(Boolean)
+    }));
+  } catch (err) {}
+}
+
+function restoreLocalFontCache() {
+  let payload = null;
+  try {
+    payload = JSON.parse(localStorage.getItem(LOCAL_FONT_CACHE_STORAGE) || "null");
+  } catch (err) {
+    localStorage.removeItem(LOCAL_FONT_CACHE_STORAGE);
+    return false;
+  }
+  if (!payload || payload.version !== 1 || !Array.isArray(payload.fonts)) return false;
+  const cachedFonts = payload.fonts.map(sanitizeCachedLocalFont).filter(Boolean);
+  if (!cachedFonts.length) return false;
+  localFonts = cachedFonts.sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
+  const fontStatus = document.getElementById("fontStatus");
+  if (fontStatus) fontStatus.textContent = `已缓存 ${localFonts.length} 款，点击刷新`;
+  document.getElementById("fontSection")?.classList.remove("needs-local-fonts", "is-reading-fonts");
+  return true;
+}
+
+function applyLocalFonts(fonts, options = {}) {
   const seen = new Set();
-  const safeFonts = fonts.filter(isSafeCommercialFont);
-  localFonts = fonts
+  const normalizedFonts = fonts.map(normalizeLocalFontRecord);
+  const safeFonts = normalizedFonts.filter(isSafeCommercialFont);
+  localFonts = normalizedFonts
     .filter(isSafeCommercialFont)
+    .sort((a, b) => fontRecordScore(b) - fontRecordScore(a))
     .filter(f => {
-      const key = `${f.family}-${normalizeFontLocalStyle(f.style)}`;
+      const key = `${f.postscriptName || f.family}-${normalizeFontLocalStyle(f.style)}`.toLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -6492,6 +6579,7 @@ function applyLocalFonts(fonts) {
     .sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
   document.getElementById("fontStatus").textContent = `可商用 ${localFonts.length} 款，过滤 ${fonts.length - safeFonts.length} 款`;
   document.getElementById("fontSection")?.classList.remove("needs-local-fonts", "is-reading-fonts");
+  if (options.cache !== false) saveLocalFontCache(fonts.length, fonts.length - safeFonts.length);
   syncFontSelect();
 }
 
@@ -7138,6 +7226,7 @@ async function init() {
   setupToolPanelHover();
   setupUpdateUi();
   setupCustomColorPickers();
+  restoreLocalFontCache();
   syncFontSelect();
   renderSwatches();
   loadLogoAssets();

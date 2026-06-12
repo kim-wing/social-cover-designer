@@ -532,7 +532,13 @@ fn font_dirs() -> Vec<std::path::PathBuf> {
         dirs.push(std::path::PathBuf::from("/System/Library/Fonts"));
         dirs.push(std::path::PathBuf::from("/Library/Fonts"));
         if let Some(home) = std::env::var_os("HOME") {
-            dirs.push(std::path::PathBuf::from(home).join("Library/Fonts"));
+            let home = std::path::PathBuf::from(home);
+            dirs.push(home.join("Library/Fonts"));
+            dirs.push(home.join("Library/Application Support/zihun_client_reborn/core-assets"));
+            dirs.push(home.join("Library/Application Support/zihun_client_reborn/Cache"));
+            dirs.push(home.join("Library/Application Support/hellofont"));
+            dirs.push(home.join("Library/Application Support/HellFont"));
+            dirs.push(home.join("Documents/ZihunClientFileCache/font-cache"));
         }
     }
 
@@ -575,7 +581,7 @@ fn collect_fonts_from_dir(dir: &std::path::Path, fonts: &mut Vec<LocalFont>, dep
             collect_fonts_from_dir(&path, fonts, depth + 1);
             continue;
         }
-        if is_font_file(&path) {
+        if is_font_file(&path) || is_font_cache_file(&path) {
             collect_fonts_from_file(&path, fonts);
         }
     }
@@ -591,6 +597,32 @@ fn is_font_file(path: &std::path::Path) -> bool {
             )
         })
         .unwrap_or(false)
+}
+
+fn is_font_cache_file(path: &std::path::Path) -> bool {
+    if !is_zihun_cache_path(path) {
+        return false;
+    }
+    let Ok(metadata) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() || metadata.len() == 0 || metadata.len() > 64 * 1024 * 1024 {
+        return false;
+    }
+
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return false;
+    };
+    let mut signature = [0_u8; 4];
+    if std::io::Read::read_exact(&mut file, &mut signature).is_err() {
+        return false;
+    }
+    matches!(&signature, b"OTTO" | b"ttcf" | b"true" | [0, 1, 0, 0])
+}
+
+fn is_zihun_cache_path(path: &std::path::Path) -> bool {
+    let path = path.to_string_lossy();
+    path.contains("zihun_client_reborn") || path.contains("ZihunClientFileCache")
 }
 
 fn collect_fonts_from_file(path: &std::path::Path, fonts: &mut Vec<LocalFont>) {
