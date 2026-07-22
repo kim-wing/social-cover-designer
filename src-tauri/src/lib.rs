@@ -6,7 +6,11 @@ use tauri_plugin_updater::UpdaterExt;
 
 const MAX_REMOTE_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_EXPORT_FILE_BYTES: usize = 80 * 1024 * 1024;
-const OPENAI_IMAGE_RETRY_ATTEMPTS: usize = 3;
+const MAX_SEEDREAM_INPUT_BYTES: usize = 30 * 1024 * 1024;
+const SEEDREAM_IMAGE_RETRY_ATTEMPTS: usize = 3;
+const SEEDREAM_IMAGE_ENDPOINT: &str =
+    "https://ark.cn-beijing.volces.com/api/v3/images/generations";
+const SEEDREAM_MODEL: &str = "doubao-seedream-5-0-pro-260628";
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,15 +24,12 @@ struct LocalFont {
 
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct OpenAIImageRequest {
+struct SeedreamImageRequest {
     api_key: String,
-    api_base: Option<String>,
-    model: String,
     prompt: Option<String>,
     size: Option<String>,
-    quality: Option<String>,
     image: Option<String>,
-    format: Option<String>,
+    optimize_mode: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -46,19 +47,21 @@ struct ExportFileRequest {
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct OpenAIImageResponse {
-    data: Option<Vec<OpenAIImageData>>,
-    error: Option<OpenAIError>,
+struct SeedreamImageResponse {
+    data: Option<Vec<SeedreamImageData>>,
+    error: Option<SeedreamError>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct OpenAIImageData {
+struct SeedreamImageData {
     b64_json: Option<String>,
     url: Option<String>,
+    output_format: Option<String>,
+    error: Option<SeedreamError>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct OpenAIError {
+struct SeedreamError {
     message: String,
 }
 
@@ -68,10 +71,20 @@ fn app_version(app: tauri::AppHandle) -> String {
 }
 
 #[tauri::command]
-async fn openai_generate_image(request: OpenAIImageRequest) -> Result<String, String> {
+async fn seedream_generate_image(request: SeedreamImageRequest) -> Result<String, String> {
     if request.api_key.trim().is_empty() {
-        return Err("请先填写 OpenAI API Key。".to_string());
+        return Err("请先填写火山方舟 API Key。".to_string());
     }
+    let body = build_seedream_request_body(&request)?;
+    let response = send_seedream_json_with_retry(request.api_key.trim(), &body)
+        .await
+        .map_err(|error| seedream_network_error_message("Seedream 请求失败", &error.to_string()))?;
+    parse_seedream_image_response(response).await
+}
+
+fn build_seedream_request_body(
+    request: &SeedreamImageRequest,
+) -> Result<serde_json::Value, String> {
     let prompt = request
         .prompt
         .as_deref()
@@ -82,183 +95,135 @@ async fn openai_generate_image(request: OpenAIImageRequest) -> Result<String, St
         return Err("Prompt 不能为空。".to_string());
     }
 
-    let mut body = serde_json::json!({
-        "model": if request.model.trim().is_empty() { "gpt-image-2" } else { request.model.trim() },
-        "prompt": prompt,
-        "n": 1,
-    });
-    if let Some(size) = request.size.filter(|value| !value.trim().is_empty()) {
-        body["size"] = serde_json::Value::String(size);
-    }
-    if let Some(quality) = request.quality.filter(|value| !value.trim().is_empty()) {
-        body["quality"] = serde_json::Value::String(quality);
-    }
-    if let Some(format) = request.format.filter(|value| !value.trim().is_empty()) {
-        body["format"] = serde_json::Value::String(format);
-    }
-
-    let endpoint = format!("{}/images/generations", image_api_base(request.api_base.as_deref())?);
-    let response = send_openai_json_with_retry(&endpoint, request.api_key.trim(), &body)
-        .await
-        .map_err(|error| openai_network_error_message("OpenAI 请求失败", &error.to_string()))?;
-
-    let status = response.status();
-    let payload = response
-        .json::<OpenAIImageResponse>()
-        .await
-        .map_err(|error| format!("OpenAI 响应解析失败：{error}"))?;
-
-    if !status.is_success() {
-        return Err(payload
-            .error
-            .map(|error| error.message)
-            .unwrap_or_else(|| format!("OpenAI 接口请求失败：{status}")));
-    }
-
-    if let Some(first) = payload.data.and_then(|mut data| data.drain(..).next()) {
-        if let Some(image) = first.b64_json {
-            return Ok(format!("data:image/png;base64,{image}"));
-        }
-        if let Some(url) = first.url {
-            return image_source_to_data_url(&url).await;
-        }
-    }
-
-    Err("OpenAI 没有返回图片数据。".to_string())
-}
-
-#[tauri::command]
-async fn openai_edit_image(request: OpenAIImageRequest) -> Result<String, String> {
-    if request.api_key.trim().is_empty() {
-        return Err("请先填写 API Key。".to_string());
-    }
-    let prompt = request
-        .prompt
+    let size = request
+        .size
         .as_deref()
-        .unwrap_or("")
-        .trim()
-        .to_string();
-    if prompt.is_empty() {
-        return Err("编辑要求不能为空。".to_string());
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("2K");
+    validate_seedream_output_size(size)?;
+    let optimize_mode = request
+        .optimize_mode
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("standard");
+    if !matches!(optimize_mode, "standard" | "fast") {
+        return Err("Seedream 生成模式只支持 standard 或 fast。".to_string());
     }
-    let image = request
+
+    let mut body = serde_json::json!({
+        "model": SEEDREAM_MODEL,
+        "prompt": prompt,
+        "size": size,
+        "response_format": "b64_json",
+        "output_format": "png",
+        "watermark": false,
+        "optimize_prompt_options": {
+            "mode": optimize_mode
+        }
+    });
+
+    if let Some(image) = request
         .image
         .as_deref()
-        .unwrap_or("")
-        .trim()
-        .to_string();
-    if image.is_empty() {
-        return Err("缺少要编辑的图片。".to_string());
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        validate_seedream_image_input(image)?;
+        body["image"] = serde_json::Value::String(image.to_string());
     }
+    Ok(body)
+}
 
-    let image_bytes = decode_image_base64(&image)?;
-    let endpoint = format!("{}/images/edits", image_api_base(request.api_base.as_deref())?);
-    let model = if request.model.trim().is_empty() {
-        "gpt-image-2".to_string()
-    } else {
-        request.model.trim().to_string()
+fn validate_seedream_output_size(size: &str) -> Result<(), String> {
+    if matches!(size, "1K" | "2K") {
+        return Ok(());
+    }
+    let Some((width, height)) = size.split_once('x') else {
+        return Err("Seedream 输出尺寸格式应为 2K 或 <宽>x<高>。".to_string());
     };
-    let size = request.size.filter(|value| !value.trim().is_empty());
-    let quality = request.quality.filter(|value| !value.trim().is_empty());
-    let format = request.format.filter(|value| !value.trim().is_empty());
-    let response = send_openai_multipart_with_retry(&endpoint, request.api_key.trim(), || {
-        build_openai_edit_form(
-            image_bytes.clone(),
-            model.clone(),
-            prompt.clone(),
-            size.clone(),
-            quality.clone(),
-            format.clone(),
-        )
-    })
-    .await
-    .map_err(|error| openai_network_error_message("图片编辑请求失败", &error))?;
-
-    parse_openai_image_response(response, "图片编辑接口请求失败").await
-}
-
-fn decode_image_base64(value: &str) -> Result<Vec<u8>, String> {
-    let payload = value
-        .split_once(',')
-        .map(|(_, payload)| payload)
-        .unwrap_or(value)
-        .trim();
-    if payload.is_empty() {
-        return Err("缺少要编辑的图片。".to_string());
+    let width = width
+        .parse::<u64>()
+        .map_err(|_| "Seedream 输出宽度必须是整数。".to_string())?;
+    let height = height
+        .parse::<u64>()
+        .map_err(|_| "Seedream 输出高度必须是整数。".to_string())?;
+    if width == 0 || height == 0 {
+        return Err("Seedream 输出宽高必须大于 0。".to_string());
     }
-    base64::engine::general_purpose::STANDARD
-        .decode(payload)
-        .map_err(|error| format!("图片数据解析失败：{error}"))
+    let pixels = width.saturating_mul(height);
+    if !(512_u64 * 512_u64..=2048_u64 * 2048_u64).contains(&pixels) {
+        return Err("Seedream 输出总像素需在 512x512 到 2048x2048 之间。".to_string());
+    }
+    if width > height.saturating_mul(16) || height > width.saturating_mul(16) {
+        return Err("Seedream 输出比例需在 1:16 到 16:1 之间。".to_string());
+    }
+    Ok(())
 }
 
-async fn parse_openai_image_response(
-    response: reqwest::Response,
-    error_prefix: &str,
-) -> Result<String, String> {
+fn validate_seedream_image_input(image: &str) -> Result<(), String> {
+    if image.starts_with("https://") || image.starts_with("http://") {
+        return Ok(());
+    }
+    let Some((metadata, payload)) = image.split_once(',') else {
+        return Err("Seedream 参考图必须是可访问的 URL 或 Base64 Data URL。".to_string());
+    };
+    if !metadata.starts_with("data:image/") || !metadata.ends_with(";base64") {
+        return Err("Seedream 参考图 Base64 格式不正确。".to_string());
+    }
+    let approximate_bytes = payload.len().saturating_mul(3) / 4;
+    if approximate_bytes > MAX_SEEDREAM_INPUT_BYTES {
+        return Err("Seedream 参考图不能超过 30MB。".to_string());
+    }
+    Ok(())
+}
+
+async fn parse_seedream_image_response(response: reqwest::Response) -> Result<String, String> {
     let status = response.status();
-    let payload = response
-        .json::<OpenAIImageResponse>()
+    let response_text = response
+        .text()
         .await
-        .map_err(|error| format!("图片接口响应解析失败：{error}"))?;
+        .map_err(|error| format!("Seedream 响应读取失败：{error}"))?;
+    let payload = serde_json::from_str::<SeedreamImageResponse>(&response_text).map_err(|error| {
+        format!("Seedream 响应解析失败：{error}。HTTP 状态：{status}")
+    })?;
 
     if !status.is_success() {
         return Err(payload
             .error
             .map(|error| error.message)
-            .unwrap_or_else(|| format!("{error_prefix}：{status}")));
+            .unwrap_or_else(|| format!("Seedream 接口请求失败：{status}")));
     }
 
     if let Some(first) = payload.data.and_then(|mut data| data.drain(..).next()) {
+        if let Some(error) = first.error {
+            return Err(error.message);
+        }
         if let Some(image) = first.b64_json {
-            return Ok(format!("data:image/png;base64,{image}"));
+            if image.starts_with("data:image/") {
+                return Ok(image);
+            }
+            let output_format = first.output_format.as_deref().unwrap_or("png");
+            return Ok(format!("data:image/{output_format};base64,{image}"));
         }
         if let Some(url) = first.url {
             return image_source_to_data_url(&url).await;
         }
     }
 
-    Err("图片接口没有返回图片数据。".to_string())
+    Err("Seedream 没有返回图片数据。".to_string())
 }
 
-fn build_openai_edit_form(
-    image_bytes: Vec<u8>,
-    model: String,
-    prompt: String,
-    size: Option<String>,
-    quality: Option<String>,
-    format: Option<String>,
-) -> Result<reqwest::multipart::Form, String> {
-    let image_part = reqwest::multipart::Part::bytes(image_bytes)
-        .file_name("image.png")
-        .mime_str("image/png")
-        .map_err(|error| format!("图片表单构造失败：{error}"))?;
-    let mut form = reqwest::multipart::Form::new()
-        .text("model", model)
-        .part("image", image_part)
-        .text("prompt", prompt)
-        .text("n", "1");
-    if let Some(size) = size {
-        form = form.text("size", size);
-    }
-    if let Some(quality) = quality {
-        form = form.text("quality", quality);
-    }
-    if let Some(format) = format {
-        form = form.text("format", format);
-    }
-    Ok(form)
-}
-
-async fn send_openai_json_with_retry(
-    endpoint: &str,
+async fn send_seedream_json_with_retry(
     api_key: &str,
     body: &serde_json::Value,
 ) -> Result<reqwest::Response, reqwest::Error> {
-    let client = openai_http_client();
+    let client = seedream_http_client();
     let mut last_error = None;
-    for attempt in 1..=OPENAI_IMAGE_RETRY_ATTEMPTS {
+    for attempt in 1..=SEEDREAM_IMAGE_RETRY_ATTEMPTS {
         match client
-            .post(endpoint)
+            .post(SEEDREAM_IMAGE_ENDPOINT)
             .bearer_auth(api_key)
             .header(reqwest::header::ACCEPT, "application/json")
             .json(body)
@@ -267,7 +232,7 @@ async fn send_openai_json_with_retry(
         {
             Ok(response) => return Ok(response),
             Err(error) => {
-                if attempt >= OPENAI_IMAGE_RETRY_ATTEMPTS || !is_retryable_reqwest_error(&error) {
+                if attempt >= SEEDREAM_IMAGE_RETRY_ATTEMPTS || !is_retryable_reqwest_error(&error) {
                     return Err(error);
                 }
                 last_error = Some(error);
@@ -276,39 +241,6 @@ async fn send_openai_json_with_retry(
         }
     }
     Err(last_error.expect("retry loop should have an error"))
-}
-
-async fn send_openai_multipart_with_retry<F>(
-    endpoint: &str,
-    api_key: &str,
-    mut build_form: F,
-) -> Result<reqwest::Response, String>
-where
-    F: FnMut() -> Result<reqwest::multipart::Form, String>,
-{
-    let client = openai_http_client();
-    let mut last_error = None;
-    for attempt in 1..=OPENAI_IMAGE_RETRY_ATTEMPTS {
-        let form = build_form()?;
-        match client
-            .post(endpoint)
-            .bearer_auth(api_key)
-            .header(reqwest::header::ACCEPT, "application/json")
-            .multipart(form)
-            .send()
-            .await
-        {
-            Ok(response) => return Ok(response),
-            Err(error) => {
-                if attempt >= OPENAI_IMAGE_RETRY_ATTEMPTS || !is_retryable_reqwest_error(&error) {
-                    return Err(error.to_string());
-                }
-                last_error = Some(error.to_string());
-                thread::sleep(Duration::from_millis(650 * attempt as u64));
-            }
-        }
-    }
-    Err(last_error.unwrap_or_else(|| "未知网络错误".to_string()))
 }
 
 fn is_retryable_reqwest_error(error: &reqwest::Error) -> bool {
@@ -323,7 +255,7 @@ fn is_retryable_reqwest_error(error: &reqwest::Error) -> bool {
         || message.contains("unexpected eof")
 }
 
-fn openai_network_error_message(prefix: &str, error: &str) -> String {
+fn seedream_network_error_message(prefix: &str, error: &str) -> String {
     let lower = error.to_ascii_lowercase();
     if lower.contains("connection closed")
         || lower.contains("incomplete message")
@@ -331,30 +263,65 @@ fn openai_network_error_message(prefix: &str, error: &str) -> String {
         || lower.contains("connection reset")
     {
         return format!(
-            "{prefix}：图片接口连接提前中断，已自动重试 {OPENAI_IMAGE_RETRY_ATTEMPTS} 次仍失败。通常是 QuickRouter 网关或当前网络临时断连导致，请稍后重试，或切换网络/API Base。原始错误：{error}"
+            "{prefix}：火山方舟连接提前中断，已自动重试 {SEEDREAM_IMAGE_RETRY_ATTEMPTS} 次仍失败。请稍后重试或检查当前网络。原始错误：{error}"
         );
     }
     if lower.contains("timed out") || lower.contains("timeout") {
         return format!(
-            "{prefix}：图片生成等待超时，可能是模型排队或网络不稳定。请稍后重试，或降低生成质量后再试。原始错误：{error}"
+            "{prefix}：图片生成等待超时，可能是 Seedream 排队或网络不稳定。请稍后重试，或改用快速模式。原始错误：{error}"
         );
     }
     format!("{prefix}：{error}")
 }
 
-fn image_api_base(value: Option<&str>) -> Result<String, String> {
-    let base = value
-        .unwrap_or("https://api.quickrouter.ai/v1")
-        .trim()
-        .trim_end_matches('/');
-    if !(base.starts_with("https://") || base.starts_with("http://")) {
-        return Err("图片 API Base 必须以 http:// 或 https:// 开头。".to_string());
-    }
-    Ok(base.to_string())
+fn seedream_http_client() -> reqwest::Client {
+    http_client(Duration::from_secs(240))
 }
 
-fn openai_http_client() -> reqwest::Client {
-    http_client(Duration::from_secs(180))
+#[cfg(test)]
+mod seedream_tests {
+    use super::*;
+
+    fn request(image: Option<&str>, optimize_mode: Option<&str>) -> SeedreamImageRequest {
+        SeedreamImageRequest {
+            api_key: "test-key".to_string(),
+            prompt: Some("生成一张旅游海报".to_string()),
+            size: Some("1080x1440".to_string()),
+            image: image.map(str::to_string),
+            optimize_mode: optimize_mode.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn builds_seedream_generation_body_without_legacy_openai_fields() {
+        let body = build_seedream_request_body(&request(None, Some("standard"))).unwrap();
+
+        assert_eq!(body["model"], SEEDREAM_MODEL);
+        assert_eq!(body["response_format"], "b64_json");
+        assert_eq!(body["output_format"], "png");
+        assert_eq!(body["watermark"], false);
+        assert_eq!(body["optimize_prompt_options"]["mode"], "standard");
+        assert!(body.get("image").is_none());
+        assert!(body.get("n").is_none());
+        assert!(body.get("quality").is_none());
+        assert!(body.get("stream").is_none());
+    }
+
+    #[test]
+    fn adds_reference_image_to_the_same_seedream_endpoint_body() {
+        let image = "data:image/png;base64,aGVsbG8=";
+        let body = build_seedream_request_body(&request(Some(image), Some("fast"))).unwrap();
+
+        assert_eq!(body["image"], image);
+        assert_eq!(body["optimize_prompt_options"]["mode"], "fast");
+    }
+
+    #[test]
+    fn rejects_unsupported_mode_and_output_size() {
+        assert!(build_seedream_request_body(&request(None, Some("turbo"))).is_err());
+        assert!(validate_seedream_output_size("128x128").is_err());
+        assert!(validate_seedream_output_size("1080x1440").is_ok());
+    }
 }
 
 fn remote_asset_http_client() -> reqwest::Client {
@@ -780,8 +747,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_version,
             list_local_fonts,
-            openai_generate_image,
-            openai_edit_image,
+            seedream_generate_image,
             download_remote_asset,
             save_export_file,
             check_for_updates,

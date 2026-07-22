@@ -1,6 +1,6 @@
 {
   "name": "youdesign",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "YOUDESIGN social cover designer desktop app.",
   "author": "YOUXIAKE",
   "private": true,
@@ -21,6 +21,10 @@
     "build:release:win:cross": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --target x86_64-pc-windows-gnullvm --bundles nsis",
     "tauri": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri",
     "tauri:prepare": "node scripts/prepare-tauri-dist.js",
+    "web:build": "npm run tauri:prepare",
+    "web:dev": "npm run web:build && npx wrangler pages dev dist --compatibility-date=2026-07-20",
+    "web:check": "node --check src/app.js && npm run test:seedream && npm run web:build",
+    "test:seedream": "node scripts/test-seedream.mjs",
     "tauri:local-update-manifest": "node scripts/create-local-update-manifest.js",
     "website:sync-downloads": "node scripts/sync-website-downloads.js",
     "website:sync-downloads:deploy": "node scripts/sync-website-downloads.js --deploy",

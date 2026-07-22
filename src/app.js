@@ -5,17 +5,16 @@ const selectionOverlay = document.getElementById("selectionOverlay");
 const inlineTextEditor = document.getElementById("inlineTextEditor");
 const STORAGE_KEY = "social-cover-designer-v3";
 const ONBOARDING_STORAGE_KEY = "youdesign-onboarding-v4";
-const IMAGE_API_KEY_STORAGE = "youdesign-openai-image-api-key";
-const IMAGE_API_KEY_REMEMBER_STORAGE = "youdesign-remember-image-api-key";
-const IMAGE_API_BASE_STORAGE = "youdesign-image-api-base";
+const IMAGE_API_KEY_STORAGE = "youdesign-seedream-api-key";
+const IMAGE_API_KEY_REMEMBER_STORAGE = "youdesign-remember-seedream-api-key";
 const IMAGE_PROMPT_MODE_STORAGE = "youdesign-image-prompt-mode";
 const CUSTOM_IMAGE_PROMPT_STORAGE = "youdesign-custom-image-prompt";
 const LOCAL_FONT_CACHE_STORAGE = "youdesign-local-font-cache-v1";
 const UNSPLASH_API_BASE = "https://api.unsplash.com";
 const UNSPLASH_ACCESS_KEY = "4qLu4DS2MEWPNO0m152Km2kYyMyysH75wP832l-nkIs";
 const UNSPLASH_UTM_SOURCE = "youdesign";
-const DEFAULT_IMAGE_API_BASE = "https://api.quickrouter.ai/v1";
-const QUICKROUTER_REGISTER_URL = "https://api.quickrouter.ai/register?aff=roL9WF";
+const SEEDREAM_API_KEY_URL = "https://console.volcengine.com/ark/region%3Aark%2Bcn-beijing/openManagement";
+const seedreamEditing = window.SeedreamEditing;
 const APP_SCRIPT_URL = new URL("src/app.js", document.baseURI).href;
 const TRANSFORMERS_LOCAL_BASE = new URL("../vendor/transformers/", APP_SCRIPT_URL).href;
 const TRANSFORMERS_CDN_BASE = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/";
@@ -24,7 +23,7 @@ const TRANSFORMERS_MODULES = [
   { url: `${TRANSFORMERS_CDN_BASE}transformers.min.js`, wasmBase: TRANSFORMERS_CDN_BASE }
 ];
 const RMBG_MODEL_ID = "briaai/RMBG-1.4";
-const APP_VERSION = "__YOUDESIGN_APP_VERSION__".startsWith("__") ? "1.0.17" : "__YOUDESIGN_APP_VERSION__";
+const APP_VERSION = "__YOUDESIGN_APP_VERSION__".startsWith("__") ? "1.1.5" : "__YOUDESIGN_APP_VERSION__";
 const MAX_EXPORT_PIXELS = 64 * 1000 * 1000;
 let autosaveQuotaWarningShown = false;
 
@@ -402,6 +401,7 @@ let inlineEditing = null;
 let objectClipboard = [];
 let rmbgPipelinePromise = null;
 let aiImageRequestInFlight = false;
+const imageProgressState = { kind: "generate", targetCount: 0 };
 const maskEditor = {
   active: false,
   objectId: null,
@@ -432,6 +432,20 @@ const stampEditor = {
   renderQueued: false,
   dirty: false
 };
+const seedreamEditState = {
+  workspaceOpen: false,
+  mode: "whole",
+  objectId: null,
+  annotations: [],
+  activeAnnotationId: null,
+  wholeInstruction: "",
+  draftAnnotation: null,
+  nextAnnotationId: 1,
+  drawing: false,
+  dragStart: null,
+  dragCurrent: null,
+  returnFocusElement: null
+};
 const panState = { spaceDown: false, active: false, startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 };
 const swipeSelect = { active: false, ids: new Set(), started: false, start: null, current: null };
 const unsplashState = { query: "", page: 1, totalPages: 0, results: [], loading: false };
@@ -452,7 +466,7 @@ const onboardingSteps = [
     target: "#aiAccountBlock",
     panel: "promptSection",
     title: "AI 生图：先填写 API Key",
-    text: "第一次使用需要填入 QuickRouter API Key。可以选择只本次使用，也可以勾选保存到本机，后续生成不用重复填写。"
+    text: "第一次使用需要填入火山方舟 API Key。可以选择只本次使用，也可以勾选保存到本机，后续生成不用重复填写。"
   },
   {
     target: "#aiGenerateBlock",
@@ -463,8 +477,8 @@ const onboardingSteps = [
   {
     target: "#aiEditBlock",
     panel: "promptSection",
-    title: "AI 生图：选中图片后继续编辑",
-    text: "画布里已经有图片时，可以选中图片，在这里输入修改要求，例如换背景、改风格、增加氛围，再生成新版图片。"
+    title: "AI 精准编辑：进入大画布工作台",
+    text: "选中图片后打开精准编辑工作台，可对整图修改，也可直接点选对象或框选区域，再用自然语言描述变化。"
   },
   {
     target: "#imageTools",
@@ -1393,6 +1407,9 @@ function setSelection(ids) {
   if (maskEditor.active && !state.selectedIds.includes(maskEditor.objectId)) stopMaskEdit(false);
   if (cropEditor.active && !state.selectedIds.includes(cropEditor.objectId)) stopCropEdit(false);
   if (stampEditor.active && !state.selectedIds.includes(stampEditor.objectId)) stopStampEdit(false);
+  if (seedreamEditState.objectId && !state.selectedIds.includes(seedreamEditState.objectId)) {
+    resetSeedreamEditState();
+  }
 }
 
 function toggleSelection(id) {
@@ -2480,6 +2497,501 @@ function toLocalPoint(event) {
   };
 }
 
+function resetSeedreamEditState() {
+  seedreamEditState.mode = "whole";
+  seedreamEditState.objectId = null;
+  seedreamEditState.annotations = [];
+  seedreamEditState.activeAnnotationId = null;
+  seedreamEditState.wholeInstruction = "";
+  seedreamEditState.draftAnnotation = null;
+  seedreamEditState.nextAnnotationId = 1;
+  seedreamEditState.drawing = false;
+  seedreamEditState.dragStart = null;
+  seedreamEditState.dragCurrent = null;
+}
+
+function seedreamEditObject() {
+  return state.objects.find(obj => obj.id === seedreamEditState.objectId && obj.type === "image") || null;
+}
+
+function seedreamEditPrompt() {
+  if (seedreamEditState.mode === "whole") {
+    return seedreamEditing.buildEditPrompt(seedreamEditState.wholeInstruction, []);
+  }
+  if (!seedreamEditState.annotations.length) return "";
+  return seedreamEditing.buildEditPrompt("", seedreamEditState.annotations);
+}
+
+function activeSeedreamAnnotation() {
+  return seedreamEditState.annotations.find(annotation => annotation.id === seedreamEditState.activeAnnotationId) || null;
+}
+
+function seedreamAnnotationIndex(annotationId) {
+  return seedreamEditState.annotations.findIndex(annotation => annotation.id === annotationId);
+}
+
+function selectSeedreamAnnotation(annotationId, shouldFocus = false) {
+  if (aiImageRequestInFlight) return;
+  const id = Number(annotationId);
+  if (!seedreamEditState.annotations.some(annotation => annotation.id === id)) return;
+  seedreamEditState.activeAnnotationId = id;
+  drawSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+  if (shouldFocus) requestAnimationFrame(() => document.getElementById("imageEditPrompt")?.focus());
+}
+
+function syncSeedreamInstructionEditor(els) {
+  const annotation = seedreamEditState.mode === "whole" ? null : activeSeedreamAnnotation();
+  const index = annotation ? seedreamAnnotationIndex(annotation.id) : -1;
+  const contextKey = seedreamEditState.mode === "whole" ? "whole" : annotation ? `annotation-${annotation.id}` : "empty";
+  const value = seedreamEditState.mode === "whole" ? seedreamEditState.wholeInstruction : annotation?.instruction || "";
+  if (els.imageEditPrompt.dataset.editContext !== contextKey) {
+    els.imageEditPrompt.dataset.editContext = contextKey;
+    els.imageEditPrompt.value = value;
+  }
+  if (seedreamEditState.mode === "whole") {
+    els.imageEditPromptLabel.textContent = "整图编辑指令";
+    els.imageEditPromptContext.textContent = "整图";
+    els.imageEditPrompt.placeholder = "描述整张图片需要发生的变化";
+  } else if (annotation) {
+    const typeLabel = annotation.type === "point" ? "点选" : "框选";
+    els.imageEditPromptLabel.textContent = `定位 ${index + 1} · ${typeLabel}独立指令`;
+    els.imageEditPromptContext.textContent = `${index + 1} / ${seedreamEditState.annotations.length}`;
+    els.imageEditPrompt.placeholder = annotation.type === "point"
+      ? "只描述这个点附近的目标需要发生什么变化"
+      : "只描述这个框选区域需要发生什么变化";
+  } else {
+    els.imageEditPromptLabel.textContent = "定位独立指令";
+    els.imageEditPromptContext.textContent = "等待定位";
+    els.imageEditPrompt.placeholder = "先在图片上添加一个点选或框选定位";
+  }
+  els.imageEditPrompt.disabled = aiImageRequestInFlight || (seedreamEditState.mode !== "whole" && !annotation);
+}
+
+function setSeedreamEditMode(mode) {
+  const nextMode = ["point", "bbox"].includes(mode) ? mode : "whole";
+  const obj = seedreamEditObject();
+  if (!seedreamEditState.workspaceOpen || !obj) {
+    setPromptStatus("请先打开精准编辑工作台。", "error");
+    return;
+  }
+  seedreamEditState.mode = nextMode;
+  if (nextMode === "whole") {
+    seedreamEditState.annotations = [];
+    seedreamEditState.activeAnnotationId = null;
+  } else if (!activeSeedreamAnnotation() && seedreamEditState.annotations.length) {
+    seedreamEditState.activeAnnotationId = seedreamEditState.annotations.at(-1).id;
+  }
+  seedreamEditState.draftAnnotation = null;
+  seedreamEditState.drawing = false;
+  seedreamEditState.dragStart = null;
+  seedreamEditState.dragCurrent = null;
+  drawSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+}
+
+function addSeedreamAnnotation(annotation) {
+  if (!annotation) return;
+  seedreamEditState.annotations.push({
+    ...annotation,
+    id: seedreamEditState.nextAnnotationId,
+    instruction: ""
+  });
+  seedreamEditState.activeAnnotationId = seedreamEditState.nextAnnotationId;
+  seedreamEditState.nextAnnotationId += 1;
+}
+
+function clearSeedreamAnnotations() {
+  if (aiImageRequestInFlight) return;
+  seedreamEditState.annotations = [];
+  seedreamEditState.activeAnnotationId = null;
+  seedreamEditState.draftAnnotation = null;
+  seedreamEditState.drawing = false;
+  seedreamEditState.dragStart = null;
+  seedreamEditState.dragCurrent = null;
+  drawSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+}
+
+function undoSeedreamAnnotation() {
+  if (aiImageRequestInFlight || !seedreamEditState.annotations.length) return;
+  const removed = seedreamEditState.annotations.pop();
+  if (removed?.id === seedreamEditState.activeAnnotationId) {
+    seedreamEditState.activeAnnotationId = seedreamEditState.annotations.at(-1)?.id || null;
+  }
+  drawSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+}
+
+function removeSeedreamAnnotation(annotationId) {
+  if (aiImageRequestInFlight) return;
+  const id = Number(annotationId);
+  seedreamEditState.annotations = seedreamEditState.annotations.filter(annotation => annotation.id !== id);
+  if (seedreamEditState.activeAnnotationId === id) {
+    seedreamEditState.activeAnnotationId = seedreamEditState.annotations.at(-1)?.id || null;
+  }
+  drawSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+}
+
+function renderSeedreamAnnotationStrip(els) {
+  const strip = els.seedreamAnnotationStrip;
+  if (!strip) return;
+  const signature = seedreamEditState.annotations
+    .map(annotation => `${annotation.id}:${seedreamEditing.annotationToken(annotation)}:${annotation.id === seedreamEditState.activeAnnotationId}:${!!annotation.instruction.trim()}`)
+    .join("|");
+  strip.classList.toggle("hidden", !seedreamEditState.annotations.length);
+  if (strip.dataset.signature === signature) return;
+  strip.dataset.signature = signature;
+  strip.replaceChildren();
+  seedreamEditState.annotations.forEach((annotation, index) => {
+    const item = document.createElement("div");
+    item.className = "seedream-annotation-chip";
+    item.classList.toggle("is-active", annotation.id === seedreamEditState.activeAnnotationId);
+    item.classList.toggle("is-complete", !!annotation.instruction.trim());
+
+    const select = document.createElement("button");
+    select.type = "button";
+    select.className = "seedream-annotation-chip-select";
+    select.dataset.selectAnnotationId = String(annotation.id);
+    select.setAttribute("aria-label", `编辑第 ${index + 1} 个定位的独立指令`);
+    if (annotation.id === seedreamEditState.activeAnnotationId) select.setAttribute("aria-current", "true");
+
+    const number = document.createElement("span");
+    number.className = "seedream-annotation-chip-number";
+    number.textContent = String(index + 1);
+
+    const token = document.createElement("code");
+    token.textContent = seedreamEditing.annotationToken(annotation);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "seedream-annotation-chip-remove";
+    remove.dataset.removeAnnotationId = String(annotation.id);
+    remove.setAttribute("aria-label", `删除第 ${index + 1} 个定位`);
+    remove.textContent = "×";
+
+    select.append(number, token);
+    item.append(select, remove);
+    strip.append(item);
+  });
+}
+
+function syncSeedreamEditControls(statusMessage = "", statusMode = "") {
+  const els = promptEls();
+  if (!els.seedreamEditWholeBtn) return;
+  const obj = selected();
+  const isSingleImage = obj?.type === "image" && selectedObjects().length === 1;
+  const activeObject = seedreamEditObject();
+  if (seedreamEditState.workspaceOpen && !activeObject) closeSeedreamEditWorkspace();
+  els.openSeedreamEditorBtn.disabled = aiImageRequestInFlight || !isSingleImage;
+  els.seedreamEditLauncherStatus.textContent = isSingleImage
+    ? `已选择：${obj.name || "图片"}。可进入大画布精准编辑。`
+    : "请先在画布中单独选中一张图片。";
+  els.seedreamEditLauncherStatus.classList.toggle("is-ready", isSingleImage);
+  els.seedreamEditWholeBtn.classList.toggle("active", seedreamEditState.mode === "whole");
+  els.seedreamEditPointBtn.classList.toggle("active", seedreamEditState.mode === "point");
+  els.seedreamEditBoxBtn.classList.toggle("active", seedreamEditState.mode === "bbox");
+  els.seedreamEditPointBtn.disabled = aiImageRequestInFlight || !seedreamEditState.workspaceOpen;
+  els.seedreamEditBoxBtn.disabled = aiImageRequestInFlight || !seedreamEditState.workspaceOpen;
+  els.seedreamEditWholeBtn.disabled = aiImageRequestInFlight || !seedreamEditState.workspaceOpen;
+  els.closeSeedreamEditorBtn.disabled = aiImageRequestInFlight;
+  const annotationCount = seedreamEditState.annotations.length;
+  const completedCount = seedreamEditState.annotations.filter(annotation => annotation.instruction.trim()).length;
+  els.undoSeedreamEditSelectionBtn.classList.toggle("hidden", annotationCount === 0);
+  els.clearSeedreamEditSelectionBtn.classList.toggle("hidden", annotationCount === 0);
+  els.undoSeedreamEditSelectionBtn.disabled = aiImageRequestInFlight || annotationCount === 0;
+  els.clearSeedreamEditSelectionBtn.disabled = aiImageRequestInFlight || annotationCount === 0;
+  els.seedreamEditAnnotationCount.textContent = annotationCount ? `${completedCount} / ${annotationCount} 已填写` : "整图";
+  renderSeedreamAnnotationStrip(els);
+  syncSeedreamInstructionEditor(els);
+
+  let message = statusMessage;
+  let mode = statusMode;
+  if (!message && seedreamEditState.mode === "whole") {
+    message = "整图编辑：Image 1 不添加坐标限制。";
+  } else if (!message && !annotationCount) {
+    message = seedreamEditState.mode === "point"
+      ? "点选模式：连续点击可添加多个目标。"
+      : "框选模式：可连续拖拽添加多个区域。";
+  } else if (!message) {
+    message = `已添加 ${annotationCount} 个定位，${completedCount} 个已填写指令。点击顶部编号可逐个编辑。`;
+    mode = completedCount === annotationCount ? "ready" : "";
+  }
+  els.seedreamEditSelectionStatus.textContent = message;
+  els.seedreamEditSelectionStatus.classList.toggle("is-ready", mode === "ready");
+  els.seedreamEditSelectionStatus.classList.toggle("is-error", mode === "error");
+  els.seedreamEditSelectionStatus.classList.toggle("is-loading", mode === "loading");
+  els.seedreamEditPromptPreview.value = seedreamEditPrompt();
+  const hasInstruction = seedreamEditState.mode === "whole"
+    ? !!seedreamEditState.wholeInstruction.trim()
+    : annotationCount > 0 && completedCount === annotationCount;
+  const hasLocation = seedreamEditState.mode === "whole" || annotationCount > 0;
+  els.editSelectedImageBtn.disabled = aiImageRequestInFlight
+    || !seedreamEditState.workspaceOpen
+    || !activeObject
+    || !hasInstruction
+    || !hasLocation;
+  els.seedreamStudioOverlay.style.pointerEvents = seedreamEditState.mode === "whole" ? "none" : "auto";
+  els.seedreamStudioHint.textContent = seedreamEditState.mode === "whole"
+    ? "整图编辑模式：直接描述希望发生的变化。"
+    : seedreamEditState.mode === "point"
+      ? annotationCount ? `当前编辑定位 ${seedreamAnnotationIndex(seedreamEditState.activeAnnotationId) + 1}；继续点击可追加目标。` : "点选对象模式：依次点击图片中要修改的目标。"
+      : annotationCount ? `当前编辑定位 ${seedreamAnnotationIndex(seedreamEditState.activeAnnotationId) + 1}；继续拖拽可追加区域。` : "框选区域模式：按住并拖拽，可连续圈定多个范围。";
+}
+
+function resizeSeedreamStudioOverlay() {
+  const els = promptEls();
+  const image = els.seedreamStudioImage;
+  const overlay = els.seedreamStudioOverlay;
+  if (!image.naturalWidth || !image.naturalHeight) return;
+  fitSeedreamStudioCanvas();
+  const scale = Math.min(1, 2048 / Math.max(image.naturalWidth, image.naturalHeight));
+  overlay.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  overlay.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  drawSeedreamStudioOverlay();
+}
+
+function fitSeedreamStudioCanvas() {
+  const els = promptEls();
+  const image = els.seedreamStudioImage;
+  const canvas = els.seedreamStudioCanvas;
+  const stage = canvas?.closest(".seedream-studio-stage");
+  if (!stage || !image.naturalWidth || !image.naturalHeight) return null;
+  const stageStyle = getComputedStyle(stage);
+  const canvasStyle = getComputedStyle(canvas);
+  const horizontalInsets = parseFloat(stageStyle.paddingLeft) + parseFloat(stageStyle.paddingRight)
+    + parseFloat(canvasStyle.borderLeftWidth) + parseFloat(canvasStyle.borderRightWidth);
+  const verticalInsets = parseFloat(stageStyle.paddingTop) + parseFloat(stageStyle.paddingBottom)
+    + parseFloat(canvasStyle.borderTopWidth) + parseFloat(canvasStyle.borderBottomWidth);
+  const availableWidth = Math.max(1, stage.clientWidth - horizontalInsets);
+  const availableHeight = Math.max(1, stage.clientHeight - verticalInsets);
+  const fitted = seedreamEditing.fitImageSize(
+    image.naturalWidth,
+    image.naturalHeight,
+    availableWidth,
+    availableHeight
+  );
+  canvas.style.width = `${fitted.width}px`;
+  canvas.style.height = `${fitted.height}px`;
+  return fitted;
+}
+
+function drawSeedreamStudioOverlay() {
+  const overlay = document.getElementById("seedreamStudioOverlay");
+  if (!overlay) return;
+  const c = overlay.getContext("2d");
+  c.clearRect(0, 0, overlay.width, overlay.height);
+  const annotations = [...seedreamEditState.annotations];
+  if (seedreamEditState.draftAnnotation) annotations.push(seedreamEditState.draftAnnotation);
+  if (!annotations.length) return;
+  const displayScale = overlay.getBoundingClientRect().width / Math.max(1, overlay.width);
+  const lineWidth = Math.max(2, 3 / Math.max(.1, displayScale));
+  const badgeRadius = Math.max(8, 11 / Math.max(.1, displayScale));
+  annotations.forEach((annotation, index) => {
+    const isActive = annotation.id && annotation.id === seedreamEditState.activeAnnotationId;
+    c.save();
+    c.globalAlpha = isActive || !annotation.id ? 1 : .62;
+    c.strokeStyle = isActive ? "#58b2ff" : "#39a0ff";
+    c.fillStyle = isActive ? "rgba(20, 132, 255, .25)" : "rgba(20, 132, 255, .14)";
+    c.shadowColor = "rgba(0, 0, 0, .35)";
+    c.shadowBlur = 8 / Math.max(.1, displayScale);
+    c.lineWidth = isActive ? lineWidth * 1.35 : lineWidth;
+    c.setLineDash([8 / Math.max(.1, displayScale), 5 / Math.max(.1, displayScale)]);
+    let badgeX;
+    let badgeY;
+    if (annotation.type === "point") {
+      const x = annotation.x / 999 * overlay.width;
+      const y = annotation.y / 999 * overlay.height;
+      const radius = Math.max(9, 14 / Math.max(.1, displayScale));
+      c.setLineDash([]);
+      c.beginPath();
+      c.arc(x, y, radius, 0, Math.PI * 2);
+      c.fill();
+      c.stroke();
+      c.beginPath();
+      c.moveTo(x - radius * 1.5, y);
+      c.lineTo(x + radius * 1.5, y);
+      c.moveTo(x, y - radius * 1.5);
+      c.lineTo(x, y + radius * 1.5);
+      c.stroke();
+      badgeX = x;
+      badgeY = y;
+    } else {
+      const x = annotation.x1 / 999 * overlay.width;
+      const y = annotation.y1 / 999 * overlay.height;
+      const width = (annotation.x2 - annotation.x1) / 999 * overlay.width;
+      const height = (annotation.y2 - annotation.y1) / 999 * overlay.height;
+      c.fillRect(x, y, width, height);
+      c.strokeRect(x, y, width, height);
+      badgeX = Math.max(badgeRadius, Math.min(overlay.width - badgeRadius, x + badgeRadius));
+      badgeY = Math.max(badgeRadius, Math.min(overlay.height - badgeRadius, y + badgeRadius));
+    }
+    c.setLineDash([]);
+    c.shadowBlur = 6 / Math.max(.1, displayScale);
+    c.fillStyle = "#1484ff";
+    c.beginPath();
+    c.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = "rgba(255, 255, 255, .9)";
+    c.lineWidth = Math.max(1, 1.5 / Math.max(.1, displayScale));
+    c.stroke();
+    c.shadowBlur = 0;
+    c.fillStyle = "#fff";
+    c.font = `700 ${Math.max(9, 11 / Math.max(.1, displayScale))}px system-ui, sans-serif`;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText(String(index + 1), badgeX, badgeY + .5 / Math.max(.1, displayScale));
+    c.restore();
+  });
+}
+
+function seedreamStudioPointFromEvent(event, shouldClamp = false) {
+  const overlay = document.getElementById("seedreamStudioOverlay");
+  const rect = overlay.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  const point = {
+    x: (event.clientX - rect.left) / rect.width * overlay.width,
+    y: (event.clientY - rect.top) / rect.height * overlay.height
+  };
+  const isInside = point.x >= 0 && point.y >= 0 && point.x <= overlay.width && point.y <= overlay.height;
+  if (!isInside && !shouldClamp) return null;
+  return {
+    x: Math.max(0, Math.min(overlay.width, point.x)),
+    y: Math.max(0, Math.min(overlay.height, point.y))
+  };
+}
+
+function handleSeedreamStudioPointerDown(event) {
+  if (!seedreamEditState.workspaceOpen || seedreamEditState.mode === "whole") return;
+  event.preventDefault();
+  const overlay = event.currentTarget;
+  const point = seedreamStudioPointFromEvent(event);
+  if (!point) return;
+  if (seedreamEditState.mode === "point") {
+    addSeedreamAnnotation(seedreamEditing.normalizePoint(point, overlay.width, overlay.height));
+    drawSeedreamStudioOverlay();
+    syncSeedreamEditControls();
+    return;
+  }
+  seedreamEditState.drawing = true;
+  seedreamEditState.dragStart = point;
+  seedreamEditState.dragCurrent = point;
+  seedreamEditState.draftAnnotation = seedreamEditing.normalizeBoundingBox(point, point, overlay.width, overlay.height);
+  overlay.setPointerCapture(event.pointerId);
+  drawSeedreamStudioOverlay();
+}
+
+function handleSeedreamStudioPointerMove(event) {
+  if (!seedreamEditState.drawing || seedreamEditState.mode !== "bbox") return;
+  event.preventDefault();
+  const overlay = event.currentTarget;
+  const point = seedreamStudioPointFromEvent(event, true);
+  if (!point) return;
+  seedreamEditState.dragCurrent = point;
+  seedreamEditState.draftAnnotation = seedreamEditing.normalizeBoundingBox(
+    seedreamEditState.dragStart,
+    point,
+    overlay.width,
+    overlay.height
+  );
+  drawSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+}
+
+function handleSeedreamStudioPointerUp(event) {
+  if (!seedreamEditState.drawing || seedreamEditState.mode !== "bbox") return;
+  const start = seedreamEditState.dragStart;
+  const overlay = event.currentTarget;
+  const end = seedreamStudioPointFromEvent(event, true) || seedreamEditState.dragCurrent;
+  const draft = start && end
+    ? seedreamEditing.normalizeBoundingBox(start, end, overlay.width, overlay.height)
+    : seedreamEditState.draftAnnotation;
+  seedreamEditState.drawing = false;
+  seedreamEditState.draftAnnotation = null;
+  seedreamEditState.dragStart = null;
+  seedreamEditState.dragCurrent = null;
+  const cssScale = overlay.width / Math.max(1, overlay.getBoundingClientRect().width);
+  if (!start || !end || Math.hypot(end.x - start.x, end.y - start.y) < Math.max(4, 6 * cssScale)) {
+    drawSeedreamStudioOverlay();
+    syncSeedreamEditControls("框选范围过小，未添加定位。", "error");
+    return;
+  }
+  addSeedreamAnnotation(draft);
+  drawSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+}
+
+function handleSeedreamStudioPointerCancel() {
+  if (!seedreamEditState.drawing) return;
+  seedreamEditState.drawing = false;
+  seedreamEditState.draftAnnotation = null;
+  seedreamEditState.dragStart = null;
+  seedreamEditState.dragCurrent = null;
+  drawSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+}
+
+async function openSeedreamEditWorkspace() {
+  const obj = selected();
+  if (!obj || obj.type !== "image" || selectedObjects().length !== 1) {
+    setPromptStatus("请先单独选中一张要编辑的图片。", "error");
+    syncSeedreamEditControls();
+    return;
+  }
+  if (maskEditor.active) stopMaskEdit(true);
+  if (stampEditor.active) stopStampEdit(true);
+  if (cropEditor.active) stopCropEdit(true);
+  const els = promptEls();
+  const activeElement = document.activeElement;
+  seedreamEditState.returnFocusElement = activeElement instanceof HTMLElement && activeElement !== document.body
+    ? activeElement
+    : document.getElementById("openSeedreamEditorBtn");
+  seedreamEditState.workspaceOpen = true;
+  seedreamEditState.mode = "whole";
+  seedreamEditState.objectId = obj.id;
+  seedreamEditState.annotations = [];
+  seedreamEditState.activeAnnotationId = null;
+  seedreamEditState.wholeInstruction = els.imageEditPrompt.value;
+  seedreamEditState.draftAnnotation = null;
+  seedreamEditState.nextAnnotationId = 1;
+  seedreamEditState.drawing = false;
+  seedreamEditState.dragStart = null;
+  seedreamEditState.dragCurrent = null;
+  els.seedreamEditImageName.textContent = `Image 1 · ${obj.name || "图片"}`;
+  els.seedreamEditModalLayer.classList.remove("hidden");
+  document.body.classList.add("seedream-studio-open");
+  const dataUrl = selectedImageEditDataUrl(obj);
+  els.seedreamStudioImage.src = dataUrl;
+  try {
+    await els.seedreamStudioImage.decode();
+  } catch (_) {
+    await new Promise(resolve => {
+      els.seedreamStudioImage.onload = resolve;
+      els.seedreamStudioImage.onerror = resolve;
+    });
+  }
+  resizeSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+  requestAnimationFrame(() => els.imageEditPrompt.focus());
+}
+
+function closeSeedreamEditWorkspace(force = false) {
+  if (aiImageRequestInFlight && !force) return;
+  const returnFocusElement = seedreamEditState.returnFocusElement;
+  const modalLayer = document.getElementById("seedreamEditModalLayer");
+  modalLayer?.classList.add("hidden");
+  document.body.classList.remove("seedream-studio-open");
+  seedreamEditState.workspaceOpen = false;
+  resetSeedreamEditState();
+  seedreamEditState.returnFocusElement = null;
+  drawSeedreamStudioOverlay();
+  syncSeedreamEditControls();
+  if (!force && returnFocusElement?.isConnected) {
+    requestAnimationFrame(() => returnFocusElement.focus());
+  }
+}
+
 function hitTest(point) {
   for (let i = state.objects.length - 1; i >= 0; i--) {
     const obj = state.objects[i];
@@ -3182,11 +3694,30 @@ function promptEls() {
     "generatedPrompt",
     "imageApiKey",
     "rememberImageApiKey",
-    "imageApiBase",
-    "quickRouterKeyHelpBtn",
-    "imageModel",
-    "imageResolution",
+    "seedreamKeyHelpBtn",
+    "imageGenerationMode",
     "imageEditPrompt",
+    "imageEditPromptLabel",
+    "imageEditPromptContext",
+    "openSeedreamEditorBtn",
+    "seedreamEditLauncherStatus",
+    "seedreamEditModalLayer",
+    "seedreamEditWorkspace",
+    "closeSeedreamEditorBtn",
+    "seedreamEditImageName",
+    "seedreamStudioCanvas",
+    "seedreamStudioImage",
+    "seedreamStudioOverlay",
+    "seedreamStudioHint",
+    "seedreamAnnotationStrip",
+    "seedreamEditWholeBtn",
+    "seedreamEditPointBtn",
+    "seedreamEditBoxBtn",
+    "seedreamEditSelectionStatus",
+    "seedreamEditPromptPreview",
+    "seedreamEditAnnotationCount",
+    "undoSeedreamEditSelectionBtn",
+    "clearSeedreamEditSelectionBtn",
     "generateImageBtn",
     "editSelectedImageBtn",
     "generationProgress",
@@ -3230,7 +3761,7 @@ function syncImagePromptMode(mode = currentImagePromptMode()) {
   });
   els.businessPromptModeBtn.classList.toggle("active", !customMode);
   els.customPromptModeBtn.classList.toggle("active", customMode);
-  els.imagePromptModeHint.textContent = customMode ? "直接输入完整 Prompt 生成新图" : "填写业务信息后自动整理 Prompt";
+  els.imagePromptModeHint.textContent = customMode ? "描述完整目标画面；已有图片请使用精准编辑" : "填写业务信息后自动整理 Prompt";
   if (!customMode) updatePromptSpecialFields();
 }
 
@@ -3361,32 +3892,61 @@ function setPromptStatus(message, mode = "") {
   status.classList.toggle("is-error", mode === "error");
 }
 
-function openAIImageSizeForCurrentCanvas() {
-  const ratio = state.width / Math.max(1, state.height);
-  if (ratio > 1.18) return "1536x1024";
-  if (ratio < .82) return "1024x1536";
-  return "1024x1024";
+function seedreamImageSize(width, height) {
+  const minPixels = 512 * 512;
+  const maxPixels = 2048 * 2048;
+  const sourceWidth = Math.max(1, Number(width) || 1024);
+  const sourceHeight = Math.max(1, Number(height) || 1024);
+  const aspectRatio = sourceWidth / sourceHeight;
+  if (aspectRatio < 1 / 16 || aspectRatio > 16) {
+    throw new Error("Seedream 仅支持 1:16 到 16:1 的画面比例，请先调整画布或图片尺寸。");
+  }
+  const sourcePixels = sourceWidth * sourceHeight;
+  const scale = sourcePixels < minPixels
+    ? Math.sqrt(minPixels / sourcePixels)
+    : sourcePixels > maxPixels
+      ? Math.sqrt(maxPixels / sourcePixels)
+      : 1;
+  const quantize = sourcePixels < minPixels ? Math.ceil : sourcePixels > maxPixels ? Math.floor : Math.round;
+  const outputWidth = Math.max(16, quantize(sourceWidth * scale / 8) * 8);
+  const outputHeight = Math.max(16, quantize(sourceHeight * scale / 8) * 8);
+  return `${outputWidth}x${outputHeight}`;
 }
 
-function startGenerationProgress() {
+function seedreamImageSizeForCurrentCanvas() {
+  return seedreamImageSize(state.width, state.height);
+}
+
+function startGenerationProgress(options = {}) {
   const els = promptEls();
   const startedAt = Date.now();
+  window.clearTimeout(window.__generationProgressHideTimer);
+  window.__generationProgressHideTimer = null;
+  imageProgressState.kind = options.kind === "edit" ? "edit" : "generate";
+  imageProgressState.targetCount = Math.max(0, Number(options.targetCount) || 0);
+  const initialCopy = seedreamEditing.imageProgressCopy(imageProgressState.kind, {
+    targetCount: imageProgressState.targetCount
+  });
   els.generationProgress.classList.remove("hidden");
   els.generationProgressFill.style.width = "1%";
+  els.generationElapsed.textContent = "已耗时 0s";
+  els.generationRemaining.textContent = imageProgressState.kind === "edit" ? "编辑处理中" : "接口处理中";
   els.canvasGenerationPlaceholder.classList.remove("hidden", "is-done", "is-error");
-  els.canvasGenerationTitle.textContent = "正在生成图片";
-  els.canvasGenerationText.textContent = "图片模型正在根据 Prompt 生成，完成后会自动加入画布。";
+  els.canvasGenerationTitle.textContent = initialCopy.title;
+  els.canvasGenerationText.textContent = initialCopy.text;
   els.canvasGenerationFill.style.width = "1%";
   const tick = () => {
     const elapsed = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
+    const copy = seedreamEditing.imageProgressCopy(imageProgressState.kind, {
+      targetCount: imageProgressState.targetCount,
+      elapsed
+    });
     els.generationElapsed.textContent = `已耗时 ${elapsed}s`;
-    if (!els.generationRemaining.textContent || els.generationRemaining.textContent === "预计剩余 --") {
-      els.generationRemaining.textContent = "接口处理中";
-    }
     const softProgress = Math.min(92, 8 + Math.floor(elapsed * 3.2));
     els.generationProgressFill.style.width = `${softProgress}%`;
     els.canvasGenerationFill.style.width = `${softProgress}%`;
-    els.canvasGenerationText.textContent = `图片模型正在处理中，已耗时 ${elapsed}s。完成后会自动加入画布。`;
+    els.canvasGenerationTitle.textContent = copy.title;
+    els.canvasGenerationText.textContent = copy.text;
   };
   tick();
   window.clearInterval(window.__generationProgressTimer);
@@ -3404,23 +3964,29 @@ function updateGenerationProgress(message, percent) {
 
 function stopGenerationProgress(done = false) {
   const els = promptEls();
+  const copy = seedreamEditing.imageProgressCopy(imageProgressState.kind, {
+    targetCount: imageProgressState.targetCount
+  });
   window.clearInterval(window.__generationProgressTimer);
   window.__generationProgressTimer = null;
   if (done) {
     els.generationProgressFill.style.width = "100%";
     els.generationRemaining.textContent = "完成";
     els.canvasGenerationPlaceholder.classList.add("is-done");
-    els.canvasGenerationTitle.textContent = "图片生成完成";
-    els.canvasGenerationText.textContent = "正在把生成结果加入画布。";
+    els.canvasGenerationTitle.textContent = copy.doneTitle;
+    els.canvasGenerationText.textContent = copy.doneText;
     els.canvasGenerationFill.style.width = "100%";
-    window.setTimeout(() => {
+    window.__generationProgressHideTimer = window.setTimeout(() => {
       els.generationProgress.classList.add("hidden");
       els.generationProgressFill.style.width = "0%";
       els.canvasGenerationPlaceholder.classList.add("hidden");
       els.canvasGenerationPlaceholder.classList.remove("is-done", "is-error");
       els.canvasGenerationFill.style.width = "0%";
+      window.__generationProgressHideTimer = null;
     }, 900);
   } else {
+    window.clearTimeout(window.__generationProgressHideTimer);
+    window.__generationProgressHideTimer = null;
     els.generationProgress.classList.add("hidden");
     els.generationProgressFill.style.width = "0%";
     els.canvasGenerationPlaceholder.classList.add("hidden");
@@ -3431,21 +3997,26 @@ function stopGenerationProgress(done = false) {
 
 function failGenerationProgress(message) {
   const els = promptEls();
+  const copy = seedreamEditing.imageProgressCopy(imageProgressState.kind, {
+    targetCount: imageProgressState.targetCount
+  });
   window.clearInterval(window.__generationProgressTimer);
   window.__generationProgressTimer = null;
   els.generationProgressFill.style.width = "100%";
   els.generationRemaining.textContent = "失败";
   els.canvasGenerationPlaceholder.classList.remove("hidden", "is-done");
   els.canvasGenerationPlaceholder.classList.add("is-error");
-  els.canvasGenerationTitle.textContent = "生成失败";
+  els.canvasGenerationTitle.textContent = copy.errorTitle;
   els.canvasGenerationText.textContent = message || "请检查 API Key、额度或网络连接后重试。";
   els.canvasGenerationFill.style.width = "100%";
-  window.setTimeout(() => {
+  window.clearTimeout(window.__generationProgressHideTimer);
+  window.__generationProgressHideTimer = window.setTimeout(() => {
     els.generationProgress.classList.add("hidden");
     els.generationProgressFill.style.width = "0%";
     els.canvasGenerationPlaceholder.classList.add("hidden");
     els.canvasGenerationPlaceholder.classList.remove("is-error");
     els.canvasGenerationFill.style.width = "0%";
+    window.__generationProgressHideTimer = null;
   }, 2600);
 }
 
@@ -3746,15 +4317,16 @@ function extractImageSourceFromContent(content) {
   }
 }
 
-function extractOpenAIImageSource(payload) {
+function extractSeedreamImageSource(payload) {
   const first = Array.isArray(payload?.data) ? payload.data[0] : null;
-  if (first?.b64_json) return `data:image/png;base64,${first.b64_json}`;
+  if (first?.error?.message) throw new Error(first.error.message);
+  if (first?.b64_json) {
+    return first.b64_json.startsWith("data:image/")
+      ? first.b64_json
+      : `data:image/${first.output_format || "png"};base64,${first.b64_json}`;
+  }
   if (first?.url) return first.url;
-  throw new Error("图片接口没有返回图片数据。");
-}
-
-function imageApiBaseFromInput(els = promptEls()) {
-  return (els.imageApiBase?.value || DEFAULT_IMAGE_API_BASE).trim().replace(/\/$/, "");
+  throw new Error("Seedream 没有返回图片数据。");
 }
 
 function generationPromptFromCurrentMode() {
@@ -3785,7 +4357,7 @@ function setAiImageRequestBusy(busy) {
   aiImageRequestInFlight = busy;
   const els = promptEls();
   els.generateImageBtn.disabled = busy;
-  els.editSelectedImageBtn.disabled = busy;
+  syncSeedreamEditControls();
 }
 
 function beginAiImageRequest(message = "图片模型正在处理上一条请求，请稍候。") {
@@ -3797,39 +4369,40 @@ function beginAiImageRequest(message = "图片模型正在处理上一条请求�
   return true;
 }
 
-async function requestOpenAIImage(apiKey, body) {
+async function requestSeedreamImage(apiKey, body) {
   const desktop = window.youdesignDesktop;
-  const apiBase = imageApiBaseFromInput();
-  if (desktop?.generateOpenAIImage) {
-    updateGenerationProgress("图片模型正在生成图片", 18);
-    return desktop.generateOpenAIImage({ apiKey, apiBase, ...body });
+  if (desktop?.generateSeedreamImage) {
+    updateGenerationProgress(body.image ? "Seedream 正在编辑图片" : "Seedream 正在生成图片", 18);
+    return desktop.generateSeedreamImage({ apiKey, ...body });
   }
-  const payload = await requestJson(`${apiBase}/images/generations`, {
+  const payload = await requestJson("/api/seedream", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
       "Accept": "application/json",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "X-Seedream-Api-Key": apiKey
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify({
+      prompt: body.prompt,
+      size: body.size,
+      ...(body.image ? { image: body.image } : {}),
+      optimizeMode: body.optimizeMode || "standard"
+    })
   });
-  return extractOpenAIImageSource(payload);
-}
-
-function dataUrlBase64(dataUrl) {
-  return String(dataUrl || "").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
-}
-
-function base64ImageBlob(base64, type = "image/png") {
-  const binary = atob(String(base64 || "").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, ""));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type });
+  return extractSeedreamImageSource(payload);
 }
 
 function selectedImageEditDataUrl(obj) {
-  const width = Math.max(1, Math.round(obj.width));
-  const height = Math.max(1, Math.round(obj.height));
+  const sourceWidth = Math.max(1, Number(obj.width) || 1);
+  const sourceHeight = Math.max(1, Number(obj.height) || 1);
+  const aspectRatio = sourceWidth / sourceHeight;
+  if (sourceWidth <= 14 || sourceHeight <= 14 || aspectRatio < 1 / 16 || aspectRatio > 16) {
+    throw new Error("选中图片不符合 Seedream 输入要求：宽高需大于 14px，比例需在 1:16 到 16:1 之间。");
+  }
+  const maxInputPixels = 6000 * 6000;
+  const scale = Math.min(1, Math.sqrt(maxInputPixels / (sourceWidth * sourceHeight)));
+  const width = Math.max(15, Math.round(sourceWidth * scale));
+  const height = Math.max(15, Math.round(sourceHeight * scale));
   const out = document.createElement("canvas");
   out.width = width;
   out.height = height;
@@ -3837,32 +4410,6 @@ function selectedImageEditDataUrl(obj) {
   octx.clearRect(0, 0, width, height);
   drawImage(octx, obj);
   return out.toDataURL("image/png");
-}
-
-async function requestOpenAIImageEdit(apiKey, body) {
-  const desktop = window.youdesignDesktop;
-  const apiBase = imageApiBaseFromInput();
-  if (desktop?.editOpenAIImage) {
-    updateGenerationProgress("图片模型正在编辑图片", 18);
-    return desktop.editOpenAIImage({ apiKey, apiBase, ...body });
-  }
-  const form = new FormData();
-  form.append("model", body.model);
-  form.append("image", base64ImageBlob(body.image), "image.png");
-  form.append("prompt", body.prompt);
-  form.append("n", String(body.n || 1));
-  if (body.size) form.append("size", body.size);
-  if (body.quality) form.append("quality", body.quality);
-  if (body.format) form.append("format", body.format);
-  const payload = await requestJson(`${apiBase}/images/edits`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Accept": "application/json"
-    },
-    body: form
-  });
-  return extractOpenAIImageSource(payload);
 }
 
 async function replaceSelectedImageWithSource(obj, src) {
@@ -3881,6 +4428,7 @@ async function replaceSelectedImageWithSource(obj, src) {
   obj.cloneCanvas = undefined;
   obj.maskedRenderCache = null;
   obj.rmbgEdited = false;
+  closeSeedreamEditWorkspace(true);
   renderAll();
   syncUi();
   persist();
@@ -3892,24 +4440,20 @@ async function generateImageFromPrompt() {
   try {
     const apiKey = els.imageApiKey.value.trim();
     if (!apiKey) {
-      setPromptStatus("请先填写自己的 QuickRouter API Key。", "error");
+      setPromptStatus("请先填写自己的火山方舟 API Key。", "error");
       els.imageApiKey.focus();
       return;
     }
     persistImageApiKeyPreference(apiKey, els);
-    localStorage.setItem(IMAGE_API_BASE_STORAGE, imageApiBaseFromInput(els));
     const prompt = generationPromptFromCurrentMode();
     if (!prompt) return;
-    const model = els.imageModel.value.trim() || "gpt-image-2";
-    const quality = els.imageResolution.value || "medium";
+    const optimizeMode = els.imageGenerationMode.value || "standard";
     startGenerationProgress();
-    setPromptStatus("正在调用图片生成接口...", "loading");
-    const imageSrc = await requestOpenAIImage(apiKey, {
-      model,
+    setPromptStatus("正在调用 Seedream 5.0 Pro...", "loading");
+    const imageSrc = await requestSeedreamImage(apiKey, {
       prompt,
-      n: 1,
-      size: openAIImageSizeForCurrentCanvas(),
-      quality
+      size: seedreamImageSizeForCurrentCanvas(),
+      optimizeMode
     });
     setPromptStatus("图片已生成，正在加入画布...", "loading");
     await addGeneratedImageToCanvas(imageSrc);
@@ -3928,49 +4472,73 @@ async function generateImageFromPrompt() {
 async function editSelectedImageFromPrompt() {
   if (!beginAiImageRequest("图片正在编辑中，请稍候。")) return;
   const els = promptEls();
+  let progressStarted = false;
   try {
     const obj = selected();
     if (!obj || obj.type !== "image") {
-      setPromptStatus("请先选中一张要二次编辑的图片。", "error");
+      setPromptStatus("请先选中一张要精准编辑的图片。", "error");
       return;
     }
     const apiKey = els.imageApiKey.value.trim();
     if (!apiKey) {
-      setPromptStatus("请先填写自己的 QuickRouter API Key。", "error");
-      els.imageApiKey.focus();
+      setPromptStatus("请先填写自己的火山方舟 API Key。", "error");
+      syncSeedreamEditControls("缺少火山方舟 API Key。请关闭工作台，在 AI 账号区域填写后重新打开。", "error");
       return;
     }
-    const prompt = els.imageEditPrompt.value.trim();
-    if (!prompt) {
-      setPromptStatus("请输入二次编辑要求。", "error");
+    if (seedreamEditState.mode !== "whole" && seedreamEditState.objectId !== obj.id) {
+      setPromptStatus("当前定位不属于选中的图片，请重新点选或框选。", "error");
+      return;
+    }
+    if (seedreamEditState.mode !== "whole" && !seedreamEditState.annotations.length) {
+      setPromptStatus("请先在图片上完成点选或框选定位。", "error");
+      return;
+    }
+    if (seedreamEditState.mode === "whole" && !seedreamEditState.wholeInstruction.trim()) {
+      setPromptStatus("请输入整图编辑指令。", "error");
       els.imageEditPrompt.focus();
       return;
     }
-    persistImageApiKeyPreference(apiKey, els);
-    localStorage.setItem(IMAGE_API_BASE_STORAGE, imageApiBaseFromInput(els));
-    const model = els.imageModel.value.trim() || "gpt-image-2";
-    const quality = els.imageResolution.value || "medium";
-    startGenerationProgress();
-    setPromptStatus("正在编辑选中图片...", "loading");
+    const incompleteAnnotation = seedreamEditState.annotations.find(annotation => !annotation.instruction.trim());
+    if (seedreamEditState.mode !== "whole" && incompleteAnnotation) {
+      selectSeedreamAnnotation(incompleteAnnotation.id, true);
+      const index = seedreamAnnotationIndex(incompleteAnnotation.id) + 1;
+      setPromptStatus(`请填写定位 ${index} 的独立编辑指令。`, "error");
+      syncSeedreamEditControls(`定位 ${index} 尚未填写编辑指令。`, "error");
+      return;
+    }
+    const prompt = seedreamEditPrompt();
+    if (!prompt) {
+      setPromptStatus("编辑指令不完整，请检查所有定位。", "error");
+      return;
+    }
+    const targetCount = seedreamEditState.annotations.length;
     const imageDataUrl = selectedImageEditDataUrl(obj);
-    const imageSrc = await requestOpenAIImageEdit(apiKey, {
-      model,
-      image: dataUrlBase64(imageDataUrl),
+    const outputSize = seedreamImageSize(obj.width, obj.height);
+    const loadingMessage = targetCount
+      ? `Seedream 正在按 ${targetCount} 个标注坐标精准编辑图片...`
+      : "Seedream 正在编辑整张图片...";
+    persistImageApiKeyPreference(apiKey, els);
+    const optimizeMode = els.imageGenerationMode.value || "standard";
+    closeSeedreamEditWorkspace(true);
+    startGenerationProgress({ kind: "edit", targetCount });
+    progressStarted = true;
+    setPromptStatus(loadingMessage, "loading");
+    const imageSrc = await requestSeedreamImage(apiKey, {
+      image: imageDataUrl,
       prompt,
-      n: 1,
-      size: openAIImageSizeForCurrentCanvas(),
-      quality,
-      format: "png"
+      size: outputSize,
+      optimizeMode
     });
     setPromptStatus("图片已编辑，正在替换当前图层...", "loading");
     await replaceSelectedImageWithSource(obj, imageSrc);
     stopGenerationProgress(true);
-    setPromptStatus("已完成二次编辑。可以继续输入要求再次编辑当前图片。");
+    setPromptStatus("已完成精准编辑。可重新打开工作台继续修改当前图片。");
   } catch (error) {
     const message = error?.message || String(error || "") || "请检查 API Key、额度或网络连接。";
     console.error("Image edit failed", error);
-    failGenerationProgress(message);
+    if (progressStarted) failGenerationProgress(message);
     setPromptStatus(`编辑失败：${message}`, "error");
+    if (!progressStarted) syncSeedreamEditControls(`编辑失败：${message}`, "error");
   } finally {
     setAiImageRequestBusy(false);
   }
@@ -4645,7 +5213,6 @@ function setupPromptGenerator() {
   if (!section) return;
   const savedKey = localStorage.getItem(IMAGE_API_KEY_STORAGE);
   const rememberKey = localStorage.getItem(IMAGE_API_KEY_REMEMBER_STORAGE) === "1";
-  const savedApiBase = localStorage.getItem(IMAGE_API_BASE_STORAGE);
   const savedCustomPrompt = localStorage.getItem(CUSTOM_IMAGE_PROMPT_STORAGE);
   const imageApiKeyInput = document.getElementById("imageApiKey");
   const rememberImageApiKey = document.getElementById("rememberImageApiKey");
@@ -4655,14 +5222,13 @@ function setupPromptGenerator() {
   } else {
     localStorage.removeItem(IMAGE_API_KEY_STORAGE);
   }
-  if (savedApiBase) document.getElementById("imageApiBase").value = savedApiBase;
   if (savedCustomPrompt) document.getElementById("customImagePrompt").value = savedCustomPrompt;
   section.addEventListener("input", event => {
-    if (["imageApiKey", "imageApiBase", "imageModel", "imageEditPrompt", "customImagePrompt"].includes(event.target.id)) return;
+    if (["imageApiKey", "imageModel", "imageEditPrompt", "customImagePrompt"].includes(event.target.id)) return;
     generateTourismPrompt();
   });
   section.addEventListener("change", event => {
-    if (["imageApiKey", "imageApiBase", "imageModel", "imageEditPrompt", "customImagePrompt"].includes(event.target.id)) return;
+    if (["imageApiKey", "imageModel", "imageGenerationMode", "imageEditPrompt", "customImagePrompt"].includes(event.target.id)) return;
     generateTourismPrompt();
   });
   wire("imageApiKey", "input", e => {
@@ -4672,13 +5238,19 @@ function setupPromptGenerator() {
     persistImageApiKeyPreference(document.getElementById("imageApiKey").value, promptEls());
     setPromptStatus(e.target.checked ? "已开启本机保存 API Key。" : "已关闭本机保存 API Key，并清除已保存 Key。");
   });
-  wire("imageApiBase", "input", e => {
-    localStorage.setItem(IMAGE_API_BASE_STORAGE, e.target.value.trim());
-  });
   wire("customImagePrompt", "input", e => {
     localStorage.setItem(CUSTOM_IMAGE_PROMPT_STORAGE, e.target.value);
   });
-  wire("quickRouterKeyHelpBtn", "click", () => openExternalLink(QUICKROUTER_REGISTER_URL));
+  wire("imageEditPrompt", "input", event => {
+    if (seedreamEditState.mode === "whole") {
+      seedreamEditState.wholeInstruction = event.target.value;
+    } else {
+      const annotation = activeSeedreamAnnotation();
+      if (annotation) annotation.instruction = event.target.value;
+    }
+    syncSeedreamEditControls();
+  });
+  wire("seedreamKeyHelpBtn", "click", () => openExternalLink(SEEDREAM_API_KEY_URL));
   wire("businessPromptModeBtn", "click", () => setImagePromptMode("business"));
   wire("customPromptModeBtn", "click", () => setImagePromptMode("custom"));
   wire("genUseCase", "change", () => {
@@ -4690,10 +5262,47 @@ function setupPromptGenerator() {
   });
   wire("generateImageBtn", "click", generateImageFromPrompt);
   wire("editSelectedImageBtn", "click", editSelectedImageFromPrompt);
+  wire("openSeedreamEditorBtn", "click", openSeedreamEditWorkspace);
+  wire("closeSeedreamEditorBtn", "click", () => closeSeedreamEditWorkspace());
+  wire("seedreamEditModalLayer", "pointerdown", event => {
+    if (event.target === event.currentTarget) closeSeedreamEditWorkspace();
+  });
+  wire("seedreamEditWholeBtn", "click", () => setSeedreamEditMode("whole"));
+  wire("seedreamEditPointBtn", "click", () => setSeedreamEditMode("point"));
+  wire("seedreamEditBoxBtn", "click", () => setSeedreamEditMode("bbox"));
+  wire("undoSeedreamEditSelectionBtn", "click", undoSeedreamAnnotation);
+  wire("clearSeedreamEditSelectionBtn", "click", clearSeedreamAnnotations);
+  wire("seedreamAnnotationStrip", "click", event => {
+    const removeButton = event.target.closest("[data-remove-annotation-id]");
+    if (removeButton) {
+      removeSeedreamAnnotation(removeButton.dataset.removeAnnotationId);
+      return;
+    }
+    const annotationButton = event.target.closest("[data-select-annotation-id]");
+    if (annotationButton) selectSeedreamAnnotation(annotationButton.dataset.selectAnnotationId, true);
+  });
+  wire("seedreamAnnotationStrip", "keydown", event => {
+    if (!["Enter", " "].includes(event.key)) return;
+    const annotationButton = event.target.closest("[data-select-annotation-id]");
+    if (!annotationButton || event.target.closest("[data-remove-annotation-id]")) return;
+    event.preventDefault();
+    selectSeedreamAnnotation(annotationButton.dataset.selectAnnotationId, true);
+  });
+  const studioOverlay = document.getElementById("seedreamStudioOverlay");
+  studioOverlay.addEventListener("pointerdown", handleSeedreamStudioPointerDown);
+  studioOverlay.addEventListener("pointermove", handleSeedreamStudioPointerMove);
+  studioOverlay.addEventListener("pointerup", handleSeedreamStudioPointerUp);
+  studioOverlay.addEventListener("pointercancel", handleSeedreamStudioPointerCancel);
+  document.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || !seedreamEditState.workspaceOpen) return;
+    event.preventDefault();
+    closeSeedreamEditWorkspace();
+  });
   updatePromptSpecialFields();
   syncPromptAspectToCanvas();
   generateTourismPrompt();
   syncImagePromptMode();
+  syncSeedreamEditControls();
 }
 
 function setupUnsplashLibrary() {
@@ -4941,18 +5550,25 @@ function setupCustomColorPickers() {
   if (!colorInputs.length) return;
   const popover = document.createElement("div");
   popover.className = "custom-color-popover hidden";
+  popover.setAttribute("role", "dialog");
+  popover.setAttribute("aria-label", "颜色选择器");
   popover.innerHTML = `
+    <div class="custom-color-head">
+      <div><span>颜色</span><strong id="customColorTitle">填充色</strong></div>
+      <code id="customColorHex">#FFFFFF</code>
+    </div>
     <div class="custom-color-plane" id="customColorPlane"><span class="custom-color-cursor" id="customColorCursor"></span></div>
     <div class="custom-color-controls">
       <button class="custom-eyedropper-btn" id="customColorEyedropper" type="button" title="吸取画板颜色">${icon("eyedropper")}</button>
       <span class="custom-color-preview" id="customColorPreview"></span>
-      <input class="custom-hue-range" id="customHueRange" type="range" min="0" max="360" step="1" value="0" aria-label="色相">
+      <label class="custom-hue-control"><span>色相</span><input class="custom-hue-range" id="customHueRange" type="range" min="0" max="360" step="1" value="0" aria-label="色相"></label>
     </div>
     <div class="custom-rgb-row">
       <label><input id="customColorR" type="number" min="0" max="255" step="1"><span>R</span></label>
       <label><input id="customColorG" type="number" min="0" max="255" step="1"><span>G</span></label>
       <label><input id="customColorB" type="number" min="0" max="255" step="1"><span>B</span></label>
     </div>
+    <div class="custom-color-footer"><span>拖动色域精确取色</span><span><kbd>Esc</kbd> 关闭</span></div>
   `;
   document.body.appendChild(popover);
   const loupe = document.createElement("div");
@@ -4966,6 +5582,8 @@ function setupCustomColorPickers() {
   const plane = popover.querySelector("#customColorPlane");
   const cursor = popover.querySelector("#customColorCursor");
   const preview = popover.querySelector("#customColorPreview");
+  const title = popover.querySelector("#customColorTitle");
+  const hexReadout = popover.querySelector("#customColorHex");
   const hueRange = popover.querySelector("#customHueRange");
   const eyedropper = popover.querySelector("#customColorEyedropper");
   const loupeCanvas = loupe.querySelector("canvas");
@@ -5005,6 +5623,7 @@ function setupCustomColorPickers() {
     rgbInputs.r.value = r;
     rgbInputs.g.value = g;
     rgbInputs.b.value = b;
+    hexReadout.textContent = normalized.toUpperCase();
     syncCustomColorButton(activeInput, normalized);
   }
 
@@ -5013,13 +5632,29 @@ function setupCustomColorPickers() {
     activeButton = button;
     hsv = hexToHsv(input.value || "#ffffff");
     const rect = button.getBoundingClientRect();
+    const colorNames = {
+      backgroundColor: "画布背景",
+      fillColor: "填充颜色",
+      gradientEndColor: "渐变终点",
+      strokeColor: "描边颜色",
+      shadowColor: "阴影颜色"
+    };
+    title.textContent = colorNames[input.id] || "当前颜色";
     popover.classList.remove("hidden");
-    popover.style.left = `${Math.min(window.innerWidth - 280, Math.max(8, rect.left))}px`;
-    popover.style.top = `${Math.min(window.innerHeight - 252, rect.bottom + 8)}px`;
+    const popoverRect = popover.getBoundingClientRect();
+    const left = Math.min(window.innerWidth - popoverRect.width - 8, Math.max(8, rect.left));
+    const below = rect.bottom + 8;
+    const top = below + popoverRect.height <= window.innerHeight - 8
+      ? below
+      : Math.max(8, rect.top - popoverRect.height - 8);
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+    button.setAttribute("aria-expanded", "true");
     syncPopover(input.value);
   }
 
   function closePicker() {
+    if (activeButton) activeButton.setAttribute("aria-expanded", "false");
     popover.classList.add("hidden");
     activeInput = null;
     activeButton = null;
@@ -5131,6 +5766,8 @@ function setupCustomColorPickers() {
     button.type = "button";
     button.title = "打开色板";
     button.setAttribute("aria-label", "打开色板");
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute("aria-expanded", "false");
     button.style.setProperty("--field-color", normalizeHexColor(input.value) || "#ffffff");
     input.parentNode.insertBefore(button, input);
     syncCustomColorButton(input);
@@ -5887,6 +6524,29 @@ wire("zoomSelect", "change", () => {
   renderAll();
 });
 
+function stepCanvasZoom(factor) {
+  const before = canvas.getBoundingClientRect();
+  const focusX = .5;
+  const focusY = .5;
+  const zoomSelect = document.getElementById("zoomSelect");
+  zoomSelect.value = "custom";
+  setCanvasScale((state.zoomScale || 1) * factor);
+  const after = canvas.getBoundingClientRect();
+  stage.scrollLeft += (after.width - before.width) * focusX;
+  stage.scrollTop += (after.height - before.height) * focusY;
+  renderAll();
+  persist();
+}
+
+wire("zoomOutBtn", "click", () => stepCanvasZoom(1 / 1.16));
+wire("zoomInBtn", "click", () => stepCanvasZoom(1.16));
+wire("zoomFitBtn", "click", () => {
+  document.getElementById("zoomSelect").value = "fit";
+  applyZoom();
+  renderAll();
+  persist();
+});
+
 stage.addEventListener("wheel", e => {
   if (!e.altKey) return;
   e.preventDefault();
@@ -5907,6 +6567,7 @@ stage.addEventListener("wheel", e => {
 
 window.addEventListener("resize", () => {
   if (inlineEditing) finishInlineTextEdit(true);
+  if (seedreamEditState.workspaceOpen) resizeSeedreamStudioOverlay();
   applyZoom();
   renderAll();
 });
@@ -7051,6 +7712,7 @@ function syncUi(updateValues = true) {
   syncBackgroundColorUi();
   document.getElementById("groupLayersBtn").disabled = objects.length < 2;
   document.getElementById("ungroupLayersBtn").disabled = !objects.some(item => item.type === "group");
+  syncSeedreamEditControls();
   if (!objects.length || !updateValues) return;
   const isText = obj.type === "text";
   const isShape = obj.type === "shape";
@@ -7334,11 +7996,8 @@ function setupTauriDesktopBridge() {
     listLocalFonts() {
       return invoke("list_local_fonts");
     },
-    generateOpenAIImage(options) {
-      return invoke("openai_generate_image", { request: options });
-    },
-    editOpenAIImage(options) {
-      return invoke("openai_edit_image", { request: options });
+    generateSeedreamImage(options) {
+      return invoke("seedream_generate_image", { request: options });
     },
     downloadRemoteAsset(url) {
       return invoke("download_remote_asset", { request: { url } });

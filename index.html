@@ -13,30 +13,38 @@
         <img class="brand-icon" src="build/icon.png" alt="" aria-hidden="true">
         <span class="brand-copy">
           <strong>YOUDESIGN</strong>
-          <span id="currentSizeLabel">1080 × 1440</span>
+          <span class="document-name">未命名设计</span>
+          <span class="document-size" id="currentSizeLabel">1080 × 1440</span>
         </span>
       </div>
       <div class="toolbar">
-        <button class="icon-btn" id="undoBtn" title="撤销">↶</button>
-        <button class="icon-btn" id="redoBtn" title="重做">↷</button>
-        <button class="icon-btn" id="selectAllBtn" title="全选图层">□</button>
-        <select id="zoomSelect" class="field" title="缩放">
-          <option value="fit">适配</option>
-          <option value="custom" hidden>100%</option>
-          <option value="0.25">25%</option>
-          <option value="0.5">50%</option>
-          <option value="0.75">75%</option>
-          <option value="1">100%</option>
-        </select>
-        <select id="exportScale" class="field" title="导出倍率">
-          <option value="1">1x</option>
-          <option value="2" selected>2x</option>
-        </select>
-        <button class="btn" id="checkUpdateBtn" type="button">检查更新</button>
-        <button class="btn primary hidden" id="installUpdateBtn" type="button">重启安装</button>
-        <span class="update-pill hidden" id="updateStatus">已是最新</span>
-        <button class="btn" id="importProjectBtn" type="button">导入</button>
-        <button class="btn primary" id="exportBtn">导出</button>
+        <div class="toolbar-cluster history-cluster" aria-label="历史与选择">
+          <button class="icon-btn" id="undoBtn" title="撤销 · ⌘Z" aria-label="撤销">↶</button>
+          <button class="icon-btn" id="redoBtn" title="重做 · ⇧⌘Z" aria-label="重做">↷</button>
+          <button class="icon-btn" id="selectAllBtn" title="全选图层 · ⌘A" aria-label="全选图层">□</button>
+        </div>
+        <div class="toolbar-cluster view-cluster" aria-label="视图与导出倍率">
+          <select id="zoomSelect" class="field" title="画布缩放">
+            <option value="fit">适配画布</option>
+            <option value="custom" hidden>100%</option>
+            <option value="0.25">25%</option>
+            <option value="0.5">50%</option>
+            <option value="0.75">75%</option>
+            <option value="1">100%</option>
+          </select>
+          <select id="exportScale" class="field export-scale-field" title="导出倍率">
+            <option value="1">1×</option>
+            <option value="2" selected>2×</option>
+          </select>
+        </div>
+        <div class="toolbar-cluster file-cluster" aria-label="文件操作">
+          <button class="btn update-btn" id="checkUpdateBtn" type="button">检查更新</button>
+          <button class="btn primary hidden" id="installUpdateBtn" type="button">重启安装</button>
+          <span class="update-pill hidden" id="updateStatus">已是最新</span>
+          <span class="save-state" title="项目更改会自动保存到本机"><span class="save-state-dot" aria-hidden="true"></span>已自动保存</span>
+          <button class="btn" id="importProjectBtn" type="button">导入</button>
+          <button class="btn primary" id="exportBtn">导出</button>
+        </div>
         <input class="file-input" id="projectInput" type="file">
       </div>
     </header>
@@ -77,28 +85,27 @@
         </section>
 
         <section class="section" id="promptSection">
-          <h2>AI生图 <small>生成 / 二次编辑</small></h2>
+          <h2>AI创作 <small>生成 / 精准编辑</small></h2>
           <div class="prompt-generator" aria-label="AI 生图工具">
             <div class="ai-block ai-account-block" id="aiAccountBlock">
               <div class="ai-block-head">
                 <strong>账号</strong>
                 <div class="api-key-help">
-                  <button class="mini-btn" id="quickRouterKeyHelpBtn" type="button" aria-describedby="quickRouterKeyGuide">申请 API Key</button>
-                  <div class="api-key-guide-popover" id="quickRouterKeyGuide" role="tooltip">
-                    <strong>QuickRouter 注册步骤</strong>
+                  <button class="mini-btn" id="seedreamKeyHelpBtn" type="button" aria-describedby="seedreamKeyGuide">申请 API Key</button>
+                  <div class="api-key-guide-popover" id="seedreamKeyGuide" role="tooltip">
+                    <strong>火山方舟接入步骤</strong>
                     <ol>
-                      <li>点击按钮打开 QuickRouter 注册页，完成登录。</li>
-                      <li>进入控制台，找到 API 令牌或 API Keys。</li>
-                      <li>新建令牌时，添加 API 令牌信息建议选择“成功率优先”。</li>
-                      <li>复制生成的 API Key，粘贴到下方输入框。</li>
+                      <li>点击按钮登录火山方舟控制台。</li>
+                      <li>在开通管理中启用 Seedream 5.0 Pro。</li>
+                      <li>进入 API Key 管理并创建一个 Key。</li>
+                      <li>复制 API Key，粘贴到下方输入框。</li>
                     </ol>
                   </div>
                 </div>
               </div>
               <div class="compact-field full">
-                <label for="imageApiKey">QuickRouter API Key</label>
-                <input id="imageApiKey" type="password" autocomplete="off" placeholder="填入自己的 QuickRouter API Key">
-                <input id="imageApiBase" type="hidden" value="https://api.quickrouter.ai/v1">
+                <label for="imageApiKey">火山方舟 API Key</label>
+                <input id="imageApiKey" type="password" autocomplete="off" placeholder="填入自己的火山方舟 API Key">
               </div>
               <label class="compact-check">
                 <input id="rememberImageApiKey" type="checkbox">
@@ -113,7 +120,7 @@
               </div>
               <div class="prompt-mode-row" role="group" aria-label="Prompt 模式">
                 <button class="mini-btn active" id="businessPromptModeBtn" type="button" data-prompt-mode="business">业务 Prompt</button>
-                <button class="mini-btn" id="customPromptModeBtn" type="button" data-prompt-mode="custom">自定义 Prompt</button>
+                <button class="mini-btn" id="customPromptModeBtn" type="button" data-prompt-mode="custom">自由创作</button>
               </div>
               <div class="field-grid">
                 <div class="compact-field business-prompt-field">
@@ -217,19 +224,18 @@
                   <textarea id="genExtra" placeholder="预留顶部标题区和底部报名信息区，不要过度复杂"></textarea>
                 </div>
                 <div class="compact-field full custom-prompt-field hidden">
-                  <label for="customImagePrompt">自定义 Prompt</label>
-                  <textarea id="customImagePrompt" placeholder="直接输入完整生图 Prompt，例如：生成一张适合小红书封面的雪山徒步海报，画面干净，高级品牌广告质感，预留标题区"></textarea>
+                  <label for="customImagePrompt">完整画面描述</label>
+                  <textarea id="customImagePrompt" placeholder="描述最终完整画面：图片用途、主体、环境、构图、光线、材质、准确文字和必要限制。此处只生成新图；修改已有图片请使用下方精准编辑。"></textarea>
                 </div>
                 <div class="compact-field">
                   <label for="imageModel">生图模型</label>
-                  <input id="imageModel" type="text" value="gpt-image-2">
+                  <input id="imageModel" type="text" value="Seedream 5.0 Pro" readonly>
                 </div>
                 <div class="compact-field">
-                  <label for="imageResolution">生成质量</label>
-                  <select id="imageResolution">
-                    <option value="low">快速</option>
-                    <option value="medium" selected>标准</option>
-                    <option value="high">高清</option>
+                  <label for="imageGenerationMode">生成模式</label>
+                  <select id="imageGenerationMode">
+                    <option value="standard" selected>标准 · 质量优先</option>
+                    <option value="fast">快速 · 速度优先</option>
                   </select>
                 </div>
                 <div class="compact-field output full business-prompt-field">
@@ -245,16 +251,12 @@
 
             <div class="ai-block ai-edit-block" id="aiEditBlock">
               <div class="ai-block-head">
-                <strong>二次编辑</strong>
-                <span>选中画布图片后继续修改</span>
+                <strong>Seedream 精准编辑</strong>
+                <span>在大画布上点选或框选</span>
               </div>
-              <div class="compact-field full">
-                <label for="imageEditPrompt">编辑要求</label>
-                <textarea id="imageEditPrompt" placeholder="例如：把背景改成雪山，保持人物不变"></textarea>
-              </div>
-              <div class="prompt-actions ai-actions">
-                <button class="mini-btn" id="editSelectedImageBtn" type="button">编辑选中图片</button>
-              </div>
+              <p class="seedream-edit-guide">选中一张图片后，进入独立工作台进行整图编辑、点选定位或框选局部区域。</p>
+              <button class="btn seedream-edit-launcher" id="openSeedreamEditorBtn" type="button">打开精准编辑工作台</button>
+              <p class="seedream-edit-launcher-status" id="seedreamEditLauncherStatus">请先在画布中选中一张图片。</p>
             </div>
             <div class="generation-progress hidden" id="generationProgress" aria-live="polite">
               <div class="generation-progress-bar"><div class="generation-progress-fill" id="generationProgressFill"></div></div>
@@ -363,8 +365,8 @@
 
       <section class="stage-wrap">
         <div class="stage-info">
-          <span id="docInfo">小红书 · 图文竖版封面 · 1080 × 1440</span>
-          <span>拖拽移动，右下角缩放，Shift 临时切换等比例</span>
+          <span class="document-context"><span class="context-label">画布</span><span id="docInfo">小红书 · 图文竖版封面 · 1080 × 1440</span></span>
+          <span class="stage-hints"><span><kbd>Space</kbd> 平移</span><span><kbd>Alt</kbd> + 滚轮缩放</span><span><kbd>Shift</kbd> 等比例</span></span>
         </div>
         <div class="stage" id="stage">
           <div class="canvas-shell">
@@ -382,9 +384,10 @@
             <div class="selection-overlay" id="selectionOverlay"></div>
             <textarea class="inline-text-editor" id="inlineTextEditor" aria-label="直接编辑文字"></textarea>
           </div>
-          <div class="zoom-hud" title="按住 Alt 并滚动鼠标滚轮缩放画布">
-            <strong id="zoomPercent">100%</strong>
-            <span>Alt + 滚轮</span>
+          <div class="zoom-hud" aria-label="画布缩放控制">
+            <button class="zoom-control" id="zoomOutBtn" type="button" title="缩小">−</button>
+            <button class="zoom-value" id="zoomFitBtn" type="button" title="适配画布"><strong id="zoomPercent">100%</strong></button>
+            <button class="zoom-control" id="zoomInBtn" type="button" title="放大">+</button>
           </div>
         </div>
       </section>
@@ -395,7 +398,12 @@
           <span class="inspector-subtitle" id="selectionLabel">未选中</span>
         </div>
         <div class="inspector-body">
-          <div id="emptyPanel" class="empty">选择画布上的文字、图片或图形后，在这里调整样式。</div>
+          <div id="emptyPanel" class="empty inspector-empty-state">
+            <span class="empty-state-icon" aria-hidden="true"><span></span></span>
+            <strong>选择一个图层</strong>
+            <span>在画布或图层列表中选择对象，这里会显示位置、样式与效果。</span>
+            <small><kbd>⌘</kbd> 多选 · <kbd>Esc</kbd> 取消选择</small>
+          </div>
           <div id="propsPanel" class="hidden">
             <div class="inspector-group">
               <div class="inspector-group-title"><span>位置</span></div>
@@ -678,7 +686,7 @@
                     <input id="backgroundHex" type="text" inputmode="text" maxlength="7" value="#FFFFFF" spellcheck="false" aria-label="背景色 HEX">
                   </div>
                 </div>
-                <div class="palette-label">Palette</div>
+                <div class="palette-label">品牌色与常用色</div>
                 <div class="swatches" id="swatches"></div>
               </div>
             </div>
@@ -734,6 +742,73 @@
     </div>
   </div>
 
+  <div class="seedream-edit-modal-layer hidden" id="seedreamEditModalLayer">
+    <section class="seedream-edit-workspace" id="seedreamEditWorkspace" role="dialog" aria-modal="true" aria-labelledby="seedreamEditWorkspaceTitle">
+      <header class="seedream-studio-header">
+      <div class="seedream-studio-title">
+        <span class="seedream-studio-mark" aria-hidden="true">S</span>
+        <span>
+          <strong id="seedreamEditWorkspaceTitle">Seedream 精准编辑</strong>
+          <small id="seedreamEditImageName">Image 1</small>
+        </span>
+      </div>
+      <div class="seedream-studio-modes prompt-mode-row" role="group" aria-label="图片编辑范围">
+        <button class="mini-btn active" id="seedreamEditWholeBtn" type="button">整图</button>
+        <button class="mini-btn" id="seedreamEditPointBtn" type="button">点选对象</button>
+        <button class="mini-btn" id="seedreamEditBoxBtn" type="button">框选区域</button>
+      </div>
+      <button class="icon-btn seedream-studio-close" id="closeSeedreamEditorBtn" type="button" aria-label="关闭精准编辑">×</button>
+      </header>
+
+      <div class="seedream-studio-body">
+        <main class="seedream-studio-stage">
+          <div class="seedream-studio-canvas" id="seedreamStudioCanvas">
+            <img id="seedreamStudioImage" alt="待编辑图片">
+            <canvas id="seedreamStudioOverlay" aria-label="Seedream 编辑区域标注画布"></canvas>
+          </div>
+          <div class="seedream-annotation-strip hidden" id="seedreamAnnotationStrip" aria-label="已添加的精准定位"></div>
+          <div class="seedream-studio-hint" id="seedreamStudioHint">整图编辑模式：直接描述希望发生的变化。</div>
+        </main>
+
+        <aside class="seedream-studio-inspector">
+          <div class="seedream-studio-inspector-head">
+            <span>模型输入</span>
+            <div>
+              <strong>Image 1</strong>
+              <small id="seedreamEditAnnotationCount">整图</small>
+            </div>
+          </div>
+          <div class="seedream-edit-selection-status" id="seedreamEditSelectionStatus">整图编辑：不添加坐标限制。</div>
+          <div class="compact-field full seedream-edit-preview-field">
+            <label for="seedreamEditPromptPreview">最终 Prompt</label>
+            <textarea id="seedreamEditPromptPreview" readonly placeholder="输入编辑要求后，这里会显示发给模型的最终 Prompt。"></textarea>
+          </div>
+          <div class="seedream-studio-facts">
+            <span>坐标系</span><strong>0–999</strong>
+            <span>点选格式</span><code>&lt;point&gt;</code>
+            <span>框选格式</span><code>&lt;bbox&gt;</code>
+          </div>
+        </aside>
+      </div>
+
+      <footer class="seedream-studio-composer">
+        <div class="seedream-studio-prompt">
+          <div class="seedream-studio-prompt-head">
+            <label id="imageEditPromptLabel" for="imageEditPrompt">整图编辑指令</label>
+            <span id="imageEditPromptContext">整图</span>
+          </div>
+          <textarea id="imageEditPrompt" placeholder="只描述需要发生的变化，例如：把选中区域的招牌文字改为“周末去徒步”，保持字体风格、透视和光线不变"></textarea>
+        </div>
+        <div class="seedream-studio-actions">
+          <button class="btn hidden" id="undoSeedreamEditSelectionBtn" type="button">撤销上一个</button>
+          <button class="btn hidden" id="clearSeedreamEditSelectionBtn" type="button">清空全部</button>
+          <button class="btn primary" id="editSelectedImageBtn" type="button">执行编辑</button>
+        </div>
+      </footer>
+    </section>
+  </div>
+
+  <script src="src/seedream-editing.js?v=precision-canvas-20260722" defer></script>
   <script src="src/app.js" defer></script>
 </body>
 </html>

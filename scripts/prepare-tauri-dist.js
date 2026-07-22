@@ -34,7 +34,7 @@ fs.mkdirSync(dist, { recursive: true });
 entries.forEach(copyEntry);
 
 if (!fs.existsSync(transformersDist)) {
-  throw new Error("Missing @huggingface/transformers dist. Run npm install before packaging.");
+  throw new Error("Missing @huggingface/transformers dist. Run npm install before building.");
 }
 fs.cpSync(transformersDist, path.join(dist, "vendor", "transformers"), {
   recursive: true,
@@ -54,4 +54,4 @@ const appJsContent = fs.readFileSync(appJs, "utf8")
   );
 fs.writeFileSync(appJs, appJsContent);
 
-console.log(`Prepared Tauri frontend assets in ${path.relative(root, dist)}`);
+console.log(`Prepared frontend assets in ${path.relative(root, dist)}`);
