@@ -131,3 +131,43 @@ try {
   assert.equal((await response.json()).data[0].b64_json, "streamed-layer");
 } finally { globalThis.fetch = savedFetch; }
 console.log('Seedream multi-layer response streaming passed');
+
+// The browser receives data before the model returns headers; delayed output
+// remains valid JSON and upstream errors survive the HTTP-200 keepalive stream.
+const keepaliveFetch = globalThis.fetch;
+try {
+  let finishUpstream;
+  globalThis.fetch = () => new Promise(resolve => { finishUpstream = resolve; });
+  const response = await onRequestPost({ request: request({
+    image: "data:image/png;base64,aGVsbG8=", layer_decomposition: true, size: "auto"
+  }) });
+  const reader = response.body.getReader();
+  const first = await reader.read();
+  assert.match(new TextDecoder().decode(first.value), /^\s+$/);
+  finishUpstream(Response.json({ data: [{ b64_json: "delayed-result" }] }));
+  let remaining = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    remaining += new TextDecoder().decode(value);
+  }
+  assert.equal(JSON.parse(remaining).data[0].b64_json, 'delayed-result');
+
+  globalThis.fetch = async () => Response.json({ error: { message: 'upstream quota error' } }, { status: 429 });
+  const failed = await onRequestPost({ request: request({
+    image: "data:image/png;base64,aGVsbG8=", layer_decomposition: true, size: "auto"
+  }) });
+  assert.equal((await failed.json()).error.message, 'upstream quota error');
+
+  let upstreamSignal;
+  globalThis.fetch = (_url, options) => {
+    upstreamSignal = options.signal;
+    return new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('canceled'))));
+  };
+  const canceled = await onRequestPost({ request: request({
+    image: "data:image/png;base64,aGVsbG8=", layer_decomposition: true, size: "auto"
+  }) });
+  await canceled.body.cancel();
+  assert.equal(upstreamSignal.aborted, true);
+} finally { globalThis.fetch = keepaliveFetch; }
+console.log('Seedream delayed-response keepalive, upstream error and cancellation tests passed');

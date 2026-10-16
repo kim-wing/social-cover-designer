@@ -4227,7 +4227,7 @@ async function requestJson(url, options = {}) {
   } finally {
     clearTimeout(timer);
   }
-  if (!response.ok || payload.code && payload.code !== 200) {
+  if (!response.ok || payload.error || payload.code && payload.code !== 200) {
     const message = payload.error?.message || payload.message || `接口请求失败：${response.status}`;
     throw new Error(message);
   }

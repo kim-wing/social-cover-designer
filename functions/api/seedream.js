@@ -93,6 +93,73 @@ async function readBoundedJson(request) {
   }
 }
 
+function decompositionResponse(body, apiKey) {
+  const encoder = new TextEncoder();
+  const abort = new AbortController();
+  const timeout = setTimeout(() => abort.abort(), 165000);
+  let heartbeat;
+  let reader;
+  let initialized = false;
+  let canceled = false;
+  const cleanup = () => { clearTimeout(timeout); clearInterval(heartbeat); };
+  // Start the single upstream request immediately; never retry a billed write.
+  const pending = fetch(SEEDREAM_ENDPOINT, {
+    signal: abort.signal,
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  }).then(response => ({ response }), error => ({ error }));
+  const stream = new ReadableStream({
+    start(controller) {
+      // JSON permits whitespace before its value. Send headers and small keepalive
+      // chunks while the model works, rather than leaving the connection silent.
+      controller.enqueue(encoder.encode(" \n"));
+      heartbeat = setInterval(() => {
+        if (!initialized && !canceled && controller.desiredSize > 0) controller.enqueue(encoder.encode(" \n"));
+      }, 10000);
+    },
+    async pull(controller) {
+      try {
+        if (!initialized) {
+          const { response, error } = await pending;
+          if (canceled) { await response?.body?.cancel(); return; }
+          initialized = true;
+          clearInterval(heartbeat);
+          if (error || !response.ok) {
+            let message;
+            if (error) message = abort.signal.aborted
+              ? "图层拆分请求超时，结果尚未确认，请勿立即重复提交。"
+              : "连接火山方舟失败，结果尚未确认，请勿立即重复提交。";
+            else {
+              const payload = await response.json().catch(() => ({}));
+              message = payload.error?.message || `火山方舟返回 HTTP ${response.status}。`;
+            }
+            controller.enqueue(encoder.encode(JSON.stringify({ error: { message } })));
+            controller.close(); cleanup(); return;
+          }
+          if (!response.body) throw new Error("图片服务没有返回响应内容。");
+          reader = response.body.getReader();
+        }
+        const { value, done } = await reader.read();
+        if (canceled) return;
+        if (done) { controller.close(); cleanup(); }
+        else controller.enqueue(value);
+      } catch (error) {
+        cleanup();
+        if (!canceled) controller.error(error);
+      }
+    },
+    async cancel() {
+      canceled = true;
+      cleanup(); abort.abort();
+      await reader?.cancel();
+    }
+  });
+  return new Response(stream, {
+    headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store, no-transform", "Content-Encoding": "identity" }
+  });
+}
+
 export async function onRequestPost(context) {
   const requestOrigin = context.request.headers.get("Origin");
   const expectedOrigin = new URL(context.request.url).origin;
@@ -110,6 +177,8 @@ export async function onRequestPost(context) {
   } catch (error) {
     return jsonResponse({ error: { message: error?.message || "请求参数不正确。" } }, error?.status || 400);
   }
+
+  if (body.layer_decomposition) return decompositionResponse(body, apiKey);
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 165000);
