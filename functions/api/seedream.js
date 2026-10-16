@@ -60,7 +60,7 @@ function seedreamBody(input) {
     ...(decomposition ? { layer_decomposition: true } : {}),
     size: input.size,
     ...(input.image ? { image: input.image } : {}),
-    response_format: "b64_json",
+    response_format: decomposition ? "url" : "b64_json",
     output_format: "png",
     watermark: false,
     optimize_prompt_options: {
@@ -94,6 +94,7 @@ async function readBoundedJson(request) {
 }
 
 function decompositionResponse(body, apiKey) {
+  const startedAt = Date.now();
   const encoder = new TextEncoder();
   const abort = new AbortController();
   const timeout = setTimeout(() => abort.abort(), 165000);
@@ -132,7 +133,9 @@ function decompositionResponse(body, apiKey) {
               : "连接火山方舟失败，结果尚未确认，请勿立即重复提交。";
             else {
               const payload = await response.json().catch(() => ({}));
-              message = payload.error?.message || `火山方舟返回 HTTP ${response.status}。`;
+              message = payload.error?.message || (response.status === 524
+                ? `图片服务等待上游超时（524，已等待 ${Math.round((Date.now() - startedAt) / 1000)} 秒）。结果尚未确认，请勿立即重复提交。`
+                : `火山方舟返回 HTTP ${response.status}。`);
             }
             controller.enqueue(encoder.encode(JSON.stringify({ error: { message } })));
             controller.close(); cleanup(); return;

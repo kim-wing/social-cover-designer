@@ -33,6 +33,7 @@ try {
   assert.equal(decompositionBody.layer_decomposition, true);
   assert.equal(decompositionBody.prompt, undefined);
   assert.equal(decompositionBody.size, "auto");
+  assert.equal(decompositionBody.response_format, "url");
   assert.equal((await decompositionResponse.json()).data[0].b64_json, "aGVsbG8=");
   assert.equal((await onRequestPost({ request: request({ layer_decomposition: true, size: "auto" }) })).status, 400);
   assert.equal((await onRequestPost({ request: request({ image: "data:image/png;base64,aGVsbG8=", layer_decomposition: true, size: "1024x1024" }) })).status, 400);

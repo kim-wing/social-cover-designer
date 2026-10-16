@@ -4559,9 +4559,21 @@ async function decomposeSelectedImage() {
       body: JSON.stringify({ image, layer_decomposition: true, size: "auto", prompt: document.getElementById("layerDecompositionPrompt").value.trim() })
     });
     const layout = seedreamEditing.decompositionLayout(payload.data);
-    const layers = await Promise.all(layout.map(async ({ item, rect }) => {
+    const layers = [];
+    for (const { item, rect } of layout) {
       const raw = extractSeedreamImageSource({ data: [item] });
-      const src = raw.startsWith("data:") ? raw : await assetSourceToDataUrl(raw);
+      let src = raw;
+      if (!raw.startsWith("data:")) {
+        const response = await fetch("/api/seedream-image", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: raw }), signal: AbortSignal.timeout(60000)
+        });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.error?.message || "拆分已生成，但图层下载失败。");
+        }
+        src = await readFile(await response.blob());
+      }
+      updateGenerationProgress(`正在下载图层 ${layers.length + 1} / ${layout.length}`, 30 + Math.round((layers.length + 1) / layout.length * 65));
       const img = await loadImage(src);
       const width = (rect[2] - rect[0]) * snapshot.width;
       const height = (rect[3] - rect[1]) * snapshot.height;
@@ -4576,8 +4588,8 @@ async function decomposeSelectedImage() {
         layer.shadowOpacity = snapshot.shadowOpacity;
       }
       layer.name = item.z_index === 0 ? `${snapshot.name || "图片"} · 底图` : item.name || `拆分图层 ${item.z_index}`;
-      return layer;
-    }));
+      layers.push(layer);
+    }
     const index = state.objects.indexOf(obj);
     if (index < 0) throw new Error("原图片已删除或工程已切换，未修改画布。");
     saveHistory();
