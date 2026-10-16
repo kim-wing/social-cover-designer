@@ -4213,6 +4213,16 @@ async function requestJson(url, options = {}) {
     payload = await response.json();
   } catch (error) {
     if (controller.signal.aborted) throw new Error("请求超时，结果尚未确认。请稍后检查，避免立即重复生成。");
+    if (url === "/api/seedream" && response?.status >= 400) {
+      const trace = response.headers?.get("cf-ray");
+      throw new Error(`图片服务响应异常（HTTP ${response.status}${trace ? `，请求标识 ${trace}` : ""}）。请求结果尚未确认，请勿立即重复提交。`);
+    }
+    if (url === "/api/seedream" && response?.ok) {
+      throw new Error("图片服务已响应，但结果传输中断或格式不完整。请求结果尚未确认，请勿立即重复提交。");
+    }
+    if (url === "/api/seedream" && isRetryableNetworkError(error)) {
+      throw new Error("无法连接图片服务，请检查网络和服务是否启动。请求结果尚未确认，请勿立即重复提交。");
+    }
     throw error;
   } finally {
     clearTimeout(timer);

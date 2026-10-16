@@ -124,8 +124,9 @@ export async function onRequestPost(context) {
       },
       body: JSON.stringify(body)
     });
-    const responseBody = await upstream.text();
-    return new Response(responseBody, {
+    // Forward image data as a stream: a decomposition response can contain 17
+    // Base64 images and must not be duplicated into a Worker-sized string.
+    return new Response(upstream.body, {
       status: upstream.status,
       headers: {
         "Content-Type": upstream.headers.get("Content-Type") || "application/json; charset=utf-8",

@@ -33,6 +33,7 @@ try {
   assert.equal(decompositionBody.layer_decomposition, true);
   assert.equal(decompositionBody.prompt, undefined);
   assert.equal(decompositionBody.size, "auto");
+  assert.equal((await decompositionResponse.json()).data[0].b64_json, "aGVsbG8=");
   assert.equal((await onRequestPost({ request: request({ layer_decomposition: true, size: "auto" }) })).status, 400);
   assert.equal((await onRequestPost({ request: request({ image: "data:image/png;base64,aGVsbG8=", layer_decomposition: true, size: "1024x1024" }) })).status, 400);
   const generationResponse = await onRequestPost({
@@ -114,3 +115,19 @@ try {
   assert.equal(upstreamCalls, 0);
 } finally { globalThis.fetch = previousFetch; }
 console.log('Seedream request-size limits passed');
+
+// Large layer responses must be forwarded without buffering the full payload.
+const savedFetch = globalThis.fetch;
+try {
+  globalThis.fetch = async () => {
+    const response = Response.json({ data: [{ b64_json: "streamed-layer" }] });
+    response.text = () => { throw new Error("upstream response must not be buffered"); };
+    return response;
+  };
+  const response = await onRequestPost({ request: request({
+    image: "data:image/png;base64,aGVsbG8=", layer_decomposition: true, size: "auto"
+  }) });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).data[0].b64_json, "streamed-layer");
+} finally { globalThis.fetch = savedFetch; }
+console.log('Seedream multi-layer response streaming passed');
