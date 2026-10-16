@@ -54,6 +54,13 @@
   }
 
   function imageProgressCopy(kind, options = {}) {
+    if (kind === "decompose") return {
+      title: "正在拆分图片图层",
+      text: `正在识别并分离主体、文字和背景${options.elapsed !== undefined ? `，已等待 ${options.elapsed}s` : ""}。完成后会按原位置还原为独立图层。`,
+      doneTitle: "图层拆分完成",
+      doneText: "底图和透明图层已加入画布，可独立移动和缩放。",
+      errorTitle: "图层拆分失败"
+    };
     const isEdit = kind === "edit";
     const elapsed = Math.max(0, Math.round(Number(options.elapsed) || 0));
     const hasElapsed = options.elapsed !== undefined;
@@ -79,6 +86,31 @@
       doneText: "正在把生成结果加入画布。",
       errorTitle: "图片生成失败"
     };
+  }
+
+  function decompositionLayout(data) {
+    if (!Array.isArray(data) || data.length < 2 || data.length > 17) throw new Error("拆分结果缺少底图或独立图层。");
+    const sorted = [...data].sort((a, b) => a.z_index - b.z_index);
+    if (sorted[0].z_index !== 0) throw new Error("拆分结果缺少底图。");
+    const dimensions = /^(\d+)x(\d+)$/.exec(sorted[0].size || "");
+    const seen = new Set();
+    return sorted.map(item => {
+      if (!Number.isInteger(item.z_index) || item.z_index < 0 || seen.has(item.z_index)) throw new Error("拆分图层顺序无效。");
+      seen.add(item.z_index);
+      if (item.error) throw new Error(item.error.message || "部分图层生成失败。");
+      if (!item.b64_json && !item.url) throw new Error("拆分图层缺少图片。");
+      let rect = [0, 0, 1, 1];
+      if (item.z_index > 0) {
+        const absolute = item.bounding_box?.absolute;
+        const normalized = item.bounding_box?.normalized;
+        if (dimensions && Array.isArray(absolute)) {
+          rect = absolute.map((value, index) => value / Number(dimensions[index % 2 + 1]));
+        } else if (Array.isArray(normalized)) rect = normalized.map(value => value / 1000);
+        else throw new Error("拆分图层缺少定位坐标。");
+        if (rect.length !== 4 || !rect.every(Number.isFinite) || rect[0] < 0 || rect[1] < 0 || rect[2] > 1 || rect[3] > 1 || rect[2] <= rect[0] || rect[3] <= rect[1]) throw new Error("拆分图层坐标无效。");
+      }
+      return { item, rect };
+    });
   }
 
   function buildEditPrompt(instruction, annotationInput) {
@@ -126,6 +158,7 @@
     fitImageSize,
     annotationToken,
     imageProgressCopy,
+    decompositionLayout,
     buildEditPrompt
   });
 })(globalThis);

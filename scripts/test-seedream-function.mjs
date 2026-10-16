@@ -27,6 +27,14 @@ globalThis.fetch = async (url, options) => {
 };
 
 try {
+  const decompositionResponse = await onRequestPost({ request: request({ image: "data:image/png;base64,aGVsbG8=", layer_decomposition: true, size: "auto" }) });
+  assert.equal(decompositionResponse.status, 200);
+  const decompositionBody = JSON.parse(forwardedRequest.options.body);
+  assert.equal(decompositionBody.layer_decomposition, true);
+  assert.equal(decompositionBody.prompt, undefined);
+  assert.equal(decompositionBody.size, "auto");
+  assert.equal((await onRequestPost({ request: request({ layer_decomposition: true, size: "auto" }) })).status, 400);
+  assert.equal((await onRequestPost({ request: request({ image: "data:image/png;base64,aGVsbG8=", layer_decomposition: true, size: "1024x1024" }) })).status, 400);
   const generationResponse = await onRequestPost({
     request: request({
       prompt: "生成一张旅游海报",
@@ -83,3 +91,26 @@ try {
 } finally {
   globalThis.fetch = originalFetch;
 }
+
+// Reject declared and streamed oversize requests before calling the upstream.
+const previousFetch = globalThis.fetch;
+let upstreamCalls = 0;
+globalThis.fetch = async () => { upstreamCalls++; throw new Error('must not forward'); };
+try {
+  const oversized = await onRequestPost({ request: new Request('https://example.com/api/seedream', {
+    method: 'POST', headers: { 'X-Seedream-Api-Key': 'test', 'Content-Length': '999999999' }, body: '{}'
+  }) });
+  assert.equal(oversized.status, 413);
+  let canceled = false;
+  const streamed = await onRequestPost({ request: new Request('https://example.com/api/seedream', {
+    method: 'POST', headers: { 'X-Seedream-Api-Key': 'test' }, duplex: 'half',
+    body: new ReadableStream({
+      pull(controller) { controller.enqueue(new Uint8Array(1024 * 1024)); },
+      cancel() { canceled = true; }
+    })
+  }) });
+  assert.equal(streamed.status, 413);
+  assert.equal(canceled, true);
+  assert.equal(upstreamCalls, 0);
+} finally { globalThis.fetch = previousFetch; }
+console.log('Seedream request-size limits passed');

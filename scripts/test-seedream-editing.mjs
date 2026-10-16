@@ -10,6 +10,14 @@ vm.runInNewContext(source, context);
 
 const editing = context.SeedreamEditing;
 assert.ok(editing);
+const splitLayout = editing.decompositionLayout([
+  { z_index: 1, b64_json: "test", bounding_box: { absolute: [200, 100, 600, 300] } },
+  { z_index: 0, b64_json: "test", size: "1000x500" }
+]);
+assert.equal(splitLayout[0].item.z_index, 0);
+assert.deepEqual(Array.from(splitLayout[1].rect), [.2, .2, .6, .6]);
+assert.throws(() => editing.decompositionLayout([{ z_index: 0, b64_json: "test" }, { z_index: 1, b64_json: "test" }]));
+assert.equal(editing.imageProgressCopy("decompose").title, "正在拆分图片图层");
 
 const editingProgress = editing.imageProgressCopy("edit", { targetCount: 3, elapsed: 12 });
 assert.equal(editingProgress.title, "正在精准编辑图片");

@@ -1,39 +1,32 @@
 {
   "name": "youdesign",
-  "version": "1.1.5",
-  "description": "YOUDESIGN social cover designer desktop app.",
+  "version": "1.2.0",
+  "description": "YOUDESIGN online social cover designer.",
   "author": "YOUXIAKE",
   "private": true,
   "scripts": {
-    "start": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri dev",
-    "dev": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri dev",
-    "build": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
-    "build:mac": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
-    "build:mac:x64": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
-    "build:mac:arm": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --target aarch64-apple-darwin --bundles app --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
-    "build:mac:dmg": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles dmg --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
-    "build:win": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles nsis --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
-    "build:win:cross": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --target x86_64-pc-windows-gnullvm --bundles nsis --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
-    "build:all": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles all --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'",
-    "build:release": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles app",
-    "build:release:mac:arm": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --target aarch64-apple-darwin --bundles app",
-    "build:release:win": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --bundles nsis",
-    "build:release:win:cross": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri build --target x86_64-pc-windows-gnullvm --bundles nsis",
-    "tauri": "PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH tauri",
-    "tauri:prepare": "node scripts/prepare-tauri-dist.js",
-    "web:build": "npm run tauri:prepare",
-    "web:dev": "npm run web:build && npx wrangler pages dev dist --compatibility-date=2026-07-20",
-    "web:check": "node --check src/app.js && npm run test:seedream && npm run web:build",
+    "start": "npm run web:dev",
+    "dev": "npm run web:dev",
+    "build": "npm run web:build",
+    "web:build": "node scripts/build-web.js",
+    "web:dev": "npm run web:build && wrangler pages dev dist",
+    "web:check": "node --check src/app.js && node --check src/project-storage.js && node --check src/image-import.js && npm run test:seedream && npm run test:web && npm run web:build",
     "test:seedream": "node scripts/test-seedream.mjs",
-    "tauri:local-update-manifest": "node scripts/create-local-update-manifest.js",
-    "website:sync-downloads": "node scripts/sync-website-downloads.js",
-    "website:sync-downloads:deploy": "node scripts/sync-website-downloads.js --deploy",
-    "check": "npm run tauri:prepare && PATH=$HOME/.cargo/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH cargo check --manifest-path src-tauri/Cargo.toml"
+    "check": "npm run web:check",
+    "test:web": "node scripts/test-web-reliability.mjs && node scripts/test-project-storage.mjs",
+    "web:deploy": "npm run web:check && wrangler pages deploy dist --project-name youdesign --branch main"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0"
+    "fake-indexeddb": "6.2.4",
+    "wrangler": "4.135.0"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.5.2"
+    "@huggingface/transformers": "3.5.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "sharp": "^0.35.4"
   }
 }

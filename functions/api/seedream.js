@@ -37,11 +37,12 @@ function validateImage(image) {
 }
 
 function seedreamBody(input) {
+  const decomposition = input?.layer_decomposition === true;
   const prompt = typeof input?.prompt === "string" ? input.prompt.trim() : "";
-  if (!prompt || prompt.length > MAX_PROMPT_LENGTH) {
+  if ((!prompt && !decomposition) || prompt.length > MAX_PROMPT_LENGTH) {
     throw new Error(`Prompt 不能为空且不能超过 ${MAX_PROMPT_LENGTH} 个字符。`);
   }
-  if (!validateSize(input?.size)) {
+  if (decomposition ? !["auto", "1K", "1.5K", "2K"].includes(input?.size) : !validateSize(input?.size)) {
     throw new Error("输出尺寸不符合 Seedream 5.0 Pro 要求。");
   }
   const optimizeMode = input?.optimizeMode || "standard";
@@ -51,10 +52,12 @@ function seedreamBody(input) {
   if (input?.image != null && !validateImage(input.image)) {
     throw new Error("参考图必须是有效的图片 URL 或不超过 30MB 的 Base64 Data URL。");
   }
+  if (decomposition && !validateImage(input?.image)) throw new Error("图层拆分需要一张有效图片。");
 
   return {
     model: SEEDREAM_MODEL,
-    prompt,
+    ...(prompt ? { prompt } : {}),
+    ...(decomposition ? { layer_decomposition: true } : {}),
     size: input.size,
     ...(input.image ? { image: input.image } : {}),
     response_format: "b64_json",
@@ -64,6 +67,30 @@ function seedreamBody(input) {
       mode: optimizeMode
     }
   };
+}
+
+const MAX_REQUEST_BYTES = Math.ceil(MAX_INPUT_BYTES * 4 / 3) + 128 * 1024;
+
+async function readBoundedJson(request) {
+  const tooLarge = () => Object.assign(new Error("请求内容过大，参考图片不能超过 30MB。"), { status: 413 });
+  if (Number(request.headers.get("Content-Length")) > MAX_REQUEST_BYTES) throw tooLarge();
+  if (!request.body) throw new Error("请求内容不能为空。");
+  const reader = request.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let text = "";
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_REQUEST_BYTES) { await reader.cancel(); throw tooLarge(); }
+      text += decoder.decode(value, { stream: true });
+    }
+    return JSON.parse(text + decoder.decode());
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 export async function onRequestPost(context) {
@@ -79,13 +106,16 @@ export async function onRequestPost(context) {
 
   let body;
   try {
-    body = seedreamBody(await context.request.json());
+    body = seedreamBody(await readBoundedJson(context.request));
   } catch (error) {
-    return jsonResponse({ error: { message: error?.message || "请求参数不正确。" } }, 400);
+    return jsonResponse({ error: { message: error?.message || "请求参数不正确。" } }, error?.status || 400);
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 165000);
   try {
     const upstream = await fetch(SEEDREAM_ENDPOINT, {
+      signal: controller.signal,
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -105,8 +135,12 @@ export async function onRequestPost(context) {
   } catch (error) {
     return jsonResponse({
       error: {
-        message: `连接火山方舟失败：${error?.message || "网络错误"}`
+        message: controller.signal.aborted
+          ? "生成请求超时，结果尚未确认，请勿立即重复提交。"
+          : `连接火山方舟失败：${error?.message || "网络错误"}`
       }
-    }, 502);
+    }, controller.signal.aborted ? 504 : 502);
+  } finally {
+    clearTimeout(timer);
   }
 }

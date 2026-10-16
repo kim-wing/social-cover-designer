@@ -46,13 +46,13 @@ npm run web:check
 - Build output directory：`dist`
 - Functions directory：仓库根目录下的 `functions/`（Pages 会自动识别）
 
-不要把现有的 `website/` 当作线上编辑器输出目录；该目录是原来的下载介绍页。
+旧桌面源码、安装包脚本和下载介绍页已移除。唯一生产部署目录为 `dist/`。
 
-也可以在确认项目名后手动部署：
+生产地址为 https://youdesign.pages.dev ，部署命令会先执行完整检查：
 
 ```bash
 npm run web:build
-npx wrangler pages deploy dist --project-name <你的项目名>
+npm run web:deploy
 ```
 
 ## 上线前检查
@@ -61,4 +61,14 @@ npx wrangler pages deploy dist --project-name <你的项目名>
 - 上传并选中一张图片，混合添加多个点选和框选定位，逐项填写不同指令，确认切换编号后内容不会串位；点击执行后确认编辑弹窗关闭、主画布出现持续等待提示，再完成一次精准编辑。
 - 确认未勾选“保存 API Key 到本机”时，刷新页面后 Key 为空。
 - 在 Cloudflare 响应头中确认 `/api/seedream` 为 `Cache-Control: no-store`。
-- 为正式域名配置 CSP、基础访问分析和告警。
+- 构建自动生成 CSP、禁止嵌入与 MIME 嗅探的响应头。HTML 重新验证缓存，带内容哈希的脚本、样式和模型运行时长期缓存。
+- `_routes.json` 只让 `/api/*` 进入 Function，静态资源直接由 Pages 提供。
+
+## 数据与可靠性
+
+- IndexedDB 使用一个原子事务更新工程与图片 Blob；失败保留旧存档。
+- 图片按内容哈希去重，撤销记录引用共享资源，最多 60 步 / 96MB。
+- 生图 POST 不自动重试；代理 165 秒、浏览器 180 秒超时。超时不能证明上游未生成，因此提示用户避免立即重复提交。
+- 请求体读取阶段限制大小，支持无 Content-Length 的流式请求；超限返回 413。
+- Node 22+；`npm ci` 后执行 `npm run check`。Wrangler 版本固定在 lockfile。
+- 本地可用 `npm run dev`；静态构建不包含测试工程、桌面文件、源码映射或 Node 模型运行文件。

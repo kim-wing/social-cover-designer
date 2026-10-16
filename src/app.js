@@ -3,7 +3,20 @@ const ctx = canvas.getContext("2d");
 const stage = document.getElementById("stage");
 const selectionOverlay = document.getElementById("selectionOverlay");
 const inlineTextEditor = document.getElementById("inlineTextEditor");
+const preferences = {
+  getItem(key) { try { return localStorage.getItem(key); } catch { return null; } },
+  setItem(key, value) { try { localStorage.setItem(key, value); } catch {} },
+  removeItem(key) { try { localStorage.removeItem(key); } catch {} }
+};
 const STORAGE_KEY = "social-cover-designer-v3";
+const projectStore = new window.YoudesignStorage.ProjectStore();
+const historyResources = new window.YoudesignStorage.HistoryResources();
+let saveRevision = 0;
+let savedRevision = 0;
+let saveTimer = null;
+let saveInFlight = null;
+let documentBusy = false;
+let documentEpoch = 0;
 const ONBOARDING_STORAGE_KEY = "youdesign-onboarding-v4";
 const IMAGE_API_KEY_STORAGE = "youdesign-seedream-api-key";
 const IMAGE_API_KEY_REMEMBER_STORAGE = "youdesign-remember-seedream-api-key";
@@ -15,7 +28,7 @@ const UNSPLASH_ACCESS_KEY = "4qLu4DS2MEWPNO0m152Km2kYyMyysH75wP832l-nkIs";
 const UNSPLASH_UTM_SOURCE = "youdesign";
 const SEEDREAM_API_KEY_URL = "https://console.volcengine.com/ark/region%3Aark%2Bcn-beijing/openManagement";
 const seedreamEditing = window.SeedreamEditing;
-const APP_SCRIPT_URL = new URL("src/app.js", document.baseURI).href;
+const APP_SCRIPT_URL = document.currentScript?.src || new URL("src/app.js", document.baseURI).href;
 const TRANSFORMERS_LOCAL_BASE = new URL("../vendor/transformers/", APP_SCRIPT_URL).href;
 const TRANSFORMERS_CDN_BASE = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.2/dist/";
 const TRANSFORMERS_MODULES = [
@@ -25,7 +38,6 @@ const TRANSFORMERS_MODULES = [
 const RMBG_MODEL_ID = "briaai/RMBG-1.4";
 const APP_VERSION = "__YOUDESIGN_APP_VERSION__".startsWith("__") ? "1.1.5" : "__YOUDESIGN_APP_VERSION__";
 const MAX_EXPORT_PIXELS = 64 * 1000 * 1000;
-let autosaveQuotaWarningShown = false;
 
 const iconPaths = {
   add: "M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z",
@@ -234,11 +246,9 @@ function applyIconSystem() {
       el.innerHTML = icon(name);
       return;
     }
-    if (id === "exportBtn" || id === "checkUpdateBtn" || id === "installUpdateBtn" || id === "importProjectBtn") {
+    if (id === "exportBtn" || id === "importProjectBtn") {
       const label = {
         exportBtn: "导出",
-        checkUpdateBtn: "检查更新",
-        installUpdateBtn: "重启安装",
         importProjectBtn: "导入"
       }[id];
       el.innerHTML = `${icon(name)}<span>${label}</span>`;
@@ -930,32 +940,80 @@ function scaleObjectFromStart(obj, start, sx, sy) {
   }
 }
 
+function trimHistory() {
+  while (state.history.length > 60) state.history.shift();
+  while (historyResources.prune([...state.history, ...state.future]) > 96 * 1024 * 1024) {
+    if (state.history.length) state.history.shift();
+    else if (state.future.length) state.future.shift();
+    else break;
+  }
+}
+
 function saveHistory() {
-  state.history.push(snapshot());
-  if (state.history.length > 60) state.history.shift();
+  state.history.push(historyResources.capture(documentSnapshot()));
   state.future = [];
+  trimHistory();
+}
+
+function documentSnapshot(options = {}) {
+  return {
+    width: state.width, height: state.height,
+    platform: state.platform, label: state.label,
+    background: state.background,
+    objects: state.objects.map(obj => serializableObject(obj, options))
+  };
 }
 
 function snapshot(options = {}) {
-  return JSON.stringify({
-    width: state.width,
-    height: state.height,
-    platform: state.platform,
-    label: state.label,
-    background: state.background,
-    objects: state.objects.map(obj => serializableObject(obj, options))
-  });
+  return JSON.stringify(documentSnapshot(options));
+}
+
+function validateProject(data) {
+  const dimension = value => typeof value === "number" && Number.isInteger(value) && value > 0 && value <= 16384;
+  if (!data || !Array.isArray(data.objects) || !dimension(data.width) || !dimension(data.height)
+    || data.width * data.height > MAX_EXPORT_PIXELS) throw new Error("工程画布尺寸或图层格式不正确");
+  const types = new Set(["text", "shape", "image", "svg", "group", "compoundShape"]);
+  const ids = new Set();
+  let count = 0;
+  function validateObject(obj, depth) {
+    if (++count > 2000 || depth > 20) throw new Error("工程图层数量或嵌套层级过多");
+    if (!obj || !types.has(obj.type) || typeof obj.id !== "string" || !obj.id || ids.has(obj.id)) {
+      throw new Error("工程包含无效图层或重复 ID");
+    }
+    ids.add(obj.id);
+    for (const key of ["src", "originalSrc", "maskSrc", "svgText", "svgContent", "text"]) {
+      if (obj[key] != null && typeof obj[key] !== "string") throw new Error("图层资源或文字格式不正确");
+    }
+    if (typeof obj.name !== "string") throw new Error("图层名称格式不正确");
+    for (const key of ["x", "y", "width", "height", "rotation", "fontSize"]) {
+      if (obj[key] != null && (typeof obj[key] !== "number" || !Number.isFinite(obj[key]))) {
+        throw new Error("图层包含无效数值");
+      }
+    }
+    if (obj.children != null) {
+      if (!Array.isArray(obj.children)) throw new Error("子图层格式不正确");
+      obj.children.forEach(child => validateObject(child, depth + 1));
+    }
+  }
+  data.objects.forEach(obj => validateObject(obj, 0));
+  return {
+    width: data.width, height: data.height,
+    platform: typeof data.platform === "string" ? data.platform : "自定义",
+    label: typeof data.label === "string" ? data.label : "画布",
+    background: typeof data.background === "string" ? data.background : "#ffffff",
+    objects: data.objects
+  };
 }
 
 async function restore(raw) {
-  const parsed = JSON.parse(raw);
-  const data = parsed && parsed.schema === "youdesign.project" ? parsed.document : parsed;
-  if (!data || !Array.isArray(data.objects) || !Number(data.width) || !Number(data.height)) {
-    throw new Error("工程文件格式不正确");
-  }
-  Object.assign(state, data);
-  state.objects = await Promise.all(data.objects.map(hydrateObject));
+  const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+  const data = validateProject(parsed && parsed.schema === "youdesign.project" ? parsed.document : parsed);
+  const objects = await Promise.all(data.objects.map(hydrateObject));
+  // Never mutate the active document until all assets have loaded successfully.
   stopMaskEdit(false);
+  stopStampEdit(false);
+  Object.assign(state, data, { objects });
+  documentEpoch += 1;
   setSelection([]);
   resizeCanvas();
   syncPromptAspectToCanvas();
@@ -972,35 +1030,53 @@ function isStorageQuotaError(error) {
     || /quota/i.test(error?.message || "");
 }
 
-function reportAutosaveQuotaFallback() {
-  if (autosaveQuotaWarningShown) return;
-  autosaveQuotaWarningShown = true;
-  const message = "本机自动保存空间不足，已改用轻量缓存；当前画面可继续编辑，完整保留请手动导出 Youdesign 工程。";
-  console.warn(message);
-  const maskStatus = document.getElementById("maskStatus");
-  if (maskStatus) setMaskStatus(message, "error");
+function setAutosaveStatus(message, failed = false) {
+  let status = document.getElementById("autosaveStatus");
+  if (!status) {
+    status = document.createElement("div");
+    status.id = "autosaveStatus";
+    status.setAttribute("role", "status");
+    document.body.appendChild(status);
+  }
+  status.textContent = message;
+  status.classList.toggle("is-error", failed);
+  status.title = message;
 }
 
 function persist() {
-  try {
-    localStorage.setItem(STORAGE_KEY, snapshot());
-    return true;
-  } catch (error) {
-    if (!isStorageQuotaError(error)) throw error;
-  }
-
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.setItem(STORAGE_KEY, snapshot({ lightweightAutosave: true }));
-    reportAutosaveQuotaFallback();
-    return false;
-  } catch (fallbackError) {
-    if (!isStorageQuotaError(fallbackError)) throw fallbackError;
-    localStorage.removeItem(STORAGE_KEY);
-    reportAutosaveQuotaFallback();
-    return false;
-  }
+  saveRevision += 1;
+  setAutosaveStatus("正在保存…");
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushAutosave, 150);
 }
+
+async function flushAutosave() {
+  clearTimeout(saveTimer);
+  if (saveInFlight) return saveInFlight;
+  saveInFlight = (async () => {
+    while (savedRevision < saveRevision) {
+      const revision = saveRevision;
+      try {
+        await projectStore.save(documentSnapshot());
+        savedRevision = revision;
+        if (savedRevision === saveRevision) setAutosaveStatus("已保存到此浏览器");
+      } catch (error) {
+        setAutosaveStatus(isStorageQuotaError(error)
+          ? "自动保存空间不足，已保留上次存档。请导出工程保存当前修改。"
+          : "自动保存不可用，请导出工程保存当前修改。", true);
+        break;
+      }
+    }
+  })();
+  try { await saveInFlight; } finally { saveInFlight = null; }
+}
+
+window.addEventListener("beforeunload", event => {
+  if (savedRevision < saveRevision) { event.preventDefault(); event.returnValue = ""; }
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") void flushAutosave();
+});
 
 function projectSnapshot() {
   return JSON.stringify({
@@ -1038,9 +1114,6 @@ function assertExportSize(width, height) {
 }
 
 async function saveExportFile(options) {
-  if (window.youdesignDesktop?.saveExportFile) {
-    return window.youdesignDesktop.saveExportFile(options);
-  }
   if (options.text != null) {
     downloadTextFile(options.text, options.filename, options.type || "application/json");
     return "";
@@ -1247,7 +1320,7 @@ function closeOnboarding(markSeen = true) {
   if (!layer) return;
   layer.classList.add("hidden");
   document.body.classList.remove("onboarding-image-demo");
-  if (markSeen) localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
+  if (markSeen) preferences.setItem(ONBOARDING_STORAGE_KEY, "1");
   document.removeEventListener("keydown", onOnboardingKeyDown);
 }
 
@@ -1284,7 +1357,7 @@ function setupOnboardingGuide() {
 
 function showOnboardingGuide() {
   const els = onboardingEls();
-  if (!els.layer || localStorage.getItem(ONBOARDING_STORAGE_KEY) === "1") return;
+  if (!els.layer || preferences.getItem(ONBOARDING_STORAGE_KEY) === "1") return;
   onboardingIndex = 0;
   els.layer.classList.remove("hidden");
   renderOnboardingStep();
@@ -2397,6 +2470,7 @@ function drawSelection(c, obj) {
 }
 
 function renderSelectionOverlay() {
+  positionImageContextActions();
   const objects = selectedObjects();
   selectionOverlay.innerHTML = "";
   if (!objects.length) return;
@@ -2677,16 +2751,49 @@ function renderSeedreamAnnotationStrip(els) {
   });
 }
 
+function positionImageContextActions() {
+  const actions = document.getElementById("aiEditBlock");
+  const obj = selected();
+  if (!actions || actions.classList.contains("hidden") || obj?.type !== "image") return;
+  const stageRect = stage.getBoundingClientRect();
+  const wrapRect = stage.parentElement.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+  const scale = canvasRect.width / state.width;
+  const corners = Object.values(objectCornerPoints(obj));
+  const centerX = canvasRect.left + (Math.min(...corners.map(p => p.x)) + Math.max(...corners.map(p => p.x))) / 2 * scale;
+  const bottom = canvasRect.top + Math.max(...corners.map(p => p.y)) * scale;
+  const width = actions.offsetWidth;
+  const height = actions.offsetHeight;
+  const left = Math.max(stageRect.left + 12, Math.min(stageRect.right - width - 12, centerX - width / 2));
+  const top = Math.max(stageRect.top + 12, Math.min(stageRect.bottom - height - 12, bottom + 16));
+  actions.style.left = `${left - wrapRect.left}px`;
+  actions.style.top = `${top - wrapRect.top}px`;
+}
+
+stage.addEventListener("scroll", positionImageContextActions, { passive: true });
+window.addEventListener("resize", () => requestAnimationFrame(positionImageContextActions));
+
 function syncSeedreamEditControls(statusMessage = "", statusMode = "") {
   const els = promptEls();
   if (!els.seedreamEditWholeBtn) return;
   const obj = selected();
   const isSingleImage = obj?.type === "image" && selectedObjects().length === 1;
+  const contextActions = document.getElementById("aiEditBlock");
+  contextActions.classList.toggle("hidden", !isSingleImage);
+  const splitToggle = document.getElementById("toggleDecompositionBtn");
+  splitToggle.disabled = aiImageRequestInFlight;
+  if (!isSingleImage || contextActions.dataset.objectId !== obj?.id) {
+    document.getElementById("decompositionPanel").classList.add("hidden");
+    splitToggle.setAttribute("aria-expanded", "false");
+  }
+  contextActions.dataset.objectId = isSingleImage ? obj.id : "";
+  positionImageContextActions();
   const activeObject = seedreamEditObject();
   if (seedreamEditState.workspaceOpen && !activeObject) closeSeedreamEditWorkspace();
   els.openSeedreamEditorBtn.disabled = aiImageRequestInFlight || !isSingleImage;
+  document.getElementById("decomposeImageBtn").disabled = aiImageRequestInFlight || !isSingleImage;
   els.seedreamEditLauncherStatus.textContent = isSingleImage
-    ? `已选择：${obj.name || "图片"}。可进入大画布精准编辑。`
+    ? obj.name || "图片"
     : "请先在画布中单独选中一张图片。";
   els.seedreamEditLauncherStatus.classList.toggle("is-ready", isSingleImage);
   els.seedreamEditWholeBtn.classList.toggle("active", seedreamEditState.mode === "whole");
@@ -3215,8 +3322,17 @@ async function handlePointerMove(e) {
     const cy = obj.y + obj.height / 2;
     obj.rotation = Math.atan2(p.y - cy, p.x - cx) * 180 / Math.PI + 90;
   }
-  renderAll();
-  syncUi(false);
+  scheduleDragRender();
+}
+
+let dragRenderFrame = null;
+function scheduleDragRender() {
+  if (dragRenderFrame !== null) return;
+  dragRenderFrame = requestAnimationFrame(() => {
+    dragRenderFrame = null;
+    renderAll();
+    if (selectedObjects().length) syncTransformInputs();
+  });
 }
 
 canvas.addEventListener("pointermove", handlePointerMove);
@@ -3235,6 +3351,10 @@ canvas.addEventListener("pointerleave", () => {
 });
 
 async function handlePointerUp() {
+  if (dragRenderFrame !== null) {
+    cancelAnimationFrame(dragRenderFrame);
+    dragRenderFrame = null;
+  }
   if (maskEditor.painting) {
     const obj = state.objects.find(item => item.id === maskEditor.objectId);
     maskEditor.painting = false;
@@ -3734,12 +3854,12 @@ function promptEls() {
 }
 
 function currentImagePromptMode() {
-  return localStorage.getItem(IMAGE_PROMPT_MODE_STORAGE) === "custom" ? "custom" : "business";
+  return preferences.getItem(IMAGE_PROMPT_MODE_STORAGE) === "custom" ? "custom" : "business";
 }
 
 function setImagePromptMode(mode) {
   const nextMode = mode === "custom" ? "custom" : "business";
-  localStorage.setItem(IMAGE_PROMPT_MODE_STORAGE, nextMode);
+  preferences.setItem(IMAGE_PROMPT_MODE_STORAGE, nextMode);
   syncImagePromptMode(nextMode);
 }
 
@@ -3922,7 +4042,7 @@ function startGenerationProgress(options = {}) {
   const startedAt = Date.now();
   window.clearTimeout(window.__generationProgressHideTimer);
   window.__generationProgressHideTimer = null;
-  imageProgressState.kind = options.kind === "edit" ? "edit" : "generate";
+  imageProgressState.kind = ["edit", "decompose"].includes(options.kind) ? options.kind : "generate";
   imageProgressState.targetCount = Math.max(0, Number(options.targetCount) || 0);
   const initialCopy = seedreamEditing.imageProgressCopy(imageProgressState.kind, {
     targetCount: imageProgressState.targetCount
@@ -4020,7 +4140,7 @@ function failGenerationProgress(message) {
   }, 2600);
 }
 
-async function addGeneratedImageToCanvas(src) {
+async function addGeneratedImageToCanvas(src, epoch = documentEpoch) {
   const stableSrc = src.startsWith("data:") ? src : await assetSourceToDataUrl(src);
   let img;
   try {
@@ -4050,6 +4170,7 @@ async function addGeneratedImageToCanvas(src) {
     stableSrc
   );
   obj.name = "AI 生成图片";
+  if (epoch !== documentEpoch || documentBusy) throw new Error("工程已切换，未将生成结果加入当前画布。");
   addObject(obj);
 }
 
@@ -4068,6 +4189,7 @@ function wait(ms) {
 }
 
 async function fetchWithRetry(url, options = {}, attempts = 3) {
+  if (!["GET", "HEAD"].includes((options.method || "GET").toUpperCase())) attempts = 1;
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
@@ -4082,8 +4204,19 @@ async function fetchWithRetry(url, options = {}, attempts = 3) {
 }
 
 async function requestJson(url, options = {}) {
-  const response = await fetchWithRetry(url, options);
-  const payload = await response.json().catch(() => ({}));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 180000);
+  let response;
+  let payload;
+  try {
+    response = await fetchWithRetry(url, { ...options, signal: controller.signal });
+    payload = await response.json();
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("请求超时，结果尚未确认。请稍后检查，避免立即重复生成。");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok || payload.code && payload.code !== 200) {
     const message = payload.error?.message || payload.message || `接口请求失败：${response.status}`;
     throw new Error(message);
@@ -4092,11 +4225,6 @@ async function requestJson(url, options = {}) {
 }
 
 function openExternalLink(url) {
-  const opener = window.__TAURI__?.opener;
-  if (opener?.openUrl) {
-    opener.openUrl(url).catch(() => window.open(url, "_blank", "noopener"));
-    return;
-  }
   window.open(url, "_blank", "noopener");
 }
 
@@ -4345,11 +4473,11 @@ function generationPromptFromCurrentMode() {
 
 function persistImageApiKeyPreference(apiKey, els = promptEls()) {
   if (els.rememberImageApiKey?.checked) {
-    localStorage.setItem(IMAGE_API_KEY_REMEMBER_STORAGE, "1");
-    localStorage.setItem(IMAGE_API_KEY_STORAGE, apiKey.trim());
+    preferences.setItem(IMAGE_API_KEY_REMEMBER_STORAGE, "1");
+    preferences.setItem(IMAGE_API_KEY_STORAGE, apiKey.trim());
   } else {
-    localStorage.removeItem(IMAGE_API_KEY_REMEMBER_STORAGE);
-    localStorage.removeItem(IMAGE_API_KEY_STORAGE);
+    preferences.removeItem(IMAGE_API_KEY_REMEMBER_STORAGE);
+    preferences.removeItem(IMAGE_API_KEY_STORAGE);
   }
 }
 
@@ -4370,11 +4498,6 @@ function beginAiImageRequest(message = "图片模型正在处理上一条请求�
 }
 
 async function requestSeedreamImage(apiKey, body) {
-  const desktop = window.youdesignDesktop;
-  if (desktop?.generateSeedreamImage) {
-    updateGenerationProgress(body.image ? "Seedream 正在编辑图片" : "Seedream 正在生成图片", 18);
-    return desktop.generateSeedreamImage({ apiKey, ...body });
-  }
   const payload = await requestJson("/api/seedream", {
     method: "POST",
     headers: {
@@ -4390,6 +4513,77 @@ async function requestSeedreamImage(apiKey, body) {
     })
   });
   return extractSeedreamImageSource(payload);
+}
+
+async function decomposeSelectedImage() {
+  if (aiImageRequestInFlight) return;
+  const obj = selected();
+  const els = promptEls();
+  const status = document.getElementById("layerDecompositionStatus");
+  const apiKey = els.imageApiKey.value.trim();
+  if (!obj || obj.type !== "image" || selectedObjects().length !== 1) return;
+  if (!apiKey) { setPromptStatus("请先填写火山方舟 API Key。", "error"); els.imageApiKey.focus(); return; }
+  let started = false;
+  if (!beginAiImageRequest()) return;
+  try {
+    const snapshot = { ...obj };
+    const source = selectedImageEditDataUrl(obj);
+    // Decomposition requires at least 512 × 512 total pixels. Upscale small inputs only.
+    const inputImage = await loadImage(source);
+    let image = source;
+    if (inputImage.width * inputImage.height < 512 * 512) {
+      const scale = Math.sqrt(512 * 512 / (inputImage.width * inputImage.height));
+      const buffer = document.createElement("canvas");
+      buffer.width = Math.ceil(inputImage.width * scale);
+      buffer.height = Math.ceil(inputImage.height * scale);
+      buffer.getContext("2d").drawImage(inputImage, 0, 0, buffer.width, buffer.height);
+      image = buffer.toDataURL("image/png");
+    }
+    started = true;
+    persistImageApiKeyPreference(apiKey, els);
+    startGenerationProgress({ kind: "decompose" });
+    status.textContent = "正在拆分，完成后自动按原位置还原图层。";
+    const payload = await requestJson("/api/seedream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Seedream-Api-Key": apiKey },
+      body: JSON.stringify({ image, layer_decomposition: true, size: "auto", prompt: document.getElementById("layerDecompositionPrompt").value.trim() })
+    });
+    const layout = seedreamEditing.decompositionLayout(payload.data);
+    const layers = await Promise.all(layout.map(async ({ item, rect }) => {
+      const raw = extractSeedreamImageSource({ data: [item] });
+      const src = raw.startsWith("data:") ? raw : await assetSourceToDataUrl(raw);
+      const img = await loadImage(src);
+      const width = (rect[2] - rect[0]) * snapshot.width;
+      const height = (rect[3] - rect[1]) * snapshot.height;
+      const center = objectLocalPointToWorld(snapshot, { x: (rect[0] + rect[2]) / 2 * snapshot.width, y: (rect[1] + rect[3]) / 2 * snapshot.height });
+      const layer = imageObject(img, center.x - width / 2, center.y - height / 2, width, height, src);
+      layer.rotation = snapshot.rotation || 0;
+      layer.opacity = snapshot.opacity;
+      if (item.z_index === 0) {
+        layer.radius = snapshot.radius || 0;
+        layer.shadow = snapshot.shadow || 0;
+        layer.shadowColor = snapshot.shadowColor;
+        layer.shadowOpacity = snapshot.shadowOpacity;
+      }
+      layer.name = item.z_index === 0 ? `${snapshot.name || "图片"} · 底图` : item.name || `拆分图层 ${item.z_index}`;
+      return layer;
+    }));
+    const index = state.objects.indexOf(obj);
+    if (index < 0) throw new Error("原图片已删除或工程已切换，未修改画布。");
+    saveHistory();
+    state.objects.splice(index, 1, ...layers);
+    setSelection(layers.map(layer => layer.id));
+    renderAll(); syncUi(); persist();
+    stopGenerationProgress(true);
+    status.textContent = `已拆出 1 张底图和 ${layers.length - 1} 个独立图层，可撤销恢复原图。`;
+    setPromptStatus(status.textContent);
+  } catch (error) {
+    if (started) failGenerationProgress(error.message);
+    status.textContent = `拆分失败：${error.message}`;
+    setPromptStatus(status.textContent, "error");
+  } finally {
+    setAiImageRequestBusy(false);
+  }
 }
 
 function selectedImageEditDataUrl(obj) {
@@ -4415,6 +4609,7 @@ function selectedImageEditDataUrl(obj) {
 async function replaceSelectedImageWithSource(obj, src) {
   const stableSrc = src.startsWith("data:") ? src : await assetSourceToDataUrl(src);
   const img = await loadImage(stableSrc);
+  if (!state.objects.includes(obj)) throw new Error("目标图层已删除或工程已切换，未替换当前画布。");
   saveHistory();
   obj.src = stableSrc;
   obj.image = img;
@@ -4450,13 +4645,15 @@ async function generateImageFromPrompt() {
     const optimizeMode = els.imageGenerationMode.value || "standard";
     startGenerationProgress();
     setPromptStatus("正在调用 Seedream 5.0 Pro...", "loading");
+    const epoch = documentEpoch;
     const imageSrc = await requestSeedreamImage(apiKey, {
       prompt,
       size: seedreamImageSizeForCurrentCanvas(),
       optimizeMode
     });
     setPromptStatus("图片已生成，正在加入画布...", "loading");
-    await addGeneratedImageToCanvas(imageSrc);
+    if (documentEpoch !== epoch) throw new Error("工程已切换，未将生成结果加入当前画布。");
+    await addGeneratedImageToCanvas(imageSrc, epoch);
     stopGenerationProgress(true);
     setPromptStatus("已生成图片并加入画布。");
   } catch (error) {
@@ -4615,7 +4812,7 @@ async function createRmbgPipeline() {
       env.allowLocalModels = false;
       env.useBrowserCache = true;
       env.backends.onnx.wasm.wasmPaths = source.wasmBase;
-      return pipeline("image-segmentation", RMBG_MODEL_ID);
+      return await pipeline("image-segmentation", RMBG_MODEL_ID);
     } catch (error) {
       failures.push(`${source.url}: ${error?.message || error}`);
     }
@@ -4629,7 +4826,7 @@ function formatRmbgLoadError(error) {
     return `RMBG 模型加载失败：请确认当前网络可以访问 cdn.jsdelivr.net、huggingface.co 和 xethub.hf.co，然后重试。原始错误：${message}`;
   }
   if (/content security policy|csp|wasm|worker/i.test(message)) {
-    return `RMBG 模型加载被安全策略拦截：请重新打包安装最新版本后重试。原始错误：${message}`;
+    return `RMBG 模型加载被安全策略拦截：请刷新页面并检查浏览器设置后重试。原始错误：${message}`;
   }
   return `RMBG 模型加载失败：${message}`;
 }
@@ -4774,14 +4971,14 @@ function scheduleMaskRender() {
 async function removeBackgroundFromSelected() {
   const obj = selected();
   if (!obj || obj.type !== "image") return;
-  const confirmed = localStorage.getItem("youdesign-rmbg-download-ok") === "1"
+  const confirmed = preferences.getItem("youdesign-rmbg-download-ok") === "1"
     || await appConfirm("首次使用需要联网下载 RMBG-1.4 模型。下载后图片会在本机处理，不会上传。", {
       title: "下载抠图模型",
       confirmText: "下载并抠图"
     });
   if (!confirmed) return;
   try {
-    localStorage.setItem("youdesign-rmbg-download-ok", "1");
+    preferences.setItem("youdesign-rmbg-download-ok", "1");
   } catch (error) {
     if (!isStorageQuotaError(error)) throw error;
   }
@@ -5211,16 +5408,16 @@ async function restoreSelectedImage() {
 function setupPromptGenerator() {
   const section = document.getElementById("promptSection");
   if (!section) return;
-  const savedKey = localStorage.getItem(IMAGE_API_KEY_STORAGE);
-  const rememberKey = localStorage.getItem(IMAGE_API_KEY_REMEMBER_STORAGE) === "1";
-  const savedCustomPrompt = localStorage.getItem(CUSTOM_IMAGE_PROMPT_STORAGE);
+  const savedKey = preferences.getItem(IMAGE_API_KEY_STORAGE);
+  const rememberKey = preferences.getItem(IMAGE_API_KEY_REMEMBER_STORAGE) === "1";
+  const savedCustomPrompt = preferences.getItem(CUSTOM_IMAGE_PROMPT_STORAGE);
   const imageApiKeyInput = document.getElementById("imageApiKey");
   const rememberImageApiKey = document.getElementById("rememberImageApiKey");
   rememberImageApiKey.checked = rememberKey;
   if (rememberKey && savedKey) {
     imageApiKeyInput.value = savedKey;
   } else {
-    localStorage.removeItem(IMAGE_API_KEY_STORAGE);
+    preferences.removeItem(IMAGE_API_KEY_STORAGE);
   }
   if (savedCustomPrompt) document.getElementById("customImagePrompt").value = savedCustomPrompt;
   section.addEventListener("input", event => {
@@ -5239,7 +5436,7 @@ function setupPromptGenerator() {
     setPromptStatus(e.target.checked ? "已开启本机保存 API Key。" : "已关闭本机保存 API Key，并清除已保存 Key。");
   });
   wire("customImagePrompt", "input", e => {
-    localStorage.setItem(CUSTOM_IMAGE_PROMPT_STORAGE, e.target.value);
+    preferences.setItem(CUSTOM_IMAGE_PROMPT_STORAGE, e.target.value);
   });
   wire("imageEditPrompt", "input", event => {
     if (seedreamEditState.mode === "whole") {
@@ -5262,6 +5459,15 @@ function setupPromptGenerator() {
   });
   wire("generateImageBtn", "click", generateImageFromPrompt);
   wire("editSelectedImageBtn", "click", editSelectedImageFromPrompt);
+  wire("decomposeImageBtn", "click", decomposeSelectedImage);
+  wire("toggleDecompositionBtn", "click", event => {
+    const panel = document.getElementById("decompositionPanel");
+    const open = panel.classList.contains("hidden");
+    panel.classList.toggle("hidden", !open);
+    event.currentTarget.setAttribute("aria-expanded", String(open));
+    positionImageContextActions();
+    if (open) document.getElementById("layerDecompositionPrompt").focus();
+  });
   wire("openSeedreamEditorBtn", "click", openSeedreamEditWorkspace);
   wire("closeSeedreamEditorBtn", "click", () => closeSeedreamEditWorkspace());
   wire("seedreamEditModalLayer", "pointerdown", event => {
@@ -6409,21 +6615,30 @@ function deleteSelected() {
 wire("undoBtn", "click", undo);
 wire("redoBtn", "click", redo);
 
-async function undo() {
-  if (!state.history.length) return;
-  state.future.push(snapshot());
-  await restore(state.history.pop());
-  persist();
+async function travelHistory(from, to) {
+  if (documentBusy || !from.length) return;
+  documentBusy = true;
+  document.body.classList.add("document-loading");
+  try {
+    const previous = historyResources.capture(documentSnapshot());
+    await restore(historyResources.expand(from[from.length - 1]));
+    from.pop();
+    to.push(previous);
+    trimHistory();
+    persist();
+  } catch (error) {
+    appAlert(error.message || "无法恢复该历史记录", "恢复失败", "danger");
+  } finally {
+    documentBusy = false;
+    document.body.classList.remove("document-loading");
+  }
 }
 
-async function redo() {
-  if (!state.future.length) return;
-  state.history.push(snapshot());
-  await restore(state.future.pop());
-  persist();
-}
+async function undo() { await travelHistory(state.history, state.future); }
+async function redo() { await travelHistory(state.future, state.history); }
 
 document.addEventListener("keydown", e => {
+  if (documentBusy) return;
   const tag = document.activeElement.tagName;
   const editingField = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || inlineEditing;
   const mod = e.metaKey || e.ctrlKey;
@@ -6637,18 +6852,34 @@ function validateImageImportFile(file) {
 }
 
 async function addImageFileToCanvas(file, options = {}) {
-  const src = await readFile(file);
+  const info = await window.YoudesignImages.inspect(file);
+  const resize = info.needsResize && await appConfirm(
+    `图片为 ${info.width} × ${info.height}，建议缩小至最长边 4096px 以内，减少保存空间和编辑内存。原文件不会改变。`,
+    { title: "优化大图片", confirmText: "优化后导入", cancelText: "保留原尺寸" }
+  );
+  const epoch = documentEpoch;
+  const blobUrl = URL.createObjectURL(file);
   let img;
-  try {
+  try { img = await loadImage(blobUrl, false); }
+  finally { URL.revokeObjectURL(blobUrl); }
+  let src;
+  if (resize) {
+    const [width, height] = window.YoudesignImages.resizedDimensions(img.naturalWidth, img.naturalHeight);
+    const output = document.createElement("canvas");
+    output.width = width;
+    output.height = height;
+    const context = output.getContext("2d");
+    context.imageSmoothingQuality = "high";
+    context.drawImage(img, 0, 0, width, height);
+    const blob = await new Promise(resolve => output.toBlob(resolve, "image/webp", .92));
+    if (!blob) throw new Error("图片优化失败，请尝试较小的图片");
+    src = await readFile(blob);
     img = await loadImage(src);
-  } catch (error) {
-    const blobUrl = URL.createObjectURL(file);
-    try {
-      img = await loadImage(blobUrl, false);
-    } finally {
-      URL.revokeObjectURL(blobUrl);
-    }
+    output.width = output.height = 1;
+  } else {
+    src = await readFile(file);
   }
+  if (epoch !== documentEpoch) throw new Error("工程已切换，请重新导入图片。");
   return addLoadedImageToCanvas(img, src, options);
 }
 
@@ -6740,20 +6971,7 @@ async function loadImageAssets(folder, fallbackNames) {
     label: fileLabel(name),
     src: `${folder}/${encodeURIComponent(name)}`
   }));
-  try {
-    const response = await fetch(`${folder}/`);
-    if (!response.ok) throw new Error(`${folder} directory unavailable`);
-    const html = await response.text();
-    const matches = [...html.matchAll(/href="([^"]+\.(?:png|jpe?g|webp|svg))"/gi)]
-      .map(match => decodeURIComponent(match[1]))
-      .filter(path => !path.startsWith("."));
-    const unique = [...new Set(matches)];
-    return unique.length
-      ? unique.map(path => ({ label: fileLabel(path), src: `${folder}/${encodeURIComponent(path.split("/").pop())}` }))
-      : fromFallback();
-  } catch (err) {
-    return fromFallback();
-  }
+  return fromFallback();
 }
 
 async function loadLogoAssets() {
@@ -6828,8 +7046,7 @@ wire("exportBtn", "click", async () => {
       try {
         const ext = type === "image/jpeg" ? "jpg" : "png";
         const filename = `${state.platform}-${state.label}-${state.width}x${state.height}.${ext}`.replace(/[\\/:\s]+/g, "-");
-        const dataUrl = window.youdesignDesktop?.saveExportFile ? await blobToDataUrl(blob) : null;
-        const savedPath = await saveExportFile({ filename, blob, dataUrl });
+        const savedPath = await saveExportFile({ filename, blob });
         if (savedPath) appAlert(`已导出到：${savedPath}`, "导出完成");
       } catch (err) {
         appAlert(err?.message || String(err) || "请刷新页面后重试。", "导出失败", "danger");
@@ -6841,6 +7058,7 @@ wire("exportBtn", "click", async () => {
 });
 
 async function importProjectOrAssetFile(file) {
+  if (file.size > 128 * 1024 * 1024) throw new Error("工程文件超过 128MB，请先精简图片资源。");
   const name = String(file?.name || "");
   const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
   if (ext === "youdesign" || ext === "json" || file.type === "application/json") {
@@ -6850,9 +7068,20 @@ async function importProjectOrAssetFile(file) {
       kind: "danger"
     })) return;
     const raw = await readTextFile(file);
-    saveHistory();
-    await restore(raw);
-    persist();
+    if (documentBusy) throw new Error("工程正在加载，请稍候");
+    documentBusy = true;
+    document.body.classList.add("document-loading");
+    const previous = historyResources.capture(documentSnapshot());
+    try {
+      await restore(raw);
+      state.history.push(previous);
+      state.future = [];
+      trimHistory();
+      persist();
+    } finally {
+      documentBusy = false;
+      document.body.classList.remove("document-loading");
+    }
     return;
   }
   if (ext === "svg" || file.type === "image/svg+xml") {
@@ -7211,6 +7440,7 @@ function svgLayerContent(svg, node) {
 }
 
 async function importSvgFileAsLayers(file) {
+  if (file.size > 5 * 1024 * 1024) throw new Error("SVG 超过 5MB，请先简化路径或导出为图片。");
   const raw = await readTextFile(file);
   const doc = parseSvgDocument(raw);
   if (!doc) throw new Error("SVG 文件解析失败，请确认文件格式正确。");
@@ -7274,16 +7504,7 @@ wire("localFontsBtn", "click", async () => {
   fontSection?.classList.add("is-reading-fonts");
   fontStatus.textContent = "读取中";
   const fonts = [];
-  let desktopError = null;
   let browserError = null;
-
-  try {
-    if (window.youdesignDesktop && window.youdesignDesktop.listLocalFonts) {
-      fonts.push(...await window.youdesignDesktop.listLocalFonts());
-    }
-  } catch (err) {
-    desktopError = err;
-  }
 
   if ("queryLocalFonts" in window) {
     try {
@@ -7294,7 +7515,7 @@ wire("localFontsBtn", "click", async () => {
   }
 
   if (!fonts.length) {
-    fontStatus.textContent = browserError ? "授权被拒绝" : desktopError ? "读取失败" : "当前浏览器不支持";
+    fontStatus.textContent = browserError ? "授权被拒绝" : "当前浏览器不支持";
     fontSection?.classList.remove("is-reading-fonts");
     return;
   }
@@ -7339,7 +7560,7 @@ function sanitizeCachedLocalFont(font) {
 
 function saveLocalFontCache(totalCount, filteredCount) {
   try {
-    localStorage.setItem(LOCAL_FONT_CACHE_STORAGE, JSON.stringify({
+    preferences.setItem(LOCAL_FONT_CACHE_STORAGE, JSON.stringify({
       version: 1,
       savedAt: Date.now(),
       totalCount,
@@ -7352,9 +7573,9 @@ function saveLocalFontCache(totalCount, filteredCount) {
 function restoreLocalFontCache() {
   let payload = null;
   try {
-    payload = JSON.parse(localStorage.getItem(LOCAL_FONT_CACHE_STORAGE) || "null");
+    payload = JSON.parse(preferences.getItem(LOCAL_FONT_CACHE_STORAGE) || "null");
   } catch (err) {
-    localStorage.removeItem(LOCAL_FONT_CACHE_STORAGE);
+    preferences.removeItem(LOCAL_FONT_CACHE_STORAGE);
     return false;
   }
   if (!payload || payload.version !== 1 || !Array.isArray(payload.fonts)) return false;
@@ -7412,11 +7633,6 @@ function readFile(file) {
 
 async function assetSourceToDataUrl(src) {
   if (src.startsWith("data:")) return src;
-  if (window.youdesignDesktop?.downloadRemoteAsset && /^https?:\/\//i.test(src)) {
-    try {
-      return await window.youdesignDesktop.downloadRemoteAsset(src);
-    } catch (err) {}
-  }
   try {
     const response = await fetch(src);
     if (!response.ok) throw new Error("asset fetch failed");
@@ -7451,13 +7667,20 @@ function loadImage(src, useCrossOrigin = true) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     if (useCrossOrigin && !src.startsWith("data:") && !src.startsWith("blob:")) img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = reject;
+    const timer = setTimeout(() => {
+      img.onload = null;
+      img.onerror = null;
+      img.src = "";
+      reject(new Error("图片加载超时，请检查网络或重新导入图片"));
+    }, 30000);
+    img.onload = () => { clearTimeout(timer); resolve(img); };
+    img.onerror = () => { clearTimeout(timer); reject(new Error("图片加载失败")); };
     img.src = src;
   });
 }
 
 function setPreset(preset, keepObjects = false) {
+  documentEpoch += 1;
   saveHistory();
   const oldW = state.width;
   const oldH = state.height;
@@ -7540,6 +7763,7 @@ wire("newBlankBtn", "click", async () => {
     confirmText: "清空并新建",
     kind: "danger"
   })) return;
+  documentEpoch += 1;
   saveHistory();
   state.objects = [];
   setSelection([]);
@@ -7675,7 +7899,9 @@ function fontOptionButton(font) {
   button.style.fontFamily = `"${font.family}", sans-serif`;
   if (font.fontWeight) button.style.fontWeight = String(font.fontWeight);
   if (font.fontStyle) button.style.fontStyle = font.fontStyle;
-  button.innerHTML = `<span>${displayFontLabel(font)}</span><small>${font.source === "local" ? "本地" : "推荐"}</small>`;
+  button.innerHTML = '<span></span><small></small>';
+  button.querySelector("span").textContent = displayFontLabel(font);
+  button.querySelector("small").textContent = font.source === "local" ? "本地" : "推荐";
   button.addEventListener("click", () => selectFontFromCombobox(value));
   return button;
 }
@@ -7849,7 +8075,9 @@ function renderLayers() {
     btn.dataset.layerId = obj.id;
     btn.title = "拖动改变图层位置";
     const typeLabel = obj.type === "compoundShape" ? "shape" : obj.type === "group" ? `group · ${(obj.children || []).length}` : obj.type;
-    btn.innerHTML = `<span class="layer-drag-handle" aria-hidden="true">⋮⋮</span><span class="layer-name">${obj.name}</span><span class="layer-type">${typeLabel}</span>`;
+    btn.innerHTML = '<span class="layer-drag-handle" aria-hidden="true">⋮⋮</span><span class="layer-name"></span><span class="layer-type"></span>';
+    btn.querySelector(".layer-name").textContent = obj.name;
+    btn.querySelector(".layer-type").textContent = typeLabel;
     btn.onclick = event => {
       if (event.shiftKey || event.metaKey || event.ctrlKey) toggleSelection(obj.id);
       else setSelection([obj.id]);
@@ -7893,175 +8121,50 @@ function clearLayerDropMarkers() {
   document.querySelectorAll(".layer.drop-before, .layer.drop-after").forEach(item => item.classList.remove("drop-before", "drop-after"));
 }
 
-function setUpdateUi(status, payload = {}) {
-  const statusEl = document.getElementById("updateStatus");
-  const checkBtn = document.getElementById("checkUpdateBtn");
-  const installBtn = document.getElementById("installUpdateBtn");
-  if (!statusEl || !checkBtn || !installBtn) return;
-
-  statusEl.className = "update-pill";
-  installBtn.classList.add("hidden");
-  checkBtn.disabled = false;
-  const installLabel = installBtn.querySelector("span");
-  if (installLabel) installLabel.textContent = "重启安装";
-
-  if (status === "idle") {
-    statusEl.classList.add("hidden");
-    statusEl.textContent = "更新就绪";
-  } else if (status === "checking") {
-    statusEl.classList.add("is-checking");
-    statusEl.textContent = "正在检查更新";
-    checkBtn.disabled = true;
-  } else if (status === "available") {
-    statusEl.classList.add("is-ready");
-    statusEl.textContent = `发现 ${payload.version || "新版本"}`;
-    installBtn.classList.remove("hidden");
-    if (window.youdesignDesktop && window.youdesignDesktop.platform === "tauri" && !window.__youdesignUpdatePrompting) {
-      window.__youdesignUpdatePrompting = true;
-      setTimeout(async () => {
-        const version = payload.version || "新版本";
-        if (await appConfirm(`发现 YOUDESIGN ${version}，是否立即下载并重启安装？`, {
-          title: "发现新版本",
-          confirmText: "下载并安装",
-          cancelText: "稍后",
-          kind: "update"
-        })) {
-          window.youdesignDesktop.installUpdate().catch(() => setUpdateUi("error"));
-        }
-        window.__youdesignUpdatePrompting = false;
-      }, 100);
-    }
-  } else if (status === "downloading") {
-    statusEl.classList.add("is-downloading");
-    statusEl.textContent = `下载中 ${payload.percent || 0}%`;
-    checkBtn.disabled = true;
-  } else if (status === "downloaded") {
-    statusEl.classList.add("is-ready");
-    statusEl.textContent = `已下载 ${payload.version || "新版"}`;
-    installBtn.classList.remove("hidden");
-  } else if (status === "manual-download") {
-    statusEl.classList.add("is-ready");
-    statusEl.textContent = `请手动下载 ${payload.version || "新版"}`;
-    installBtn.classList.remove("hidden");
-    if (installLabel) installLabel.textContent = "打开下载页";
-  } else if (status === "not-available") {
-    statusEl.textContent = "已是最新";
-  } else if (status === "dev-mode") {
-    statusEl.textContent = "开发模式";
-  } else if (status === "error") {
-    const message = payload.message || payload.error || "";
-    statusEl.textContent = message ? `更新失败：${message}` : "更新检查失败";
-    statusEl.title = message;
-  }
-}
-
-function setUpdateError(error) {
-  setUpdateUi("error", { message: error?.message || String(error || "未知错误") });
-}
-
-function setupUpdateUi() {
-  const checkBtn = document.getElementById("checkUpdateBtn");
-  const installBtn = document.getElementById("installUpdateBtn");
-  if (!checkBtn || !installBtn) return;
-
-  if (!window.youdesignDesktop) {
-    checkBtn.classList.add("hidden");
-    installBtn.classList.add("hidden");
-    setUpdateUi("idle");
-    return;
-  }
-
-  checkBtn.addEventListener("click", () => window.youdesignDesktop.checkForUpdates().catch(setUpdateError));
-  installBtn.addEventListener("click", () => window.youdesignDesktop.installUpdate().catch(setUpdateError));
-  window.youdesignDesktop.onUpdateStatus(payload => setUpdateUi(payload.status, payload));
-  window.youdesignDesktop.onCheckUpdate(() => window.youdesignDesktop.checkForUpdates());
-  setUpdateUi("idle");
-  if (window.youdesignDesktop.platform === "tauri") {
-    setTimeout(() => window.youdesignDesktop.checkForUpdates().catch(setUpdateError), 1800);
-  }
-}
-
-function setupTauriDesktopBridge() {
-  if (window.youdesignDesktop || !window.__TAURI__ || !window.__TAURI__.core) return;
-  const { invoke } = window.__TAURI__.core;
-  const listen = window.__TAURI__.event && window.__TAURI__.event.listen;
-
-  window.youdesignDesktop = {
-    platform: "tauri",
-    version: APP_VERSION,
-    onCheckUpdate() {},
-    checkForUpdates() {
-      return invoke("check_for_updates");
-    },
-    listLocalFonts() {
-      return invoke("list_local_fonts");
-    },
-    generateSeedreamImage(options) {
-      return invoke("seedream_generate_image", { request: options });
-    },
-    downloadRemoteAsset(url) {
-      return invoke("download_remote_asset", { request: { url } });
-    },
-    saveExportFile(options) {
-      return invoke("save_export_file", {
-        request: {
-          filename: options.filename,
-          text: options.text || null,
-          dataUrl: options.dataUrl || null
-        }
-      });
-    },
-    installUpdate() {
-      return invoke("install_update");
-    },
-    onUpdateStatus(callback) {
-      if (!listen) return () => {};
-      let unlisten = null;
-      listen("youdesign:update-status", event => callback(event.payload))
-        .then(fn => { unlisten = fn; })
-        .catch(() => {});
-      return () => {
-        if (unlisten) unlisten();
-      };
-    }
-  };
-
-  invoke("app_version")
-    .then(version => { window.youdesignDesktop.version = version; })
-    .catch(() => {});
-}
-
 async function init() {
   applyIconSystem();
   setupInspectorInteractions();
   setupOnboardingGuide();
-  setupTauriDesktopBridge();
   setupPromptGenerator();
   setupUnsplashLibrary();
   setupMaskTools();
   setupToolPanelHover();
-  setupUpdateUi();
   setupCustomColorPickers();
   restoreLocalFontCache();
   syncFontSelect();
   renderSwatches();
   loadLogoAssets();
   loadMascotAssets();
-  const cached = localStorage.getItem(STORAGE_KEY);
-  if (cached) {
-    try {
-      await restore(cached);
+  let restoreFailed = false;
+  documentBusy = true;
+  document.body.classList.add("document-loading");
+  try {
+    const cached = await projectStore.load();
+    const legacy = cached ? null : preferences.getItem(STORAGE_KEY);
+    if (cached || legacy) {
+      await restore(cached || legacy);
+      if (legacy) {
+        await projectStore.save(documentSnapshot());
+        preferences.removeItem(STORAGE_KEY);
+      }
+      setAutosaveStatus("已恢复上次工程");
       requestAnimationFrame(showOnboardingGuide);
       return;
-    } catch (e) {}
+    }
+  } catch (error) {
+    restoreFailed = true;
+    setAutosaveStatus("上次工程未能恢复，原存档已保留。请检查浏览器存储权限或导入工程备份。", true);
+  } finally {
+    documentBusy = false;
+    document.body.classList.remove("document-loading");
   }
   resizeCanvas();
   syncPromptAspectToCanvas();
   state.background = "#ffffff";
   renderAll();
   syncUi();
-  persist();
+  if (!restoreFailed) persist();
   requestAnimationFrame(showOnboardingGuide);
 }
 
-init();
+init().catch(error => setAutosaveStatus(`编辑器初始化失败：${error.message}`, true));
